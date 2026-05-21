@@ -44,10 +44,10 @@ export function NowPlaying({ current, edgeProgress, inSubagent }: Props) {
       {inSubagent && (
         <div style={{ ...styles.header, color: 'var(--subagent-accent)' }}>⌥ SUBAGENT</div>
       )}
-      <div style={{ ...styles.line1, color: failed ? 'var(--node-failed)' : 'var(--edge-trail)' }}>
+      <div data-testid="hud-summary" style={{ ...styles.line1, color: failed ? 'var(--node-failed)' : 'var(--edge-trail)' }}>
         {summary || ' '}
       </div>
-      <div style={{ ...styles.line2, color: failed ? 'var(--node-failed)' : 'var(--text-dim)' }}>
+      <div data-testid="hud-result" style={{ ...styles.line2, color: failed ? 'var(--node-failed)' : 'var(--text-dim)' }}>
         {result || ' '}
       </div>
     </div>
