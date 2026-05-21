@@ -18,19 +18,22 @@ describe('buildChain', () => {
     expect(buildChain(events).map((e) => e.uuid)).toEqual(['only']);
   });
 
-  it('drops orphaned events (parent not present)', () => {
+  it('includes orphaned events as additional roots in source order', () => {
+    // Real-world JSONLs have many disconnected components after noise
+    // filtering; an orphan (parent not in the input) is treated as a new
+    // root so we don't drop it.
     const events = [evt('a', null), evt('b', 'a'), evt('orphan', 'missing')];
     const chain = buildChain(events);
-    expect(chain.map((e) => e.uuid)).toEqual(['a', 'b']);
+    expect(chain.map((e) => e.uuid)).toEqual(['a', 'b', 'orphan']);
   });
 
   it('returns empty array for empty input', () => {
     expect(buildChain([])).toEqual([]);
   });
 
-  it('uses the first event without a parent as root if multiple roots exist', () => {
+  it('walks all roots in source order when multiple roots exist', () => {
     const events = [evt('r1', null), evt('r2', null), evt('a', 'r1')];
     const chain = buildChain(events);
-    expect(chain.map((e) => e.uuid)).toEqual(['r1', 'a']);
+    expect(chain.map((e) => e.uuid)).toEqual(['r1', 'a', 'r2']);
   });
 });

@@ -14,10 +14,6 @@ export function buildChain(events: RawEvent[]): RawEvent[] {
     childrenByParent.set(parent, list);
   }
 
-  const roots = childrenByParent.get(null) ?? [];
-  if (roots.length === 0) return [];
-  const root = roots[0];
-
   const chain: RawEvent[] = [];
   const visited = new Set<string>();
   function walk(node: RawEvent): void {
@@ -27,6 +23,13 @@ export function buildChain(events: RawEvent[]): RawEvent[] {
     const kids = childrenByParent.get(node.uuid) ?? [];
     for (const k of kids) walk(k);
   }
-  walk(root);
+
+  // Walk roots first in source order to preserve parent→child ordering.
+  const roots = childrenByParent.get(null) ?? [];
+  for (const r of roots) walk(r);
+  // Then sweep anything still unvisited (real-world JSONLs may have
+  // disconnected components after noise filtering — without this sweep
+  // we'd lose them).
+  for (const ev of events) walk(ev);
   return chain;
 }

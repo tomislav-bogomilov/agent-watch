@@ -19,52 +19,65 @@ function parseJsonl(jsonl: string): RawEvent[] {
 
 function buildSubagentRoot(jsonl: string): Milestone {
   const events = parseJsonl(jsonl);
-  const chain = buildChain(events);
-  const clean = filterNoise(chain);
-  return buildMilestones(clean);
+  const clean = filterNoise(events);
+  const chain = buildChain(clean);
+  return buildMilestones(chain);
+}
+
+// Strip the `agent-` filename prefix to match the bare id Claude Code
+// embeds in tool_result strings (e.g. `agentId: <id>`).
+function bareAgentId(fileId: string): string {
+  return fileId.startsWith('agent-') ? fileId.slice('agent-'.length) : fileId;
+}
+
+const AGENT_ID_RX = /agentId:\s*([A-Za-z0-9]+)/;
+
+function extractAgentIdFromMilestone(node: Milestone): string | null {
+  const raw = node.raw as { toolResult?: { content?: string } } | null;
+  const content = raw?.toolResult?.content;
+  if (typeof content !== 'string') return null;
+  const m = content.match(AGENT_ID_RX);
+  return m ? m[1] : null;
 }
 
 /**
  * Attach subagent subtrees to the matching `subagent_spawn` milestones.
- * Linkage: a subagent file is matched to a spawn by `relatedToolUseId`
- * in any of its events, or, if absent, by timestamp proximity (the first
- * subagent event timestamp must be >= the spawn's timestamp).
+ *
+ * Linkage strategy (in order):
+ *   1. Match by `agentId` parsed from the spawn's `tool_result` content
+ *      against the subagent filename's `agent-<id>` suffix. This is the
+ *      authoritative signal Claude Code emits.
+ *   2. Fallback: subagent's first event timestamp >= spawn's timestamp.
+ *   3. Last resort: consume subagent files in source order for any spawn
+ *      that still has no match.
  */
 export function attachSubagents(root: Milestone, subagents: SubagentFile[]): void {
   if (subagents.length === 0) return;
 
-  // Map each subagent file -> (toolUseId | null, firstTimestamp, root milestone)
   const subInfos = subagents.map((sa) => {
     const events = parseJsonl(sa.jsonl);
-    let toolUseId: string | null = null;
-    for (const ev of events) {
-      const rel = (ev as Record<string, unknown>).relatedToolUseId;
-      if (typeof rel === 'string') { toolUseId = rel; break; }
-    }
     const firstTs = events.find((e) => e.timestamp)?.timestamp ?? '';
     const subRoot = buildSubagentRoot(sa.jsonl);
-    return { id: sa.id, toolUseId, firstTs, subRoot };
+    return { id: sa.id, bareId: bareAgentId(sa.id), firstTs, subRoot };
   });
 
-  // Walk milestone tree, find subagent_spawn nodes, attach in DFS order.
   function walk(node: Milestone): void {
     if (node.kind === 'subagent_spawn') {
-      const toolUseId = extractToolUseId(node.id);
-      // Prefer id match
-      let idx = subInfos.findIndex((s) => s.toolUseId && s.toolUseId === toolUseId);
+      const targetAgentId = extractAgentIdFromMilestone(node);
+      let idx = -1;
+      if (targetAgentId) {
+        idx = subInfos.findIndex((s) => s.bareId === targetAgentId);
+      }
       if (idx === -1) {
-        // Fallback: nearest timestamp >= spawn timestamp
         idx = subInfos.findIndex(
           (s) => s.firstTs !== '' && node.timestamp !== '' && s.firstTs >= node.timestamp
         );
       }
       if (idx === -1 && subInfos.length > 0) {
-        // last resort: take the first remaining
         idx = 0;
       }
       if (idx !== -1) {
         const [info] = subInfos.splice(idx, 1);
-        // children was [next_main]; prepend subagent root.
         node.children = [info.subRoot, ...node.children];
       }
     }
@@ -72,9 +85,4 @@ export function attachSubagents(root: Milestone, subagents: SubagentFile[]): voi
   }
 
   walk(root);
-}
-
-function extractToolUseId(milestoneId: string): string | null {
-  const idx = milestoneId.indexOf('#');
-  return idx === -1 ? null : milestoneId.slice(idx + 1);
 }

@@ -21,9 +21,9 @@ function parseJsonl(jsonl: string): RawEvent[] {
 
 export function parseSession(payload: SessionPayload): Session {
   const events = parseJsonl(payload.jsonl);
-  const chain = buildChain(events);
-  const clean = filterNoise(chain);
-  const root = buildMilestones(clean);
+  const clean = filterNoise(events);
+  const chain = buildChain(clean);
+  const root = buildMilestones(chain);
   attachSubagents(root, payload.subagents);
   const successPath = computeSuccessPath(root);
   return {

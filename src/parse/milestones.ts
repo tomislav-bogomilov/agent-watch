@@ -114,7 +114,7 @@ export function buildMilestones(events: RawEvent[]): Milestone {
         );
       }
       for (const tu of tools) {
-        const isTask = tu.name === 'Task';
+        const isTask = tu.name === 'Task' || tu.name === 'Agent';
         const kind = isTask ? 'subagent_spawn' : 'tool_call';
         const result = allToolResults.get(tu.id);
         const failed = result?.isError === true || isBashFailed(tu.name, result?.content ?? '');

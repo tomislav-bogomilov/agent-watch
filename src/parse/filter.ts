@@ -1,6 +1,14 @@
 import type { RawEvent, RawContentBlock } from './types';
 
-const NOISE_TYPES = new Set(['file-history-snapshot', 'attachment', 'system']);
+const NOISE_TYPES = new Set([
+  'file-history-snapshot',
+  'attachment',
+  'system',
+  'last-prompt',
+  'permission-mode',
+  'ai-title',
+  'queue-operation',
+]);
 const COMMAND_WRAPPER_RX = /<command-(name|message|args)>/;
 const LOCAL_CAVEAT_RX = /<local-command-(caveat|stdout|stderr)>/;
 
