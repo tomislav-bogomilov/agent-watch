@@ -9,7 +9,8 @@
     "strict": true,
     "composite": true,
     "emitDeclarationOnly": true,
-    "outDir": "./dist/node",
+    "declaration": true,
+    "outDir": "./node_modules/.cache/tsc-node",
     "types": ["node", "vitest"]
   },
   "include": ["vite.config.ts", "server/**/*.ts", "playwright.config.ts"]
