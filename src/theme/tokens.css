@@ -1,0 +1,14 @@
+:root {
+  --bg: #05080d;
+  --grid: #0e1822;
+  --edge-idle: #1a3a4a;
+  --edge-trail: #00e5ff;
+  --node-idle: #0f2632;
+  --node-active: #00e5ff;
+  --node-success: #7fffd4;
+  --node-failed: #ff5d3a;
+  --node-pruned: #1a1f24;
+  --subagent-accent: #9d6cff;
+  --text: #aeeaf2;
+  --text-dim: #4f7782;
+}

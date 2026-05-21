@@ -1,9 +1,12 @@
-:root { color-scheme: dark; }
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body {
-  background: #05080d;
-  color: #aeeaf2;
+  background:
+    radial-gradient(ellipse at top, rgba(0, 229, 255, 0.04), transparent 60%),
+    linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 40px 40px,
+    var(--bg);
+  color: var(--text);
   font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
   -webkit-font-smoothing: antialiased;
 }
