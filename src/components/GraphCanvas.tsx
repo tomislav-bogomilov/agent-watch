@@ -103,9 +103,10 @@ export function GraphCanvas({ session, playback, subagentIds }: Props) {
           const inSub = subagentIds.has(n.id);
           let state: 'idle' | 'active' | 'success' | 'failed' | 'pruned';
           if (n.milestone.failed) state = 'failed';
-          else if (n.id === currentId) state = 'active';
           else if (taintedIds.has(n.id)) state = 'pruned';
           else if (playback.finished && successIds.has(n.id)) state = 'success';
+          else if (playback.finished && traversedIds.has(n.id)) state = 'success';
+          else if (n.id === currentId) state = 'active';
           else if (traversedIds.has(n.id)) state = 'success';
           else state = 'idle';
           return (
