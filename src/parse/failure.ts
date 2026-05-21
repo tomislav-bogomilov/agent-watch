@@ -39,3 +39,27 @@ export function countMilestones(node: Milestone): number {
   for (const c of node.children) total += countMilestones(c);
   return total;
 }
+
+export function collectTaintedIds(root: Milestone): Set<string> {
+  const ids = new Set<string>();
+  function markSubtree(node: Milestone): void {
+    ids.add(node.id);
+    for (const c of node.children) markSubtree(c);
+  }
+  function walk(node: Milestone): void {
+    if (node.children.length === 0) return;
+    if (node.children.length === 1) {
+      if (isTainted(node.children[0])) markSubtree(node.children[0]);
+      else walk(node.children[0]);
+      return;
+    }
+    const [sub, next] = node.children;
+    if (isTainted(sub)) markSubtree(sub);
+    else walk(sub);
+    if (isTainted(next)) markSubtree(next);
+    else walk(next);
+  }
+  walk(root);
+  return ids;
+}
+

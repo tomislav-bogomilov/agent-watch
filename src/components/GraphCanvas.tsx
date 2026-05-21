@@ -3,6 +3,7 @@ import { layoutTree, type LaidOutNode } from '../graph/layout';
 import { GraphDefs } from '../theme/Filters';
 import { NodeShape } from './NodeShape';
 import { EdgePath } from './EdgePath';
+import { collectTaintedIds } from '../parse/failure';
 import type { Milestone, Session } from '../parse/types';
 import type { PlaybackState } from '../playback/usePlayback';
 
@@ -48,6 +49,7 @@ export function GraphCanvas({ session, playback, subagentIds }: Props) {
     () => computeSubagentRegions(session.root, layout.nodes),
     [session, layout]
   );
+  const taintedIds = useMemo(() => collectTaintedIds(session.root), [session]);
 
   const currentId = playback.order[playback.index]?.id;
   const traversedIds = new Set(playback.order.slice(0, playback.index + 1).map((m) => m.id));
@@ -70,16 +72,10 @@ export function GraphCanvas({ session, playback, subagentIds }: Props) {
       {subagentRegions.map((r, i) => (
         <rect
           key={`sg-region-${i}`}
-          x={r.x}
-          y={r.y}
-          width={r.width}
-          height={r.height}
-          fill="var(--subagent-accent)"
-          fillOpacity={0.05}
-          stroke="var(--subagent-accent)"
-          strokeOpacity={0.25}
-          strokeWidth={1}
-          rx={8}
+          x={r.x} y={r.y} width={r.width} height={r.height}
+          fill="var(--subagent-accent)" fillOpacity={0.05}
+          stroke="var(--subagent-accent)" strokeOpacity={0.25}
+          strokeWidth={1} rx={8}
           data-testid="subagent-region"
         />
       ))}
@@ -88,7 +84,8 @@ export function GraphCanvas({ session, playback, subagentIds }: Props) {
         const isTraversed = traversedIds.has(e.targetId);
         const isCurrent = key === traversedEdgeKey;
         const inSub = subagentIds.has(e.targetId);
-        const state = isCurrent ? 'drawing' : isTraversed ? 'done' : 'idle';
+        const pruned = taintedIds.has(e.targetId) && !traversedIds.has(e.targetId);
+        const state = pruned ? 'pruned' : isCurrent ? 'drawing' : isTraversed ? 'done' : 'idle';
         return (
           <EdgePath
             key={key}
@@ -104,6 +101,7 @@ export function GraphCanvas({ session, playback, subagentIds }: Props) {
         let state: 'idle' | 'active' | 'success' | 'failed' | 'pruned';
         if (n.milestone.failed) state = 'failed';
         else if (n.id === currentId) state = 'active';
+        else if (taintedIds.has(n.id)) state = 'pruned';
         else if (playback.finished && successIds.has(n.id)) state = 'success';
         else if (traversedIds.has(n.id)) state = 'success';
         else state = 'idle';
