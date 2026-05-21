@@ -1,7 +1,8 @@
 import { buildChain } from './chain';
-import { countMilestones, computeSuccessPath } from './failure';
+import { computeSuccessPath, countMilestones } from './failure';
 import { filterNoise } from './filter';
 import { buildMilestones } from './milestones';
+import { attachSubagents } from './subagents';
 import type { RawEvent, Session, SessionPayload } from './types';
 
 function parseJsonl(jsonl: string): RawEvent[] {
@@ -23,7 +24,7 @@ export function parseSession(payload: SessionPayload): Session {
   const chain = buildChain(events);
   const clean = filterNoise(chain);
   const root = buildMilestones(clean);
-  // Subagent attachment happens in Task 11.
+  attachSubagents(root, payload.subagents);
   const successPath = computeSuccessPath(root);
   return {
     id: payload.sessionId,
@@ -36,3 +37,4 @@ export function parseSession(payload: SessionPayload): Session {
 }
 
 export type { Milestone, Session, MilestoneKind, SessionMeta, SessionPayload } from './types';
+
