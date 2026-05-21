@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { SessionList } from './components/SessionList';
 import { GraphCanvas } from './components/GraphCanvas';
 import { NowPlaying } from './components/NowPlaying';
+import { PlaybackControls } from './components/PlaybackControls';
 import { useSession } from './api/hooks';
 import { usePlayback } from './playback/usePlayback';
 import type { Milestone, SessionMeta } from './parse/types';
@@ -29,7 +30,7 @@ export default function App() {
     selected?.projectId ?? null,
     selected?.sessionId ?? null
   );
-  const { state: playback } = usePlayback(session?.root ?? null);
+  const { state: playback, controls } = usePlayback(session?.root ?? null);
   const subagentIds = useMemo(
     () => (session ? collectSubagentIds(session.root) : new Set<string>()),
     [session]
@@ -56,6 +57,7 @@ export default function App() {
             </div>
             <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} />
             <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} />
+            <PlaybackControls state={playback} controls={controls} />
           </>
         )}
       </main>
