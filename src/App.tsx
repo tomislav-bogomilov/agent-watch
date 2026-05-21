@@ -49,7 +49,12 @@ export default function App() {
         {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
         {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
         {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
-        {session && (
+        {session && session.totalMilestones > 1000 && (
+          <div style={styles.empty} data-testid="overflow-message">
+            SESSION TOO LARGE FOR POC ({session.totalMilestones} MILESTONES)
+          </div>
+        )}
+        {session && session.totalMilestones <= 1000 && (
           <>
             <div style={styles.sessionHeader} data-testid="session-header">
               <div style={styles.sessionTitle}>SESSION {session.id.slice(0, 8)}</div>
