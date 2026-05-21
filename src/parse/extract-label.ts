@@ -1,4 +1,3 @@
-import { basename } from 'node:path';
 import type { MilestoneKind } from './types';
 
 export type LabelInput =
@@ -8,7 +7,9 @@ export type LabelInput =
 
 function safeBasename(p: unknown): string {
   if (typeof p !== 'string' || p.length === 0) return '?';
-  return basename(p.replace(/\\/g, '/'));
+  const normalized = p.replace(/\\/g, '/');
+  const last = normalized.split('/').filter(Boolean).pop();
+  return last ?? '?';
 }
 
 export function extractLabel(input: LabelInput): { label: string; kind: MilestoneKind } {
