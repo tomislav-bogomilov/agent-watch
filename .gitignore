@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 build/
+*.tsbuildinfo
 
 # Vite
 .vite/
@@ -16,6 +17,7 @@ build/
 # IDE
 .idea/
 .vscode/
+.claude/
 
 # OS
 .DS_Store
