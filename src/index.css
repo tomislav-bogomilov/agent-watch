@@ -1,0 +1,9 @@
+:root { color-scheme: dark; }
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: #05080d;
+  color: #aeeaf2;
+  font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  -webkit-font-smoothing: antialiased;
+}
