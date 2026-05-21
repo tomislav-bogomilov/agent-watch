@@ -10,3 +10,8 @@ body {
   font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
   -webkit-font-smoothing: antialiased;
 }
+
+@keyframes tg-shimmer {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--node-success)); }
+  50% { filter: drop-shadow(0 0 14px var(--node-success)); }
+}
