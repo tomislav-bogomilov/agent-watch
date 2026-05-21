@@ -1,0 +1,4 @@
+{"uuid":"s1","parentUuid":null,"timestamp":"2026-01-03T00:00:02Z","isSidechain":true,"relatedToolUseId":"tu_sub1","type":"user","message":{"role":"user","content":"please look"}}
+{"uuid":"s2","parentUuid":"s1","timestamp":"2026-01-03T00:00:05Z","isSidechain":true,"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"tu_sg","name":"Grep","input":{"pattern":"auth","path":"src"}}]}}
+{"uuid":"s3","parentUuid":"s2","timestamp":"2026-01-03T00:00:06Z","isSidechain":true,"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tu_sg","content":"Found 3 matches in 1 files","is_error":false}]}}
+{"uuid":"s4","parentUuid":"s3","timestamp":"2026-01-03T00:00:07Z","isSidechain":true,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Found three matches."}]}}

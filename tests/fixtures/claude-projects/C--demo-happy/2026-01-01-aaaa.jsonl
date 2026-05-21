@@ -1,0 +1,4 @@
+{"uuid":"h1","parentUuid":null,"timestamp":"2026-01-01T00:00:00Z","type":"user","message":{"role":"user","content":"Please print hello world"}}
+{"uuid":"h2","parentUuid":"h1","timestamp":"2026-01-01T00:00:01Z","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I will run echo."},{"type":"tool_use","id":"tu_h","name":"Bash","input":{"command":"echo hello"}}]}}
+{"uuid":"h3","parentUuid":"h2","timestamp":"2026-01-01T00:00:02Z","type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tu_h","content":"<stdout>\nhello\n</stdout>\n<exit_code>0</exit_code>","is_error":false}]}}
+{"uuid":"h4","parentUuid":"h3","timestamp":"2026-01-01T00:00:03Z","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Done."}]}}

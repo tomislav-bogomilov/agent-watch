@@ -1,0 +1,4 @@
+{"uuid":"f1","parentUuid":null,"timestamp":"2026-01-02T00:00:00Z","type":"user","message":{"role":"user","content":"Read missing file"}}
+{"uuid":"f2","parentUuid":"f1","timestamp":"2026-01-02T00:00:01Z","type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"tu_f","name":"Read","input":{"file_path":"/does/not/exist.txt"}}]}}
+{"uuid":"f3","parentUuid":"f2","timestamp":"2026-01-02T00:00:02Z","type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tu_f","content":"File does not exist","is_error":true}]}}
+{"uuid":"f4","parentUuid":"f3","timestamp":"2026-01-02T00:00:03Z","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Aborting."}]}}
