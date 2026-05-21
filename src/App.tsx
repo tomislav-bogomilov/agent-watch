@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { SessionList } from './components/SessionList';
 import { GraphCanvas } from './components/GraphCanvas';
+import { NowPlaying } from './components/NowPlaying';
 import { useSession } from './api/hooks';
 import { usePlayback } from './playback/usePlayback';
 import type { Milestone, SessionMeta } from './parse/types';
@@ -34,6 +35,9 @@ export default function App() {
     [session]
   );
 
+  const currentMilestone = playback.order[playback.index] ?? null;
+  const inSubagent = currentMilestone ? subagentIds.has(currentMilestone.id) : false;
+
   return (
     <div style={styles.shell}>
       <SessionList
@@ -44,7 +48,16 @@ export default function App() {
         {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
         {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
         {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
-        {session && <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} />}
+        {session && (
+          <>
+            <div style={styles.sessionHeader} data-testid="session-header">
+              <div style={styles.sessionTitle}>SESSION {session.id.slice(0, 8)}</div>
+              <div style={styles.sessionCwd}>{session.cwd}</div>
+            </div>
+            <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} />
+            <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} />
+          </>
+        )}
       </main>
     </div>
   );
@@ -59,4 +72,23 @@ const styles = {
     color: 'var(--text-dim)', letterSpacing: 4,
   },
   error: { padding: 24, color: 'var(--node-failed)' },
+  sessionHeader: {
+    position: 'absolute' as const,
+    top: 16,
+    left: 24,
+    zIndex: 5,
+    pointerEvents: 'none' as const,
+  },
+  sessionTitle: {
+    fontSize: 11,
+    letterSpacing: 3,
+    color: 'var(--edge-trail)',
+    fontFamily: 'ui-monospace, monospace',
+  },
+  sessionCwd: {
+    fontSize: 11,
+    color: 'var(--text-dim)',
+    fontFamily: 'ui-monospace, monospace',
+    marginTop: 2,
+  },
 };
