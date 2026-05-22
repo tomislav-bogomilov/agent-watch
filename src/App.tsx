@@ -61,7 +61,7 @@ export default function App() {
               <div style={styles.sessionCwd}>{session.cwd}</div>
             </div>
             <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} />
-            <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} />
+            <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
             <PlaybackControls state={playback} controls={controls} />
           </>
         )}
