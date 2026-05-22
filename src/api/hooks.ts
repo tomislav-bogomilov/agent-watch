@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchSessionList, fetchSessionPayload } from './client';
+import { fetchPromptList, fetchSessionList, fetchSessionPayload } from './client';
 import { parseSession } from '../parse';
 import type { Session } from '../parse/types';
 
@@ -7,6 +7,13 @@ export function useSessionList() {
   return useQuery({
     queryKey: ['sessions'],
     queryFn: fetchSessionList,
+  });
+}
+
+export function usePromptList() {
+  return useQuery({
+    queryKey: ['prompts'],
+    queryFn: fetchPromptList,
   });
 }
 
