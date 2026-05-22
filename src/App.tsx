@@ -58,9 +58,15 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
   const [detailWidth, setDetailWidth] = usePersistentWidth('tg.detail.width', 420, DETAIL_MIN, DETAIL_MAX);
   useEffect(() => { setPinnedId(null); setPanelDismissed(false); }, [selected]);
-  // When the user starts (or restarts) playback, clear any prior dismissal so
-  // the auto-show panel comes back.
-  useEffect(() => { if (playback.playing) setPanelDismissed(false); }, [playback.playing]);
+  // When the user starts (or restarts) playback, clear any prior dismissal
+  // AND release the explicit pin so the panel follows the playhead instead
+  // of staying stuck on the node the user previously clicked.
+  useEffect(() => {
+    if (playback.playing) {
+      setPanelDismissed(false);
+      setPinnedId(null);
+    }
+  }, [playback.playing]);
 
   const pinnedMilestone = useMemo(() => {
     if (!session || !pinnedId) return null;

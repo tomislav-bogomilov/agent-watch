@@ -35,8 +35,9 @@ export function EdgePath({ edge, state, progress, inSubagent }: Props) {
     inSubagent && state !== 'drawing' ? '6 4'
     : state === 'pruned' ? '4 5'
     : dashArray;
-  const animatedStyle = state === 'drawing'
-    ? { animation: 'tg-edge-pulse 1.2s ease-in-out infinite' }
+  const animatedStyle =
+    state === 'drawing' ? { animation: 'tg-edge-pulse 1.2s ease-in-out infinite' }
+    : state === 'done' ? { animation: 'tg-edge-trail 3.2s ease-in-out infinite' }
     : undefined;
   const filterUrl =
     state === 'pruned' ? 'url(#tg-glow-soft)' :

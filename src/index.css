@@ -26,3 +26,14 @@ body {
     filter: drop-shadow(0 0 12px var(--edge-trail));
   }
 }
+
+@keyframes tg-edge-trail {
+  0%, 100% {
+    filter: drop-shadow(0 0 3px var(--edge-trail));
+    opacity: 0.92;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px var(--edge-trail));
+    opacity: 1;
+  }
+}
