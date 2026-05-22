@@ -1,5 +1,10 @@
 import { useRef } from 'react';
-import type { PlaybackControls as Controls, PlaybackState, Speed } from '../playback/usePlayback';
+import {
+  nextIndexMatching,
+  type PlaybackControls as Controls,
+  type PlaybackState,
+  type Speed,
+} from '../playback/usePlayback';
 
 type Props = { state: PlaybackState; controls: Controls };
 
@@ -107,6 +112,45 @@ export function PlaybackControls({ state, controls }: Props) {
           </button>
         ))}
       </div>
+      <div style={styles.jumpGroup}>
+        <button
+          style={styles.btn}
+          data-testid="jump-subagent"
+          title="next subagent"
+          aria-label="next subagent"
+          onClick={() => {
+            const i = nextIndexMatching(state.order, state.index, (m) => m.kind === 'subagent_spawn');
+            if (i != null) controls.scrubTo(i);
+          }}
+        >⌥</button>
+        <button
+          style={styles.btn}
+          data-testid="jump-tool"
+          title="next tool call"
+          aria-label="next tool call"
+          onClick={() => {
+            const i = nextIndexMatching(state.order, state.index, (m) => m.kind === 'tool_call');
+            if (i != null) controls.scrubTo(i);
+          }}
+        >⚙</button>
+        <button
+          style={styles.btn}
+          data-testid="jump-fail"
+          title="next failure"
+          aria-label="next failure"
+          onClick={() => {
+            const i = nextIndexMatching(state.order, state.index, (m) => m.failed);
+            if (i != null) controls.scrubTo(i);
+          }}
+        >⊘</button>
+        <button
+          style={styles.btn}
+          data-testid="jump-end"
+          title="end"
+          aria-label="end"
+          onClick={() => controls.scrubTo(state.order.length - 1)}
+        >■</button>
+      </div>
       <button
         onClick={controls.restart}
         style={styles.btn}
@@ -154,4 +198,5 @@ const styles = {
     fontSize: 11,
   },
   speedActive: { color: 'var(--edge-trail)', borderColor: 'var(--edge-trail)' },
+  jumpGroup: { display: 'flex' as const, gap: 4, marginLeft: 6 },
 };
