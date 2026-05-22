@@ -41,6 +41,7 @@ export default function App() {
   const inSubagent = currentMilestone ? subagentIds.has(currentMilestone.id) : false;
 
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   useEffect(() => { setPinnedId(null); }, [selected]);
   const pinnedMilestone = useMemo(() => {
@@ -54,6 +55,8 @@ export default function App() {
       <SessionList
         selected={selected}
         onSelect={(s: SessionMeta) => setSelected({ projectId: s.projectId, sessionId: s.sessionId })}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
       />
       <main style={{
         ...styles.main,
