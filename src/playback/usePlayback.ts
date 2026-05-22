@@ -49,39 +49,58 @@ export type PlaybackControls = {
   scrubTo(milestoneIndex: number): void;
 };
 
+type Position = { index: number; edgeProgress: number };
+
+function clampPosition(p: Position, total: number): Position {
+  const lastIndex = Math.max(0, total - 1);
+  if (p.index >= lastIndex) return { index: lastIndex, edgeProgress: Math.min(1, p.edgeProgress) };
+  if (p.index < 0) return { index: 0, edgeProgress: 0 };
+  return p;
+}
+
 export function usePlayback(root: Milestone | null): { state: PlaybackState; controls: PlaybackControls } {
   const [order, setOrder] = useState<Milestone[]>([]);
-  const [index, setIndex] = useState(0);
-  const [edgeProgress, setEdgeProgress] = useState(0);
+  // Index and edgeProgress are bundled because the tick advancement is a
+  // single computation: dt/perNode adds to edgeProgress and any overflow
+  // rolls forward into index. Splitting them into two state slots forced
+  // setIndex to live inside the setEdgeProgress updater, which React 18
+  // StrictMode invokes twice — every overflow then advanced the index by
+  // two, skipping every other node. One state, pure updater, no skipping.
+  const [position, setPosition] = useState<Position>({ index: 0, edgeProgress: 0 });
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<Speed>(1);
+  const [speed, setSpeed] = useState<Speed>(0.25);
   const lastTickRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!root) { setOrder([]); setIndex(0); setEdgeProgress(0); setPlaying(false); return; }
+    if (!root) { setOrder([]); setPosition({ index: 0, edgeProgress: 0 }); setPlaying(false); return; }
     const flat = flattenDFS(root);
     setOrder(flat);
-    setIndex(0);
-    setEdgeProgress(0);
+    setPosition({ index: 0, edgeProgress: 0 });
     setPlaying(false);
   }, [root]);
 
   useEffect(() => {
     if (!playing || order.length === 0) return;
     lastTickRef.current = null;
+    const lastIndex = order.length - 1;
     function tick(now: number) {
       if (lastTickRef.current == null) lastTickRef.current = now;
       const dt = now - lastTickRef.current;
       lastTickRef.current = now;
       const perNode = BASE_MS_PER_NODE / speed;
-      setEdgeProgress((prev) => {
-        const next = prev + dt / perNode;
-        if (next >= 1) {
-          setIndex((idx) => Math.min(idx + 1, order.length - 1));
-          return 0;
+      const delta = dt / perNode;
+      setPosition((prev) => {
+        const total = prev.edgeProgress + delta;
+        const carry = Math.floor(total);
+        const newIndex = prev.index + carry;
+        // Only finalize once we'd advance PAST the last node. Landing on
+        // it with edgeProgress < 1 must still register so the final node
+        // shows as active during its inbound trail.
+        if (newIndex > lastIndex) {
+          return { index: lastIndex, edgeProgress: 1 };
         }
-        return next;
+        return { index: newIndex, edgeProgress: total - carry };
       });
       rafRef.current = requestAnimationFrame(tick);
     }
@@ -92,37 +111,38 @@ export function usePlayback(root: Milestone | null): { state: PlaybackState; con
   }, [playing, order, speed]);
 
   useEffect(() => {
-    if (index >= order.length - 1 && edgeProgress >= 0.999) {
+    if (order.length > 0 && position.index >= order.length - 1 && position.edgeProgress >= 0.999) {
       setPlaying(false);
     }
-  }, [index, edgeProgress, order.length]);
+  }, [position.index, position.edgeProgress, order.length]);
 
   const controls: PlaybackControls = {
     play: () => setPlaying(true),
     pause: () => setPlaying(false),
     toggle: () => setPlaying((p) => !p),
     setSpeed: (s) => setSpeed(s),
-    restart: () => { setIndex(0); setEdgeProgress(0); setPlaying(true); },
+    restart: () => { setPosition({ index: 0, edgeProgress: 0 }); setPlaying(true); },
     step: (direction) => {
       setPlaying(false);
-      setEdgeProgress(0);
-      if (direction === 1) {
-        setIndex((i) => Math.min(i + 1, Math.max(0, order.length - 1)));
-      } else {
-        setIndex((i) => Math.max(0, i - 1));
-      }
+      setPosition((prev) => clampPosition(
+        { index: prev.index + direction, edgeProgress: 0 },
+        order.length,
+      ));
     },
     scrubTo: (milestoneIndex) => {
       setPlaying(false);
-      setEdgeProgress(0);
-      setIndex(Math.max(0, Math.min(milestoneIndex, Math.max(0, order.length - 1))));
+      setPosition(clampPosition({ index: milestoneIndex, edgeProgress: 0 }, order.length));
     },
   };
 
   return {
     state: {
-      order, index, edgeProgress, playing, speed,
-      finished: order.length > 0 && index >= order.length - 1 && edgeProgress >= 0.999,
+      order,
+      index: position.index,
+      edgeProgress: position.edgeProgress,
+      playing,
+      speed,
+      finished: order.length > 0 && position.index >= order.length - 1 && position.edgeProgress >= 0.999,
     },
     controls,
   };

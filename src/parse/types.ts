@@ -64,4 +64,5 @@ export type SessionMeta = {
   cwd: string;
   startedAt: string;
   sizeBytes: number;
+  title?: string;
 };

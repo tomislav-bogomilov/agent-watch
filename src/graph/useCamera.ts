@@ -52,7 +52,16 @@ export type CameraApi = {
 
 export function useCamera({ svgRef, layout, viewport }: Options): CameraApi {
   const [transform, setTransform] = useState<Transform>({ k: 1, x: 0, y: 0 });
-  const [follow, setFollow] = useState(true);
+  // FOLLOW always starts true on each session load. Pan/wheel turns it off
+  // ephemerally for the current session; explicit toggle stays in-memory too.
+  // No localStorage: prior auto-offs from accidental pans were sticking and
+  // hiding the playback follow behavior on subsequent visits.
+  const [follow, setFollow] = useState<boolean>(true);
+  // Clear any legacy persisted value so users coming from older builds get
+  // the new default. Safe no-op if the key is absent.
+  useEffect(() => {
+    try { localStorage.removeItem('tg.follow'); } catch { /* ignore */ }
+  }, []);
   const zoomBehaviorRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const programmaticRef = useRef(false);
 

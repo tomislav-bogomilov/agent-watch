@@ -33,8 +33,8 @@ export function FilterToggles({ value, onChange }: Props) {
 const styles = {
   box: {
     position: 'absolute' as const,
-    top: 12,
-    right: 120,
+    top: 52,
+    left: 24,
     zIndex: 6,
     background: 'rgba(5,8,13,0.85)',
     border: '1px solid var(--edge-idle)',

@@ -9,8 +9,14 @@ import { Legend } from './components/Legend';
 import { useSession } from './api/hooks';
 import { usePlayback } from './playback/usePlayback';
 import { useKeyboard } from './playback/useKeyboard';
+import { usePersistentWidth } from './util/usePersistentWidth';
 import type { CameraApi } from './graph/useCamera';
 import type { Milestone, SessionMeta } from './parse/types';
+
+const SIDEBAR_MIN = 200;
+const SIDEBAR_MAX = 520;
+const DETAIL_MIN = 320;
+const DETAIL_MAX = 720;
 
 type Selected = { projectId: string; sessionId: string } | null;
 
@@ -48,20 +54,57 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filters, setFilters] = useState<Filters>({ hidePruned: false, hideSubagents: false, successOnly: false });
   const [pinnedId, setPinnedId] = useState<string | null>(null);
-  useEffect(() => { setPinnedId(null); }, [selected]);
+  const [panelDismissed, setPanelDismissed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
+  const [detailWidth, setDetailWidth] = usePersistentWidth('tg.detail.width', 420, DETAIL_MIN, DETAIL_MAX);
+  useEffect(() => { setPinnedId(null); setPanelDismissed(false); }, [selected]);
+  // When the user starts (or restarts) playback, clear any prior dismissal
+  // AND release the explicit pin so the panel follows the playhead instead
+  // of staying stuck on the node the user previously clicked.
+  useEffect(() => {
+    if (playback.playing) {
+      setPanelDismissed(false);
+      setPinnedId(null);
+    }
+  }, [playback.playing]);
+
   const pinnedMilestone = useMemo(() => {
     if (!session || !pinnedId) return null;
     return playback.order.find((m) => m.id === pinnedId) ?? null;
   }, [session, pinnedId, playback.order]);
 
+  // While playback has progressed (or is actively playing) and the user has
+  // neither pinned a node nor explicitly dismissed the panel, show the live
+  // current milestone in the detail panel.
+  const showLive = !pinnedMilestone && !panelDismissed && (playback.playing || playback.index > 0);
+  const displayedMilestone = pinnedMilestone ?? (showLive ? currentMilestone : null);
+
+  function handleDetailClose(): void {
+    if (pinnedId) setPinnedId(null);
+    else setPanelDismissed(true);
+  }
+
   const cameraRef = useRef<CameraApi | null>(null);
+  // Wrap controls so any user-initiated playback motion re-enables FOLLOW.
+  // Manual canvas panning still flips it off; this just keeps the camera
+  // attached to the playhead when the user is actually driving playback.
+  const followingControls = useMemo<typeof controls>(() => ({
+    ...controls,
+    play: () => { cameraRef.current?.setFollow(true); controls.play(); },
+    toggle: () => {
+      if (!playback.playing) cameraRef.current?.setFollow(true);
+      controls.toggle();
+    },
+    step: (d) => { cameraRef.current?.setFollow(true); controls.step(d); },
+    scrubTo: (i) => { cameraRef.current?.setFollow(true); controls.scrubTo(i); },
+    restart: () => { cameraRef.current?.setFollow(true); controls.restart(); },
+  }), [controls, playback.playing]);
   useKeyboard({
-    controls,
-    speed: playback.speed,
+    controls: followingControls,
     onFit: () => cameraRef.current?.fit(),
     onToggleFollow: () => cameraRef.current?.setFollow(!cameraRef.current.follow),
     onToggleSidebar: () => setSidebarCollapsed((v) => !v),
-    onCloseDetail: () => setPinnedId(null),
+    onCloseDetail: handleDetailClose,
   });
   const needsConfirm = !!session && session.totalMilestones > 1000 && !confirmedIds.has(session.id);
 
@@ -72,11 +115,12 @@ export default function App() {
         onSelect={(s: SessionMeta) => setSelected({ projectId: s.projectId, sessionId: s.sessionId })}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
+        width={sidebarWidth}
+        onResize={(d) => setSidebarWidth((w) => w + d)}
       />
       <main style={{
         ...styles.main,
-        paddingRight: pinnedMilestone ? 420 : 0,
-        transition: 'padding-right 240ms ease',
+        paddingRight: displayedMilestone ? detailWidth : 0,
       }}>
         {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
         {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
@@ -118,10 +162,15 @@ export default function App() {
         {session && !needsConfirm && (
           <div data-testid="chrome-gutter" style={styles.gutter}>
             <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
-            <PlaybackControls state={playback} controls={controls} />
+            <PlaybackControls state={playback} controls={followingControls} />
           </div>
         )}
-        <DetailPanel milestone={pinnedMilestone} onClose={() => setPinnedId(null)} />
+        <DetailPanel
+          milestone={displayedMilestone}
+          onClose={handleDetailClose}
+          width={detailWidth}
+          onResize={(d) => setDetailWidth((w) => w + d)}
+        />
       </main>
     </div>
   );
@@ -146,9 +195,10 @@ const styles = {
     background: 'rgba(5,8,13,0.5)',
     display: 'flex' as const,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
+    gap: 16,
     padding: '0 16px',
+    minWidth: 0,
+    overflow: 'hidden' as const,
   },
   empty: {
     position: 'absolute' as const, inset: 0,

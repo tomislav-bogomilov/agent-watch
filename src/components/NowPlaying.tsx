@@ -59,15 +59,30 @@ export function NowPlaying({ current, edgeProgress, inSubagent, speed }: Props) 
 
 const styles = {
   frame: {
-    minWidth: 460,
+    minWidth: 0,
+    flex: '1 1 380px',
     maxWidth: 720,
-    background: 'rgba(5,8,13,0.85)',
+    maxHeight: 94,
+    overflowY: 'auto' as const,
+    background: 'rgba(5,8,13,0.92)',
     border: '1px solid',
     padding: '8px 14px',
     fontFamily: 'ui-monospace, monospace',
     backdropFilter: 'blur(2px)',
   },
   header: { fontSize: 10, letterSpacing: 3, marginBottom: 4 },
-  line1: { fontSize: 13, fontWeight: 500, minHeight: 18 },
-  line2: { fontSize: 11, minHeight: 16, marginTop: 2 },
+  line1: {
+    fontSize: 13,
+    fontWeight: 500,
+    minHeight: 18,
+    whiteSpace: 'pre-wrap' as const,
+    wordBreak: 'break-word' as const,
+  },
+  line2: {
+    fontSize: 11,
+    minHeight: 16,
+    marginTop: 2,
+    whiteSpace: 'pre-wrap' as const,
+    wordBreak: 'break-word' as const,
+  },
 };

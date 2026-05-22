@@ -9,7 +9,72 @@ type SessionMeta = {
   cwd: string;
   startedAt: string;
   sizeBytes: number;
+  title?: string;
 };
+
+const TITLE_HEAD_BYTES = 64 * 1024;
+const TITLE_MAX_CHARS = 60;
+
+function isMeaningfulUserText(raw: string): string | null {
+  // Strip command tags and other XML-ish noise the CLI emits.
+  let cleaned = raw
+    .replace(/<command-name>.*?<\/command-name>/gs, ' ')
+    .replace(/<command-message>.*?<\/command-message>/gs, ' ')
+    .replace(/<command-args>(.*?)<\/command-args>/gs, ' $1 ')
+    .replace(/<local-command-stdout>.*?<\/local-command-stdout>/gs, ' ')
+    .replace(/<local-command-stderr>.*?<\/local-command-stderr>/gs, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return null;
+  // Skip bare slash commands like "/clear", "/model", "/compact" — they
+  // describe the operation, not the conversation. If the user typed a
+  // slash command with arguments we keep the args as the topic.
+  if (cleaned.startsWith('/')) {
+    const afterFirstSpace = cleaned.slice(cleaned.indexOf(' ') + 1).trim();
+    if (!afterFirstSpace || afterFirstSpace === cleaned) return null;
+    cleaned = afterFirstSpace;
+  }
+  // Skip caveats / system breadcrumbs (e.g., "Caveat: The messages below…").
+  if (/^caveat:/i.test(cleaned)) return null;
+  return cleaned;
+}
+
+async function extractTitle(filePath: string): Promise<string | undefined> {
+  let handle: import('node:fs').promises.FileHandle | undefined;
+  try {
+    handle = await fs.open(filePath, 'r');
+    const buf = Buffer.alloc(TITLE_HEAD_BYTES);
+    const { bytesRead } = await handle.read(buf, 0, TITLE_HEAD_BYTES, 0);
+    const head = buf.slice(0, bytesRead).toString('utf8');
+    const lines = head.split('\n');
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let ev: unknown;
+      try { ev = JSON.parse(line); } catch { continue; }
+      const e = ev as { type?: string; message?: { role?: string; content?: unknown }; isMeta?: boolean };
+      if (e.isMeta) continue;
+      if (e.type !== 'user' || e.message?.role !== 'user') continue;
+      const content = e.message.content;
+      let text: string | undefined;
+      if (typeof content === 'string') {
+        text = content;
+      } else if (Array.isArray(content)) {
+        const block = content.find((b) => typeof b === 'object' && b && (b as { type?: string }).type === 'text') as { text?: string } | undefined;
+        text = block?.text;
+      }
+      if (!text) continue;
+      const cleaned = isMeaningfulUserText(text);
+      if (!cleaned) continue;
+      return cleaned.length > TITLE_MAX_CHARS ? `${cleaned.slice(0, TITLE_MAX_CHARS)}…` : cleaned;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
+}
 
 function claudeHome(): string {
   return process.env.CLAUDE_HOME ?? path.join(os.homedir(), '.claude', 'projects');
@@ -59,12 +124,14 @@ async function listSessions(root: string): Promise<SessionMeta[]> {
       }
       if (!stat.isFile()) continue;
       const sessionId = name.replace(/\.jsonl$/, '');
+      const title = await extractTitle(full);
       out.push({
         projectId,
         sessionId,
         cwd: decodeProjectId(projectId),
         startedAt: stat.mtime.toISOString(),
         sizeBytes: stat.size,
+        title,
       });
     }
   }

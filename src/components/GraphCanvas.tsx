@@ -87,31 +87,31 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
     onCameraReady?.(camera);
   }, [camera, onCameraReady]);
 
-  // Auto-fit when the session (and thus layout) changes, once viewport is known.
+  // Auto-fit ONCE per session. Tracks which session id was last fitted so a
+  // mere viewport change (e.g., right panel opening, sidebar resize) does not
+  // re-fit and disrupt the user's current zoom.
+  const fittedSessionRef = useRef<string | null>(null);
   useEffect(() => {
-    if (viewport.width > 1 && viewport.height > 1) {
-      fit();
-    }
+    if (viewport.width <= 1 || viewport.height <= 1) return;
+    if (fittedSessionRef.current === session.id) return;
+    fittedSessionRef.current = session.id;
+    fit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, viewport.width, viewport.height]);
+  }, [session.id, viewport.width, viewport.height]);
 
   const currentId = playback.order[playback.index]?.id;
 
-  // Auto-follow: when follow is on and the active node leaves the central 60%
-  // of the viewport, re-center on it. The 320 ms programmatic guard in
-  // useCamera prevents this from flipping follow off.
+  // Auto-follow: when follow is on, animate to the active node at the current
+  // zoom every time currentId changes. d3-zoom's 280 ms transition gives the
+  // tween; the 320 ms programmatic guard in useCamera prevents these from
+  // flipping follow off.
   useEffect(() => {
     if (!follow || !currentId) return;
     const node = layout.nodes.find((n) => n.id === currentId);
     if (!node) return;
-    const screenX = node.x * transform.k + transform.x;
-    const screenY = node.y * transform.k + transform.y;
-    const cx = viewport.width / 2;
-    const cy = viewport.height / 2;
-    if (Math.abs(screenX - cx) > viewport.width * 0.3 || Math.abs(screenY - cy) > viewport.height * 0.3) {
-      centerOn({ x: node.x, y: node.y }, transform.k);
-    }
-  }, [currentId, follow, layout.nodes, transform.k, transform.x, transform.y, viewport.height, viewport.width, centerOn]);
+    centerOn({ x: node.x, y: node.y }, transform.k);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentId, follow]);
 
   const [hover, setHover] = useState<{ milestone: Milestone; screenX: number; screenY: number } | null>(null);
 
@@ -127,12 +127,22 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
   }
 
   const traversedIds = new Set(playback.order.slice(0, playback.index + 1).map((m) => m.id));
+  const orderIndex = useMemo(() => {
+    const m = new Map<string, number>();
+    playback.order.forEach((mi, i) => m.set(mi.id, i));
+    return m;
+  }, [playback.order]);
   const successIds = session.successPath;
 
   const traversedEdgeKey =
     playback.index > 0
       ? `${playback.order[playback.index - 1].id}->${playback.order[playback.index].id}`
       : null;
+  // When the user has stepped or scrubbed onto a node (paused with no
+  // edgeProgress), the inbound edge should be shown FULLY drawn rather
+  // than as a half-rendered 'drawing' edge — otherwise the trail looks
+  // like it stops one node behind the playhead.
+  const pausedAtNode = !playback.playing && playback.edgeProgress === 0;
 
   function isHidden(nodeId: string, state: string): boolean {
     if (filters.hidePruned && state === 'pruned') return true;
@@ -167,10 +177,23 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
             const isCurrent = key === traversedEdgeKey;
             const inSub = subagentIds.has(e.targetId);
             const pruned = taintedIds.has(e.targetId) && !traversedIds.has(e.targetId);
-            const state = pruned ? 'pruned' : isCurrent ? 'drawing' : isTraversed ? 'done' : 'idle';
+            const state = pruned
+              ? 'pruned'
+              : isCurrent && pausedAtNode
+              ? 'done'
+              : isCurrent
+              ? 'drawing'
+              : isTraversed
+              ? 'done'
+              : 'idle';
             const sourcePruned = taintedIds.has(e.sourceId) && !traversedIds.has(e.sourceId);
             const sourceState = sourcePruned ? 'pruned' : 'idle';
             if (isHidden(e.sourceId, sourceState) || isHidden(e.targetId, state)) return null;
+            // Done edges fade gracefully with age. Distance is measured in
+            // hops from the playhead (0 = inbound to current node).
+            const targetIdx = orderIndex.get(e.targetId) ?? playback.index;
+            const hopsBack = Math.max(0, playback.index - targetIdx);
+            const freshness = state === 'done' ? Math.max(0.55, 1 - hopsBack * 0.07) : 1;
             return (
               <EdgePath
                 key={key}
@@ -178,17 +201,22 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
                 state={state}
                 progress={isCurrent ? playback.edgeProgress : isTraversed ? 1 : 0}
                 inSubagent={inSub}
+                freshness={freshness}
               />
             );
           })}
           {layout.nodes.map((n) => {
             const inSub = subagentIds.has(n.id);
             let state: 'idle' | 'active' | 'success' | 'failed' | 'pruned';
-            if (n.milestone.failed) state = 'failed';
+            // While playback is in motion, the playhead always wins so the
+            // user can see which node is currently active even when that
+            // node lives in a failed or pruned subtree. Once playback is
+            // finished, the cursor releases and final states show through.
+            if (n.id === currentId && !playback.finished) state = 'active';
+            else if (n.milestone.failed) state = 'failed';
             else if (taintedIds.has(n.id)) state = 'pruned';
             else if (playback.finished && successIds.has(n.id)) state = 'success';
             else if (playback.finished && traversedIds.has(n.id)) state = 'success';
-            else if (n.id === currentId) state = 'active';
             else if (traversedIds.has(n.id)) state = 'success';
             else state = 'idle';
             if (isHidden(n.id, state)) return null;

@@ -1,11 +1,18 @@
 import type { Milestone } from '../parse/types';
+import { ResizeHandle } from './ResizeHandle';
 
-type Props = { milestone: Milestone | null; onClose: () => void };
+type Props = {
+  milestone: Milestone | null;
+  onClose: () => void;
+  width: number;
+  onResize: (delta: number) => void;
+};
 
-export function DetailPanel({ milestone, onClose }: Props) {
+export function DetailPanel({ milestone, onClose, width, onResize }: Props) {
   if (!milestone) return null;
   return (
-    <aside data-testid="detail-panel" style={styles.panel}>
+    <aside data-testid="detail-panel" style={{ ...styles.panel, width }}>
+      <ResizeHandle side="left" onResize={onResize} testId="detail-resize" />
       <header style={styles.header}>
         <div style={styles.kind}>{milestone.kind.toUpperCase().replace(/_/g, ' ')}</div>
         <button
@@ -34,7 +41,6 @@ const styles = {
   panel: {
     position: 'absolute' as const,
     top: 0, right: 0, bottom: 0,
-    width: 420,
     background: 'rgba(5,8,13,0.95)',
     borderLeft: '1px solid var(--edge-idle)',
     boxShadow: '-12px 0 24px rgba(0,0,0,0.4)',
