@@ -4,6 +4,7 @@ import { GraphDefs } from '../theme/Filters';
 import { NodeShape } from './NodeShape';
 import { EdgePath } from './EdgePath';
 import { NodeTooltip } from './NodeTooltip';
+import { Minimap } from './Minimap';
 import { collectTaintedIds } from '../parse/failure';
 import { useCamera, type CameraApi } from '../graph/useCamera';
 import type { Filters } from './FilterToggles';
@@ -230,6 +231,13 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
         }}
         title="follow playhead (L)"
       >FOLLOW</button>
+      <Minimap
+        layout={layout}
+        transform={transform}
+        viewport={viewport}
+        currentLayoutPoint={currentId ? layout.nodes.find((n) => n.id === currentId) ?? null : null}
+        onJump={(pt) => centerOn(pt, transform.k)}
+      />
       {hover && <NodeTooltip milestone={hover.milestone} screenX={hover.screenX} screenY={hover.screenY} />}
     </div>
   );
