@@ -127,6 +127,11 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
   }
 
   const traversedIds = new Set(playback.order.slice(0, playback.index + 1).map((m) => m.id));
+  const orderIndex = useMemo(() => {
+    const m = new Map<string, number>();
+    playback.order.forEach((mi, i) => m.set(mi.id, i));
+    return m;
+  }, [playback.order]);
   const successIds = session.successPath;
 
   const traversedEdgeKey =
@@ -184,6 +189,11 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
             const sourcePruned = taintedIds.has(e.sourceId) && !traversedIds.has(e.sourceId);
             const sourceState = sourcePruned ? 'pruned' : 'idle';
             if (isHidden(e.sourceId, sourceState) || isHidden(e.targetId, state)) return null;
+            // Done edges fade gracefully with age. Distance is measured in
+            // hops from the playhead (0 = inbound to current node).
+            const targetIdx = orderIndex.get(e.targetId) ?? playback.index;
+            const hopsBack = Math.max(0, playback.index - targetIdx);
+            const freshness = state === 'done' ? Math.max(0.55, 1 - hopsBack * 0.07) : 1;
             return (
               <EdgePath
                 key={key}
@@ -191,6 +201,7 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
                 state={state}
                 progress={isCurrent ? playback.edgeProgress : isTraversed ? 1 : 0}
                 inSubagent={inSub}
+                freshness={freshness}
               />
             );
           })}

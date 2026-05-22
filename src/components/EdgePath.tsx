@@ -5,9 +5,12 @@ type Props = {
   state: 'idle' | 'drawing' | 'done' | 'pruned';
   progress: number; // 0..1, only used when state==='drawing'
   inSubagent: boolean;
+  // 1.0 = freshest done edge (inbound to current node).
+  // <1.0 fades older done edges so the trail reads like a comet tail.
+  freshness?: number;
 };
 
-export function EdgePath({ edge, state, progress, inSubagent }: Props) {
+export function EdgePath({ edge, state, progress, inSubagent, freshness = 1 }: Props) {
   const d = curvePath(edge);
   // Use the same cyan family for every state so all tracks read as
   // wired-up paths. Differences come from stroke width, opacity, and
@@ -23,11 +26,15 @@ export function EdgePath({ edge, state, progress, inSubagent }: Props) {
   const opacity =
     state === 'pruned' ? 0.32 :
     state === 'idle' ? 0.85 :
+    state === 'done' ? Math.max(0.55, freshness) :
     1;
+  // Done strokes fade slightly toward the tail (older = slimmer) so the
+  // freshest end of the trail visually leads the eye to the playhead.
+  const doneStroke = (inSubagent ? 4.5 : 5) - (1 - freshness) * 1.2;
   const strokeWidth = state === 'drawing'
     ? (inSubagent ? 5 : 5.5)
     : state === 'done'
-    ? (inSubagent ? 4.5 : 5)
+    ? Math.max(inSubagent ? 3 : 3.5, doneStroke)
     : state === 'idle'
     ? (inSubagent ? 2.5 : 3)
     : 2; // pruned
