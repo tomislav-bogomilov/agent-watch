@@ -17,13 +17,21 @@ function glyphFor(kind: LaidOutNode['milestone']['kind']): string {
   }
 }
 
+const MAX_LABEL_CHARS = 16;
+
 export function NodeShape({ node, state, inSubagent }: Props) {
   const w = 110, h = 28;
   const colors = colorsFor(state, inSubagent);
   const useGlow = state === 'active' || state === 'success';
 
+  const fullLabel = `${glyphFor(node.milestone.kind)}  ${node.milestone.label}`;
+  const shown = fullLabel.length > MAX_LABEL_CHARS
+    ? `${fullLabel.slice(0, MAX_LABEL_CHARS - 1)}…`
+    : fullLabel;
+
   return (
     <g transform={`translate(${node.x - w / 2}, ${node.y - h / 2})`} data-id={node.id} data-state={state}>
+      <title>{node.milestone.label}</title>
       <rect
         width={w} height={h} rx={4}
         fill={colors.fill}
@@ -34,7 +42,7 @@ export function NodeShape({ node, state, inSubagent }: Props) {
         style={state === 'success' ? { animation: 'tg-shimmer 2.4s ease-in-out infinite' } : undefined}
       />
       <text x={8} y={h / 2 + 4} fontSize={11} fill={colors.text} fontFamily="ui-monospace, monospace">
-        {glyphFor(node.milestone.kind)}  {node.milestone.label}
+        {shown}
       </text>
       {state === 'failed' && (
         <circle cx={w - 6} cy={6} r={3} fill="var(--node-failed)" filter="url(#tg-glow)" />
