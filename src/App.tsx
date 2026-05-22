@@ -4,6 +4,7 @@ import { GraphCanvas } from './components/GraphCanvas';
 import { NowPlaying } from './components/NowPlaying';
 import { PlaybackControls } from './components/PlaybackControls';
 import { DetailPanel } from './components/DetailPanel';
+import { FilterToggles, type Filters } from './components/FilterToggles';
 import { useSession } from './api/hooks';
 import { usePlayback } from './playback/usePlayback';
 import type { Milestone, SessionMeta } from './parse/types';
@@ -42,6 +43,7 @@ export default function App() {
 
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [filters, setFilters] = useState<Filters>({ hidePruned: false, hideSubagents: false, successOnly: false });
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   useEffect(() => { setPinnedId(null); }, [selected]);
   const pinnedMilestone = useMemo(() => {
@@ -87,7 +89,8 @@ export default function App() {
               <div style={styles.sessionTitle}>SESSION {session.id.slice(0, 8)}</div>
               <div style={styles.sessionCwd}>{session.cwd}</div>
             </div>
-            <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} pinnedId={pinnedId} onPin={setPinnedId} />
+            <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} pinnedId={pinnedId} onPin={setPinnedId} filters={filters} />
+            <FilterToggles value={filters} onChange={setFilters} />
             <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
             <PlaybackControls state={playback} controls={controls} />
           </>

@@ -6,6 +6,7 @@ import { EdgePath } from './EdgePath';
 import { NodeTooltip } from './NodeTooltip';
 import { collectTaintedIds } from '../parse/failure';
 import { useCamera, type CameraApi } from '../graph/useCamera';
+import type { Filters } from './FilterToggles';
 import type { Milestone, Session } from '../parse/types';
 import type { PlaybackState } from '../playback/usePlayback';
 
@@ -15,6 +16,7 @@ type Props = {
   subagentIds: Set<string>;
   pinnedId: string | null;
   onPin: (id: string | null) => void;
+  filters: Filters;
   onCameraReady?: (api: CameraApi) => void;
 };
 
@@ -52,7 +54,7 @@ function computeSubagentRegions(root: Milestone, nodes: LaidOutNode[]): Subagent
   return regions;
 }
 
-export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, onCameraReady }: Props) {
+export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, filters, onCameraReady }: Props) {
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
     () => computeSubagentRegions(session.root, layout.nodes),
@@ -131,6 +133,13 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
       ? `${playback.order[playback.index - 1].id}->${playback.order[playback.index].id}`
       : null;
 
+  function isHidden(nodeId: string, state: string): boolean {
+    if (filters.hidePruned && state === 'pruned') return true;
+    if (filters.hideSubagents && subagentIds.has(nodeId)) return true;
+    if (filters.successOnly && !successIds.has(nodeId) && nodeId !== currentId) return true;
+    return false;
+  }
+
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} onMouseLeave={() => setHover(null)}>
       <svg
@@ -158,6 +167,9 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
             const inSub = subagentIds.has(e.targetId);
             const pruned = taintedIds.has(e.targetId) && !traversedIds.has(e.targetId);
             const state = pruned ? 'pruned' : isCurrent ? 'drawing' : isTraversed ? 'done' : 'idle';
+            const sourcePruned = taintedIds.has(e.sourceId) && !traversedIds.has(e.sourceId);
+            const sourceState = sourcePruned ? 'pruned' : 'idle';
+            if (isHidden(e.sourceId, sourceState) || isHidden(e.targetId, state)) return null;
             return (
               <EdgePath
                 key={key}
@@ -178,6 +190,7 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
             else if (n.id === currentId) state = 'active';
             else if (traversedIds.has(n.id)) state = 'success';
             else state = 'idle';
+            if (isHidden(n.id, state)) return null;
             const isPinned = n.id === pinnedId;
             return (
               <g
