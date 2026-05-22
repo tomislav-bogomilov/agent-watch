@@ -8,14 +8,16 @@ test('subagent: subtree renders, traversal descends first', async ({ page }) => 
   await expect(page.locator('svg g[data-id]')).toHaveCount(6, { timeout: 5_000 });
   // Bounding region for subagent subtree should render
   await expect(page.locator('[data-testid="subagent-region"]')).toHaveCount(1);
+  // Playback is paused by default — start it explicitly.
+  await page.getByTestId('play-toggle').click();
   // Capture active-node ids at intervals during playback by reading the DOM
-  // directly (no Playwright auto-wait). With 6 nodes at 200ms each, total
-  // playback is ~1.2s. Sampling every 100ms over 1.5s gives 15 samples.
+  // directly (no Playwright auto-wait). With 6 nodes at 400ms each, total
+  // playback is ~2.4s. Sampling every 200ms over 3s gives 15 samples.
   // DFS order: m1 → m2#tu_sub1 → s1 → s2#tu_sg → s4 → m4. At least one
   // observed active id must be a subagent node (s1, s2#tu_sg, or s4).
   const observed: (string | null)[] = [];
   for (let i = 0; i < 15; i++) {
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
     const id = await page.evaluate(() => {
       const el = document.querySelector('svg g[data-state="active"]');
       return el ? el.getAttribute('data-id') : null;

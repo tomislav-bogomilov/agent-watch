@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { Milestone } from '../parse/types';
+import { msPerNode, type Speed } from '../playback/usePlayback';
 
 type Props = {
   current: Milestone | null;
   edgeProgress: number;
   inSubagent: boolean;
+  speed: Speed;
 };
 
 function useTypewriter(text: string, durationMs: number): string {
@@ -26,11 +28,12 @@ function useTypewriter(text: string, durationMs: number): string {
   return out;
 }
 
-export function NowPlaying({ current, edgeProgress, inSubagent }: Props) {
+export function NowPlaying({ current, edgeProgress, inSubagent, speed }: Props) {
   const summaryText = current?.summary ?? '';
   const resultText = edgeProgress >= 0.6 ? (current?.result ?? '') : '';
-  const summary = useTypewriter(summaryText, 180);
-  const result = useTypewriter(resultText, 220);
+  const dur = Math.max(60, Math.min(280, msPerNode(speed) * 0.5));
+  const summary = useTypewriter(summaryText, dur);
+  const result = useTypewriter(resultText, dur);
   if (!current) return null;
   const failed = current.failed;
   const frameColor = inSubagent ? 'var(--subagent-accent)' : 'var(--edge-idle)';
@@ -56,15 +59,11 @@ export function NowPlaying({ current, edgeProgress, inSubagent }: Props) {
 
 const styles = {
   frame: {
-    position: 'absolute' as const,
-    left: '50%',
-    bottom: 80,
-    transform: 'translateX(-50%)',
-    minWidth: 520,
-    maxWidth: '70%',
+    minWidth: 460,
+    maxWidth: 720,
     background: 'rgba(5,8,13,0.85)',
     border: '1px solid',
-    padding: '10px 16px',
+    padding: '8px 14px',
     fontFamily: 'ui-monospace, monospace',
     backdropFilter: 'blur(2px)',
   },

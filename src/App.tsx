@@ -1,10 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SessionList } from './components/SessionList';
 import { GraphCanvas } from './components/GraphCanvas';
 import { NowPlaying } from './components/NowPlaying';
 import { PlaybackControls } from './components/PlaybackControls';
+import { DetailPanel } from './components/DetailPanel';
+import { FilterToggles, type Filters } from './components/FilterToggles';
+import { Legend } from './components/Legend';
 import { useSession } from './api/hooks';
 import { usePlayback } from './playback/usePlayback';
+import { useKeyboard } from './playback/useKeyboard';
+import type { CameraApi } from './graph/useCamera';
 import type { Milestone, SessionMeta } from './parse/types';
 
 type Selected = { projectId: string; sessionId: string } | null;
@@ -39,40 +44,112 @@ export default function App() {
   const currentMilestone = playback.order[playback.index] ?? null;
   const inSubagent = currentMilestone ? subagentIds.has(currentMilestone.id) : false;
 
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [filters, setFilters] = useState<Filters>({ hidePruned: false, hideSubagents: false, successOnly: false });
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+  useEffect(() => { setPinnedId(null); }, [selected]);
+  const pinnedMilestone = useMemo(() => {
+    if (!session || !pinnedId) return null;
+    return playback.order.find((m) => m.id === pinnedId) ?? null;
+  }, [session, pinnedId, playback.order]);
+
+  const cameraRef = useRef<CameraApi | null>(null);
+  useKeyboard({
+    controls,
+    speed: playback.speed,
+    onFit: () => cameraRef.current?.fit(),
+    onToggleFollow: () => cameraRef.current?.setFollow(!cameraRef.current.follow),
+    onToggleSidebar: () => setSidebarCollapsed((v) => !v),
+    onCloseDetail: () => setPinnedId(null),
+  });
+  const needsConfirm = !!session && session.totalMilestones > 1000 && !confirmedIds.has(session.id);
+
   return (
     <div style={styles.shell}>
       <SessionList
         selected={selected}
         onSelect={(s: SessionMeta) => setSelected({ projectId: s.projectId, sessionId: s.sessionId })}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
       />
-      <main style={styles.main}>
+      <main style={{
+        ...styles.main,
+        paddingRight: pinnedMilestone ? 420 : 0,
+        transition: 'padding-right 240ms ease',
+      }}>
         {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
         {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
         {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
-        {session && session.totalMilestones > 1000 && (
-          <div style={styles.empty} data-testid="overflow-message">
-            SESSION TOO LARGE FOR POC ({session.totalMilestones} MILESTONES)
+        {session && needsConfirm && (
+          <div style={styles.overflow} data-testid="overflow-confirm">
+            <div style={styles.overflowMsg}>
+              LARGE SESSION — {session.totalMilestones} MILESTONES
+            </div>
+            <div style={styles.overflowSub}>Rendering may take a moment.</div>
+            <button
+              style={styles.overflowBtn}
+              data-testid="load-anyway"
+              onClick={() => setConfirmedIds((s) => new Set(s).add(session.id))}
+            >
+              LOAD ANYWAY
+            </button>
           </div>
         )}
-        {session && session.totalMilestones <= 1000 && (
-          <>
+        {session && !needsConfirm && (
+          <div style={styles.canvasSlot}>
             <div style={styles.sessionHeader} data-testid="session-header">
               <div style={styles.sessionTitle}>SESSION {session.id.slice(0, 8)}</div>
               <div style={styles.sessionCwd}>{session.cwd}</div>
             </div>
-            <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} />
-            <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} />
-            <PlaybackControls state={playback} controls={controls} />
-          </>
+            <GraphCanvas
+              session={session}
+              playback={playback}
+              subagentIds={subagentIds}
+              pinnedId={pinnedId}
+              onPin={setPinnedId}
+              filters={filters}
+              onCameraReady={(api) => { cameraRef.current = api; }}
+            />
+            <FilterToggles value={filters} onChange={setFilters} />
+            <Legend />
+          </div>
         )}
+        {session && !needsConfirm && (
+          <div data-testid="chrome-gutter" style={styles.gutter}>
+            <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
+            <PlaybackControls state={playback} controls={controls} />
+          </div>
+        )}
+        <DetailPanel milestone={pinnedMilestone} onClose={() => setPinnedId(null)} />
       </main>
     </div>
   );
 }
 
+const GUTTER_HEIGHT = 110;
+
 const styles = {
   shell: { display: 'flex', height: '100%' },
-  main: { flex: 1, position: 'relative' as const, overflow: 'hidden' as const },
+  main: {
+    flex: 1,
+    position: 'relative' as const,
+    overflow: 'hidden' as const,
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+  },
+  canvasSlot: { flex: 1, minHeight: 0, position: 'relative' as const },
+  gutter: {
+    flexShrink: 0,
+    height: GUTTER_HEIGHT,
+    borderTop: '1px solid var(--grid)',
+    background: 'rgba(5,8,13,0.5)',
+    display: 'flex' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    padding: '0 16px',
+  },
   empty: {
     position: 'absolute' as const, inset: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -97,5 +174,25 @@ const styles = {
     color: 'var(--text-dim)',
     fontFamily: 'ui-monospace, monospace',
     marginTop: 2,
+  },
+  overflow: {
+    position: 'absolute' as const, inset: 0,
+    display: 'flex', flexDirection: 'column' as const,
+    alignItems: 'center', justifyContent: 'center',
+    color: 'var(--text-dim)', gap: 12,
+  },
+  overflowMsg: {
+    letterSpacing: 4, fontSize: 13, color: 'var(--text)',
+    fontFamily: 'ui-monospace, monospace',
+  },
+  overflowSub: {
+    fontSize: 11, color: 'var(--text-dim)',
+    fontFamily: 'ui-monospace, monospace',
+  },
+  overflowBtn: {
+    background: 'transparent', border: '1px solid var(--edge-trail)',
+    color: 'var(--edge-trail)', padding: '8px 18px', cursor: 'pointer',
+    fontFamily: 'ui-monospace, monospace', letterSpacing: 3, fontSize: 11,
+    boxShadow: '0 0 12px rgba(0, 229, 255, 0.25)',
   },
 };
