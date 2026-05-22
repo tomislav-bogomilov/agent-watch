@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SessionList } from './components/SessionList';
 import { GraphCanvas } from './components/GraphCanvas';
 import { NowPlaying } from './components/NowPlaying';
@@ -40,6 +40,8 @@ export default function App() {
   const inSubagent = currentMilestone ? subagentIds.has(currentMilestone.id) : false;
 
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+  useEffect(() => { setPinnedId(null); }, [selected]);
   const needsConfirm = !!session && session.totalMilestones > 1000 && !confirmedIds.has(session.id);
 
   return (
@@ -73,7 +75,7 @@ export default function App() {
               <div style={styles.sessionTitle}>SESSION {session.id.slice(0, 8)}</div>
               <div style={styles.sessionCwd}>{session.cwd}</div>
             </div>
-            <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} />
+            <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} pinnedId={pinnedId} onPin={setPinnedId} />
             <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
             <PlaybackControls state={playback} controls={controls} />
           </>

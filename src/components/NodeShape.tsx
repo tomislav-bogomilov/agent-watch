@@ -4,6 +4,7 @@ type Props = {
   node: LaidOutNode;
   state: 'idle' | 'active' | 'success' | 'failed' | 'pruned';
   inSubagent: boolean;
+  pinned?: boolean;
 };
 
 function glyphFor(kind: LaidOutNode['milestone']['kind']): string {
@@ -19,7 +20,7 @@ function glyphFor(kind: LaidOutNode['milestone']['kind']): string {
 
 const MAX_LABEL_CHARS = 16;
 
-export function NodeShape({ node, state, inSubagent }: Props) {
+export function NodeShape({ node, state, inSubagent, pinned }: Props) {
   const w = 110, h = 28;
   const colors = colorsFor(state, inSubagent);
   const useGlow = state === 'active' || state === 'success';
@@ -46,6 +47,13 @@ export function NodeShape({ node, state, inSubagent }: Props) {
       </text>
       {state === 'failed' && (
         <circle cx={w - 6} cy={6} r={3} fill="var(--node-failed)" filter="url(#tg-glow)" />
+      )}
+      {pinned && (
+        <rect
+          width={w + 6} height={h + 6} x={-3} y={-3} rx={6}
+          fill="none" stroke="var(--edge-trail)" strokeWidth={1.5}
+          style={{ filter: 'url(#tg-glow)' }}
+        />
       )}
     </g>
   );
