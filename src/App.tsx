@@ -5,6 +5,7 @@ import { NowPlaying } from './components/NowPlaying';
 import { PlaybackControls } from './components/PlaybackControls';
 import { DetailPanel } from './components/DetailPanel';
 import { FilterToggles, type Filters } from './components/FilterToggles';
+import { Legend } from './components/Legend';
 import { useSession } from './api/hooks';
 import { usePlayback } from './playback/usePlayback';
 import type { Milestone, SessionMeta } from './parse/types';
@@ -91,6 +92,7 @@ export default function App() {
             </div>
             <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} pinnedId={pinnedId} onPin={setPinnedId} filters={filters} />
             <FilterToggles value={filters} onChange={setFilters} />
+            <Legend />
             <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
             <PlaybackControls state={playback} controls={controls} />
           </>
