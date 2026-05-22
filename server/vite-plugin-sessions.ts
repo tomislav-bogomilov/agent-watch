@@ -168,6 +168,108 @@ function isSafeId(s: string): boolean {
   return /^[A-Za-z0-9._-]+$/.test(s);
 }
 
+const PROMPT_MAX_CHARS = 140;
+
+type PromptMeta = {
+  projectId: string;
+  sessionId: string;
+  promptId: string;
+  kind: 'root' | 'followup';
+  text: string;
+  timestamp: string;
+  ordinal: number;
+};
+
+async function extractPrompts(filePath: string, projectId: string, sessionId: string): Promise<PromptMeta[]> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(filePath, 'utf8');
+  } catch {
+    return [];
+  }
+  const out: PromptMeta[] = [];
+  let ordinal = 0;
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let ev: unknown;
+    try { ev = JSON.parse(trimmed); } catch { continue; }
+    const e = ev as {
+      uuid?: string;
+      timestamp?: string;
+      type?: string;
+      isMeta?: boolean;
+      message?: { role?: string; content?: unknown };
+    };
+    if (e.isMeta) continue;
+    if (e.type !== 'user' || e.message?.role !== 'user') continue;
+    if (!e.uuid || !e.timestamp) continue;
+
+    const content = e.message.content;
+    let text: string | undefined;
+    if (typeof content === 'string') {
+      text = content;
+    } else if (Array.isArray(content)) {
+      const textBlocks = content
+        .filter((b) => typeof b === 'object' && b && (b as { type?: string }).type === 'text')
+        .map((b) => (b as { text?: string }).text ?? '');
+      if (textBlocks.length === 0) continue; // tool-result-only user events
+      text = textBlocks.join('').trim();
+    }
+    if (!text) continue;
+
+    const cleaned = isMeaningfulUserText(text);
+    if (!cleaned) continue;
+
+    const snippet = cleaned.length > PROMPT_MAX_CHARS
+      ? `${cleaned.slice(0, PROMPT_MAX_CHARS)}…`
+      : cleaned;
+
+    out.push({
+      projectId,
+      sessionId,
+      promptId: e.uuid,
+      kind: ordinal === 0 ? 'root' : 'followup',
+      text: snippet,
+      timestamp: e.timestamp,
+      ordinal,
+    });
+    ordinal += 1;
+  }
+  return out;
+}
+
+async function listPrompts(root: string): Promise<PromptMeta[]> {
+  let projects: string[];
+  try {
+    projects = await fs.readdir(root);
+  } catch {
+    return [];
+  }
+  const out: PromptMeta[] = [];
+  for (const projectId of projects) {
+    const projectDir = path.join(root, projectId);
+    let entries: string[];
+    try {
+      entries = await fs.readdir(projectDir);
+    } catch {
+      continue;
+    }
+    for (const name of entries) {
+      if (!name.endsWith('.jsonl')) continue;
+      const full = path.join(projectDir, name);
+      let stat;
+      try { stat = await fs.stat(full); } catch { continue; }
+      if (!stat.isFile()) continue;
+      const sessionId = name.replace(/\.jsonl$/, '');
+      const prompts = await extractPrompts(full, projectId, sessionId);
+      out.push(...prompts);
+    }
+  }
+  out.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  return out;
+}
+
 export function sessionsPlugin(): Plugin {
   const root = claudeHome();
   return {
@@ -202,6 +304,24 @@ export function sessionsPlugin(): Plugin {
             sendJson(res, 404, { error: 'not found' });
             return;
           }
+          next(err as Error);
+        }
+      });
+
+      server.middlewares.use('/api/prompts', async (req, res, next) => {
+        try {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'method not allowed' });
+            return;
+          }
+          const url = req.url ?? '/';
+          if (url !== '/' && url !== '') {
+            sendJson(res, 400, { error: 'expected /api/prompts' });
+            return;
+          }
+          const prompts = await listPrompts(root);
+          sendJson(res, 200, { prompts });
+        } catch (err) {
           next(err as Error);
         }
       });
