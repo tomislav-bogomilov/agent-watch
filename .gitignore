@@ -37,5 +37,8 @@ test-results/
 # MCP config (machine-local)
 .mcp.json
 
+# Brainstorming mockups (local)
+.superpowers/
+
 # Ad-hoc screenshots
 tg-*.png
