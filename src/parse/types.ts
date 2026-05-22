@@ -66,3 +66,13 @@ export type SessionMeta = {
   sizeBytes: number;
   title?: string;
 };
+
+export type PromptMeta = {
+  projectId: string;
+  sessionId: string;
+  promptId: string;
+  kind: 'root' | 'followup';
+  text: string;
+  timestamp: string;
+  ordinal: number;
+};
