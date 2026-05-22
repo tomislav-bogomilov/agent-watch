@@ -1,12 +1,77 @@
+import { useRef } from 'react';
 import type { PlaybackControls as Controls, PlaybackState, Speed } from '../playback/usePlayback';
 
 type Props = { state: PlaybackState; controls: Controls };
 
 const SPEEDS: Speed[] = [0.25, 0.5, 1, 2, 4];
 
+function Scrubber({ index, edgeProgress, total, onSeek }: {
+  index: number; edgeProgress: number; total: number; onSeek: (i: number) => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const pct = total > 1 ? ((index + edgeProgress) / (total - 1)) * 100 : 0;
+
+  function seekFromEvent(clientX: number): void {
+    const t = trackRef.current;
+    if (!t) return;
+    const rect = t.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.x) / rect.width));
+    onSeek(Math.round(ratio * Math.max(0, total - 1)));
+  }
+
+  return (
+    <div
+      ref={trackRef}
+      data-testid="scrubber-track"
+      onMouseDown={(e) => {
+        seekFromEvent(e.clientX);
+        const move = (ev: MouseEvent) => seekFromEvent(ev.clientX);
+        const up = () => {
+          window.removeEventListener('mousemove', move);
+          window.removeEventListener('mouseup', up);
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+      }}
+      style={{
+        position: 'relative',
+        height: 6,
+        width: 320,
+        background: 'rgba(26,58,74,0.6)',
+        border: '1px solid var(--edge-idle)',
+        cursor: 'pointer',
+        marginRight: 8,
+      }}
+    >
+      <div
+        data-testid="scrubber-fill"
+        style={{
+          position: 'absolute', left: 0, top: 0, bottom: 0,
+          width: `${pct}%`, background: 'var(--edge-trail)', opacity: 0.6,
+        }}
+      />
+      <div
+        data-testid="scrubber-handle"
+        data-pct={pct.toFixed(1)}
+        style={{
+          position: 'absolute', top: -3, height: 12, width: 4,
+          left: `calc(${pct}% - 2px)`,
+          background: 'var(--edge-trail)', boxShadow: '0 0 6px var(--edge-trail)',
+        }}
+      />
+    </div>
+  );
+}
+
 export function PlaybackControls({ state, controls }: Props) {
   return (
     <div style={styles.bar}>
+      <Scrubber
+        index={state.index}
+        edgeProgress={state.edgeProgress}
+        total={state.order.length}
+        onSeek={controls.scrubTo}
+      />
       <button
         onClick={() => controls.step(-1)}
         style={styles.btn}
