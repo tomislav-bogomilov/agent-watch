@@ -3,3 +3,7 @@
 {"uuid":"h2","parentUuid":"h1b","timestamp":"2026-01-01T00:00:01Z","type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"tu_h","name":"Bash","input":{"command":"echo hello"}}]}}
 {"uuid":"h3","parentUuid":"h2","timestamp":"2026-01-01T00:00:02Z","type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tu_h","content":"<stdout>\nhello\n</stdout>\n<exit_code>0</exit_code>","is_error":false}]}}
 {"uuid":"h4","parentUuid":"h3","timestamp":"2026-01-01T00:00:03Z","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Done."}]}}
+{"uuid":"h5","parentUuid":"h4","timestamp":"2026-01-01T00:00:04Z","type":"user","message":{"role":"user","content":"Now print goodbye"}}
+{"uuid":"h6","parentUuid":"h5","timestamp":"2026-01-01T00:00:05Z","type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"tu_h2","name":"Bash","input":{"command":"echo goodbye"}}]}}
+{"uuid":"h7","parentUuid":"h6","timestamp":"2026-01-01T00:00:06Z","type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tu_h2","content":"<stdout>\ngoodbye\n</stdout>\n<exit_code>0</exit_code>","is_error":false}]}}
+{"uuid":"h8","parentUuid":"h7","timestamp":"2026-01-01T00:00:07Z","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Goodbye said."}]}}

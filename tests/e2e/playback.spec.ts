@@ -24,7 +24,7 @@ test('playback: starts paused; play advances; pause freezes; resume completes', 
   const stillAt = await page.locator('svg g[data-state="active"]').first().getAttribute('data-id');
   expect(stillAt).toBe(pausedAt);
 
-  // Resume and finish (1600 ms/node × 4 nodes ≈ 6.4 s)
+  // Resume and finish (1600 ms/node × 7 nodes ≈ 11.2 s)
   await page.getByTestId('play-toggle').click();
-  await expect(page.locator('svg g[data-state="success"]')).toHaveCount(4, { timeout: 15_000 });
+  await expect(page.locator('svg g[data-state="success"]')).toHaveCount(7, { timeout: 20_000 });
 });
