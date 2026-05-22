@@ -39,6 +39,9 @@ export default function App() {
   const currentMilestone = playback.order[playback.index] ?? null;
   const inSubagent = currentMilestone ? subagentIds.has(currentMilestone.id) : false;
 
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const needsConfirm = !!session && session.totalMilestones > 1000 && !confirmedIds.has(session.id);
+
   return (
     <div style={styles.shell}>
       <SessionList
@@ -49,12 +52,22 @@ export default function App() {
         {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
         {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
         {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
-        {session && session.totalMilestones > 1000 && (
-          <div style={styles.empty} data-testid="overflow-message">
-            SESSION TOO LARGE FOR POC ({session.totalMilestones} MILESTONES)
+        {session && needsConfirm && (
+          <div style={styles.overflow} data-testid="overflow-confirm">
+            <div style={styles.overflowMsg}>
+              LARGE SESSION — {session.totalMilestones} MILESTONES
+            </div>
+            <div style={styles.overflowSub}>Rendering may take a moment.</div>
+            <button
+              style={styles.overflowBtn}
+              data-testid="load-anyway"
+              onClick={() => setConfirmedIds((s) => new Set(s).add(session.id))}
+            >
+              LOAD ANYWAY
+            </button>
           </div>
         )}
-        {session && session.totalMilestones <= 1000 && (
+        {session && !needsConfirm && (
           <>
             <div style={styles.sessionHeader} data-testid="session-header">
               <div style={styles.sessionTitle}>SESSION {session.id.slice(0, 8)}</div>
@@ -97,5 +110,25 @@ const styles = {
     color: 'var(--text-dim)',
     fontFamily: 'ui-monospace, monospace',
     marginTop: 2,
+  },
+  overflow: {
+    position: 'absolute' as const, inset: 0,
+    display: 'flex', flexDirection: 'column' as const,
+    alignItems: 'center', justifyContent: 'center',
+    color: 'var(--text-dim)', gap: 12,
+  },
+  overflowMsg: {
+    letterSpacing: 4, fontSize: 13, color: 'var(--text)',
+    fontFamily: 'ui-monospace, monospace',
+  },
+  overflowSub: {
+    fontSize: 11, color: 'var(--text-dim)',
+    fontFamily: 'ui-monospace, monospace',
+  },
+  overflowBtn: {
+    background: 'transparent', border: '1px solid var(--edge-trail)',
+    color: 'var(--edge-trail)', padding: '8px 18px', cursor: 'pointer',
+    fontFamily: 'ui-monospace, monospace', letterSpacing: 3, fontSize: 11,
+    boxShadow: '0 0 12px rgba(0, 229, 255, 0.25)',
   },
 };
