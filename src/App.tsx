@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SessionList } from './components/SessionList';
 import { GraphCanvas } from './components/GraphCanvas';
 import { NowPlaying } from './components/NowPlaying';
@@ -8,6 +8,8 @@ import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
 import { useSession } from './api/hooks';
 import { usePlayback } from './playback/usePlayback';
+import { useKeyboard } from './playback/useKeyboard';
+import type { CameraApi } from './graph/useCamera';
 import type { Milestone, SessionMeta } from './parse/types';
 
 type Selected = { projectId: string; sessionId: string } | null;
@@ -51,6 +53,16 @@ export default function App() {
     if (!session || !pinnedId) return null;
     return playback.order.find((m) => m.id === pinnedId) ?? null;
   }, [session, pinnedId, playback.order]);
+
+  const cameraRef = useRef<CameraApi | null>(null);
+  useKeyboard({
+    controls,
+    speed: playback.speed,
+    onFit: () => cameraRef.current?.fit(),
+    onToggleFollow: () => cameraRef.current?.setFollow(!cameraRef.current.follow),
+    onToggleSidebar: () => setSidebarCollapsed((v) => !v),
+    onCloseDetail: () => setPinnedId(null),
+  });
   const needsConfirm = !!session && session.totalMilestones > 1000 && !confirmedIds.has(session.id);
 
   return (
@@ -90,7 +102,15 @@ export default function App() {
               <div style={styles.sessionTitle}>SESSION {session.id.slice(0, 8)}</div>
               <div style={styles.sessionCwd}>{session.cwd}</div>
             </div>
-            <GraphCanvas session={session} playback={playback} subagentIds={subagentIds} pinnedId={pinnedId} onPin={setPinnedId} filters={filters} />
+            <GraphCanvas
+              session={session}
+              playback={playback}
+              subagentIds={subagentIds}
+              pinnedId={pinnedId}
+              onPin={setPinnedId}
+              filters={filters}
+              onCameraReady={(api) => { cameraRef.current = api; }}
+            />
             <FilterToggles value={filters} onChange={setFilters} />
             <Legend />
             <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
