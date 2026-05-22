@@ -9,8 +9,14 @@ import { Legend } from './components/Legend';
 import { useSession } from './api/hooks';
 import { usePlayback } from './playback/usePlayback';
 import { useKeyboard } from './playback/useKeyboard';
+import { usePersistentWidth } from './util/usePersistentWidth';
 import type { CameraApi } from './graph/useCamera';
 import type { Milestone, SessionMeta } from './parse/types';
+
+const SIDEBAR_MIN = 200;
+const SIDEBAR_MAX = 520;
+const DETAIL_MIN = 320;
+const DETAIL_MAX = 720;
 
 type Selected = { projectId: string; sessionId: string } | null;
 
@@ -48,6 +54,8 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filters, setFilters] = useState<Filters>({ hidePruned: false, hideSubagents: false, successOnly: false });
   const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
+  const [detailWidth, setDetailWidth] = usePersistentWidth('tg.detail.width', 420, DETAIL_MIN, DETAIL_MAX);
   useEffect(() => { setPinnedId(null); }, [selected]);
   const pinnedMilestone = useMemo(() => {
     if (!session || !pinnedId) return null;
@@ -72,11 +80,12 @@ export default function App() {
         onSelect={(s: SessionMeta) => setSelected({ projectId: s.projectId, sessionId: s.sessionId })}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
+        width={sidebarWidth}
+        onResize={(d) => setSidebarWidth(sidebarWidth + d)}
       />
       <main style={{
         ...styles.main,
-        paddingRight: pinnedMilestone ? 420 : 0,
-        transition: 'padding-right 240ms ease',
+        paddingRight: pinnedMilestone ? detailWidth : 0,
       }}>
         {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
         {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
@@ -121,7 +130,12 @@ export default function App() {
             <PlaybackControls state={playback} controls={controls} />
           </div>
         )}
-        <DetailPanel milestone={pinnedMilestone} onClose={() => setPinnedId(null)} />
+        <DetailPanel
+          milestone={pinnedMilestone}
+          onClose={() => setPinnedId(null)}
+          width={detailWidth}
+          onResize={(d) => setDetailWidth(detailWidth + d)}
+        />
       </main>
     </div>
   );

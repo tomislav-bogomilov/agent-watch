@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useSessionList } from '../api/hooks';
 import type { SessionMeta } from '../parse/types';
+import { ResizeHandle } from './ResizeHandle';
 
 type Props = {
   selected: { projectId: string; sessionId: string } | null;
   onSelect: (s: SessionMeta) => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  width: number;
+  onResize: (delta: number) => void;
 };
 
 function projectKey(cwd: string): string {
@@ -14,7 +17,7 @@ function projectKey(cwd: string): string {
   return parts.slice(-2).join('/');
 }
 
-export function SessionList({ selected, onSelect, collapsed, onToggleCollapsed }: Props) {
+export function SessionList({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize }: Props) {
   const { data, isLoading, error } = useSessionList();
   const [query, setQuery] = useState('');
 
@@ -47,7 +50,8 @@ export function SessionList({ selected, onSelect, collapsed, onToggleCollapsed }
   }
 
   return (
-    <aside style={styles.aside} data-testid="session-list">
+    <aside style={{ ...styles.aside, width }} data-testid="session-list">
+      <ResizeHandle side="right" onResize={onResize} testId="sidebar-resize" />
       <div style={styles.header}>
         <h2 style={styles.title}>SESSIONS</h2>
         <button
@@ -101,13 +105,13 @@ export function SessionList({ selected, onSelect, collapsed, onToggleCollapsed }
 
 const styles = {
   aside: {
-    width: 280,
     height: '100%',
     borderRight: '1px solid var(--grid)',
     display: 'flex' as const,
     flexDirection: 'column' as const,
     padding: '12px 0',
-    transition: 'width 200ms ease',
+    position: 'relative' as const,
+    flexShrink: 0,
   },
   header: {
     display: 'flex',

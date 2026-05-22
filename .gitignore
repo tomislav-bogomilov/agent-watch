@@ -32,3 +32,10 @@ npm-debug.log*
 coverage/
 playwright-report/
 test-results/
+.playwright-mcp/
+
+# MCP config (machine-local)
+.mcp.json
+
+# Ad-hoc screenshots
+tg-*.png
