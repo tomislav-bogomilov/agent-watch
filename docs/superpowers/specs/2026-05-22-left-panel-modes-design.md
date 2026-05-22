@@ -20,7 +20,7 @@ Three slices, each well-bounded:
 
 - **Server** — one new endpoint `/api/prompts` plus a prompt-extraction helper, both in `server/vite-plugin-sessions.ts`. Reuses the existing JSONL streaming, `isMeaningfulUserText` cleaning, `decodeProjectId`, `claudeHome`, and `isSafeId` helpers.
 - **Sidebar** — replace `src/components/SessionList.tsx` with a three-file split under `src/components/library/`. A shell owns dropdown/filter/collapse/resize/project-grouping; two thin child renderers render rows per mode.
-- **Scoped graph** — one pure function `sliceTurn(root, promptId)` in `src/parse/slice.ts`. `App.tsx` chooses between the full root and the sliced root before feeding into the unchanged `GraphCanvas` + `usePlayback`.
+- **Scoped graph** — one pure function `sliceSession(session, promptId)` in `src/parse/slice.ts` that returns a `Session`-shaped object with the milestone chain restricted to that prompt's turn. `App.tsx` chooses between the full session and the sliced session before feeding into the unchanged `GraphCanvas` + `usePlayback`.
 
 ### Data flow
 
@@ -31,7 +31,7 @@ Sessions mode:
 
 Prompts mode:
   /api/prompts → list → click
-                      → /api/sessions/:p/:s → parseSession → sliceTurn(root, id) → GraphCanvas
+                      → /api/sessions/:p/:s → parseSession → sliceSession(s, id) → GraphCanvas
 ```
 
 Both modes converge on the same `useSession` hook and React Query cache.
@@ -46,7 +46,7 @@ Add the endpoint alongside `/api/sessions` in `server/vite-plugin-sessions.ts`.
 type PromptMeta = {
   projectId: string;         // same encoded id used by /api/sessions
   sessionId: string;
-  promptId: string;          // the JSONL event uuid — keys sliceTurn
+  promptId: string;          // the JSONL event uuid — keys sliceSession
   kind: 'root' | 'followup';
   text: string;              // cleaned snippet, truncated to PROMPT_MAX_CHARS
   timestamp: string;         // ISO from the event
@@ -139,42 +139,37 @@ Native `<select>` with `appearance: none`, a custom `▾` glyph absolutely-posit
 ### New module: `src/parse/slice.ts`
 
 ```ts
-export function sliceTurn(root: Milestone, promptId: string): Milestone | null;
+export function sliceSession(session: Session, promptId: string): Session | null;
 ```
+
+Returns a `Session`-shaped object whose `root` is the milestone chain starting at the given prompt and stopping before the next user follow-up. The returned object carries the same `id`, `cwd`, and `startedAt` as the input; `totalMilestones` is recomputed for the slice; `successPath` is the intersection of the original `successPath` with the slice's ids.
 
 The parsed milestone chain is linear with one extra branch only at `subagent_spawn` nodes (see `parse/milestones.ts` and `App.tsx:collectSubagentIds`). The slice walks the primary `children[0]` chain:
 
-1. Walk the chain from `root`, following `children[0]`.
+1. Walk the chain from `session.root`, following `children[0]`.
 2. Find the node where `id === promptId`. If not found, return `null`.
 3. Starting at that node, walk forward via `children[0]` and collect until we reach a node with `kind === 'user_followup'` (exclusive — that node terminates the slice) or until `children` is empty.
 4. Rebuild a fresh chain over the collected nodes: clone each node shallowly and rewrite `children` so each points at its successor in the slice. The terminating prompt is not included.
 5. **Subagent branches are preserved verbatim.** If a collected node is a `subagent_spawn`, its `children[1]` sub-tree (the subagent's own milestones) is carried along by reference, so the scoped graph still renders subagents correctly.
-6. Return the head of the rebuilt chain.
+6. Build the returned `Session`: `root` = head of the rebuilt chain, `totalMilestones` = count of collected nodes (plus subagent descendants, matching how the original counter works), `successPath` = `new Set(originalSuccessPath ∩ slicedIds)`.
 
 ### Wiring in App.tsx
 
 ```ts
-const root = useMemo(() => {
+const effectiveSession = useMemo(() => {
   if (!session) return null;
-  if (selected?.kind === 'prompt') return sliceTurn(session.root, selected.promptId);
-  return session.root;
+  if (selected?.kind === 'prompt') return sliceSession(session, selected.promptId);
+  return session;
 }, [session, selected]);
 
-const { state: playback, controls } = usePlayback(root);
+const { state: playback, controls } = usePlayback(effectiveSession?.root ?? null);
 ```
 
-`GraphCanvas`, `usePlayback`, `NowPlaying`, `PlaybackControls`, `DetailPanel`, `FilterToggles`, `Legend` — all unchanged. They take a `Milestone` root; we just hand a different one.
+`effectiveSession` replaces `session` in every downstream consumer (`GraphCanvas`, `NowPlaying`, `DetailPanel`, the session-header overlay, the overflow gate). The components themselves are unchanged — they take a `Session`, we just hand them a different one.
 
 ### Failure mode
 
-If `sliceTurn` returns `null` (prompt id not found in the parsed session — likely because the JSONL changed since indexing), the empty/error state in `App.tsx` renders with the copy `PROMPT NOT FOUND` instead of `SELECT A SESSION`. The user can pick another prompt or switch modes.
-
-### Derived stats for the slice
-
-`Session` carries `totalMilestones` and `successPath` for the full session. The slice doesn't reuse these:
-
-- `totalMilestones` for playback's purposes is just `playback.order.length`, derived from the root passed to `usePlayback`. Already correct without changes.
-- `successPath` is only consumed inside `GraphCanvas`/edge rendering. We compute a slice-local successPath inside `sliceTurn`: intersect the original session's `successPath` (carried in via a second arg) with the slice's collected ids. To avoid changing `sliceTurn`'s signature awkwardly, we instead expose a small helper `sliceSession(session, promptId): Session | null` that returns a full `Session`-shaped object with the sliced `root`, intersected `successPath`, recomputed `totalMilestones`, and the original `id/cwd/startedAt`. `App.tsx` calls `sliceSession` and passes the resulting `Session` to its children just like today.
+If `sliceSession` returns `null` (prompt id not found in the parsed session — likely because the JSONL changed since indexing), the empty/error state in `App.tsx` renders with the copy `PROMPT NOT FOUND` instead of `SELECT A SESSION`. The user can pick another prompt or switch modes.
 
 ### Header relabel
 
@@ -182,7 +177,7 @@ The `SESSION xxxxxxxx` overlay (top-left, `App.tsx:sessionHeader`) becomes `PROM
 
 ### Overflow gate
 
-The "LARGE SESSION — N MILESTONES" confirm overlay (current threshold: 1000 milestones) is keyed on session id and the parsed session's `totalMilestones`. For prompt mode, suppress the gate — a single prompt's turn is virtually never over the threshold, and the user already accepted the parent session implicitly by interacting with a prompt that lives in it.
+The "LARGE SESSION — N MILESTONES" confirm overlay (current threshold: 1000 milestones) is keyed on `session.totalMilestones` and `session.id`. Because we feed `effectiveSession` to the same check, a slice with a recomputed (small) `totalMilestones` naturally bypasses the gate without any special case. No code change here beyond replacing `session` with `effectiveSession` everywhere it's read.
 
 ## 7. New hook
 
@@ -212,7 +207,7 @@ export function usePromptList() {
 ## 9. Testing
 
 - **E2E (Playwright)** — one new test: open Prompts mode via the dropdown, assert at least one prompt row renders from the fixture session, click it, assert the canvas mounts and the playback bar's milestone count equals the slice length (less than the full session's). Existing Sessions-mode E2E tests continue to pass unchanged.
-- **Unit** — `sliceTurn` against a hand-built chain: root prompt → tool call → tool call → user follow-up → tool call → tool call. Slicing root returns a 3-node chain; slicing the follow-up returns a 3-node chain; slicing an unknown id returns `null`. One additional case: a chain with a `subagent_spawn` mid-slice — confirm `children[1]` is preserved by reference.
+- **Unit** — `sliceSession` against a hand-built session: root prompt → tool call → tool call → user follow-up → tool call → tool call. Slicing root returns a session whose root chain has 3 nodes; slicing the follow-up returns a session whose root chain has 3 nodes; slicing an unknown id returns `null`. One additional case: a chain with a `subagent_spawn` mid-slice — confirm `children[1]` is preserved by reference and that the returned `successPath` is the intersection of the input's `successPath` with the slice's ids.
 - **No dedicated server test** for `/api/prompts`; the E2E covers the happy path through the fixture, and the extraction logic is small enough that the unit-tested cleaning helper (`isMeaningfulUserText`) carries most of the risk.
 
 ## 10. Out of scope / future
