@@ -133,6 +133,11 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
     playback.index > 0
       ? `${playback.order[playback.index - 1].id}->${playback.order[playback.index].id}`
       : null;
+  // When the user has stepped or scrubbed onto a node (paused with no
+  // edgeProgress), the inbound edge should be shown FULLY drawn rather
+  // than as a half-rendered 'drawing' edge — otherwise the trail looks
+  // like it stops one node behind the playhead.
+  const pausedAtNode = !playback.playing && playback.edgeProgress === 0;
 
   function isHidden(nodeId: string, state: string): boolean {
     if (filters.hidePruned && state === 'pruned') return true;
@@ -167,7 +172,15 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
             const isCurrent = key === traversedEdgeKey;
             const inSub = subagentIds.has(e.targetId);
             const pruned = taintedIds.has(e.targetId) && !traversedIds.has(e.targetId);
-            const state = pruned ? 'pruned' : isCurrent ? 'drawing' : isTraversed ? 'done' : 'idle';
+            const state = pruned
+              ? 'pruned'
+              : isCurrent && pausedAtNode
+              ? 'done'
+              : isCurrent
+              ? 'drawing'
+              : isTraversed
+              ? 'done'
+              : 'idle';
             const sourcePruned = taintedIds.has(e.sourceId) && !traversedIds.has(e.sourceId);
             const sourceState = sourcePruned ? 'pruned' : 'idle';
             if (isHidden(e.sourceId, sourceState) || isHidden(e.targetId, state)) return null;
