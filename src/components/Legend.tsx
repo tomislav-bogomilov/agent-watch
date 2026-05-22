@@ -56,6 +56,10 @@ const styles = {
     fontFamily: 'ui-monospace, monospace',
     fontSize: 11,
     color: 'var(--text)',
+    maxHeight: 'calc(100% - 24px)',
+    overflow: 'auto' as const,
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
   },
   header: {
     width: '100%',
