@@ -27,17 +27,21 @@ export function EdgePath({ edge, state, progress, inSubagent, freshness = 1 }: P
   // (inbound to the current playhead) reads obviously different from the
   // older trail behind it. Recent stays close to drawing; older fades.
   const isRecentDone = freshness >= 0.95;
-  const doneOpacity = isRecentDone ? 0.92 : Math.max(0.3, 0.18 + 0.4 * freshness);
+  // Tail-done is dramatically demoted so the recent transition (and the
+  // active node) are the unambiguous focus. Tail floors at ~0.18 opacity.
+  const doneOpacity = isRecentDone ? 0.92 : Math.max(0.18, 0.1 + 0.25 * freshness);
   const opacity =
-    state === 'pruned' ? 0.32 :
-    state === 'idle' ? 0.6 :
+    state === 'pruned' ? 0.28 :
+    state === 'idle' ? 0.55 :
     state === 'done' ? doneOpacity :
     1;
   // Recent-done jumps to a thick stroke (almost matching drawing). Older
   // done edges hold a slim baseline — the visual tail.
   const recentDoneStroke = inSubagent ? 4.5 : 5;
-  const tailMax = inSubagent ? 3 : 3.4;
-  const tailMin = inSubagent ? 2.2 : 2.5;
+  // Tail strokes are slim; the recent done is more than 2× thicker so it
+  // visually pops out of the trail.
+  const tailMax = inSubagent ? 2.2 : 2.4;
+  const tailMin = inSubagent ? 1.4 : 1.6;
   const doneStroke = isRecentDone
     ? recentDoneStroke
     : tailMin + (tailMax - tailMin) * freshness;
