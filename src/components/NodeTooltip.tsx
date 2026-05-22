@@ -1,40 +1,29 @@
 import type { Milestone } from '../parse/types';
 
-type Props = { milestone: Milestone; x: number; y: number };
+type Props = { milestone: Milestone; screenX: number; screenY: number };
 
-export function NodeTooltip({ milestone, x, y }: Props) {
+export function NodeTooltip({ milestone, screenX, screenY }: Props) {
   return (
     <div
+      data-testid="node-tooltip"
       style={{
         position: 'absolute',
-        left: x + 12,
-        top: y + 12,
-        maxWidth: 480,
+        left: screenX + 14,
+        top: screenY + 14,
+        maxWidth: 360,
         background: 'rgba(5,8,13,0.95)',
         border: '1px solid var(--edge-idle)',
-        padding: '8px 12px',
+        padding: '6px 10px',
         fontFamily: 'ui-monospace, monospace',
         fontSize: 12,
         color: 'var(--text)',
         pointerEvents: 'none',
         zIndex: 10,
+        boxShadow: '0 0 12px rgba(0, 229, 255, 0.15)',
       }}
     >
-      <div style={{ color: 'var(--edge-trail)', marginBottom: 4 }}>{milestone.label}</div>
-      <div style={{ marginBottom: 4 }}>{milestone.summary}</div>
-      {milestone.result && (
-        <div style={{ color: milestone.failed ? 'var(--node-failed)' : 'var(--text-dim)', marginBottom: 4 }}>
-          {milestone.result}
-        </div>
-      )}
-      {milestone.detail && (
-        <pre style={{
-          color: 'var(--text-dim)', whiteSpace: 'pre-wrap',
-          margin: 0, maxHeight: 260, overflow: 'auto', fontSize: 11,
-        }}>
-          {milestone.detail.slice(0, 1200)}
-        </pre>
-      )}
+      <div style={{ color: 'var(--edge-trail)', marginBottom: 2 }}>{milestone.label}</div>
+      <div style={{ color: 'var(--text-dim)' }}>{milestone.summary}</div>
     </div>
   );
 }

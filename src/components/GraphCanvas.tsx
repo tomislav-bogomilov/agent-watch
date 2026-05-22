@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { layoutTree, type LaidOutNode } from '../graph/layout';
 import { GraphDefs } from '../theme/Filters';
 import { NodeShape } from './NodeShape';
@@ -51,7 +51,19 @@ export function GraphCanvas({ session, playback, subagentIds }: Props) {
     [session, layout]
   );
   const taintedIds = useMemo(() => collectTaintedIds(session.root), [session]);
-  const [hover, setHover] = useState<{ milestone: Milestone; x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ milestone: Milestone; screenX: number; screenY: number } | null>(null);
+
+  function handleNodeEnter(milestone: Milestone, ev: React.MouseEvent<SVGGElement>): void {
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect) return;
+    const rect = ev.currentTarget.getBoundingClientRect();
+    setHover({
+      milestone,
+      screenX: rect.x + rect.width / 2 - containerRect.x,
+      screenY: rect.y + rect.height - containerRect.y,
+    });
+  }
 
   const currentId = playback.order[playback.index]?.id;
   const traversedIds = new Set(playback.order.slice(0, playback.index + 1).map((m) => m.id));
@@ -63,7 +75,7 @@ export function GraphCanvas({ session, playback, subagentIds }: Props) {
       : null;
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }} onMouseLeave={() => setHover(null)}>
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} onMouseLeave={() => setHover(null)}>
       <svg
         width="100%"
         height="100%"
@@ -112,8 +124,7 @@ export function GraphCanvas({ session, playback, subagentIds }: Props) {
           return (
             <g
               key={n.id}
-              onMouseEnter={(e) => setHover({ milestone: n.milestone, x: e.clientX, y: e.clientY })}
-              onMouseMove={(e) => setHover({ milestone: n.milestone, x: e.clientX, y: e.clientY })}
+              onMouseEnter={(e) => handleNodeEnter(n.milestone, e)}
               onMouseLeave={() => setHover(null)}
               style={{ cursor: 'pointer' }}
             >
@@ -122,7 +133,7 @@ export function GraphCanvas({ session, playback, subagentIds }: Props) {
           );
         })}
       </svg>
-      {hover && <NodeTooltip milestone={hover.milestone} x={hover.x} y={hover.y} />}
+      {hover && <NodeTooltip milestone={hover.milestone} screenX={hover.screenX} screenY={hover.screenY} />}
     </div>
   );
 }
