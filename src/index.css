@@ -28,12 +28,6 @@ body {
 }
 
 @keyframes tg-edge-trail {
-  0%, 100% {
-    filter: drop-shadow(0 0 3px var(--edge-trail));
-    opacity: 0.92;
-  }
-  50% {
-    filter: drop-shadow(0 0 8px var(--edge-trail));
-    opacity: 1;
-  }
+  0%, 100% { filter: drop-shadow(0 0 2px var(--edge-trail)); }
+  50%     { filter: drop-shadow(0 0 5px var(--edge-trail)); }
 }

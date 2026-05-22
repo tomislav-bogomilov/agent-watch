@@ -23,18 +23,25 @@ export function EdgePath({ edge, state, progress, inSubagent, freshness = 1 }: P
   //   idle    → soft glow, slim line
   //   done    → full glow, thick line (visited trail stays vivid)
   //   drawing → animated bold pulse
+  // Done edges cap below 1 so the live 'drawing' transition reads as
+  // the brightest line. Freshness (1 = inbound to current playhead) is
+  // scaled into the [0.4, 0.78] range — even the freshest visited edge
+  // sits noticeably below the drawing edge.
+  const doneOpacity = 0.4 + 0.38 * freshness;
   const opacity =
     state === 'pruned' ? 0.32 :
-    state === 'idle' ? 0.85 :
-    state === 'done' ? Math.max(0.55, freshness) :
+    state === 'idle' ? 0.7 :
+    state === 'done' ? doneOpacity :
     1;
-  // Done strokes fade slightly toward the tail (older = slimmer) so the
-  // freshest end of the trail visually leads the eye to the playhead.
-  const doneStroke = (inSubagent ? 4.5 : 5) - (1 - freshness) * 1.2;
+  // Done strokes are clearly slimmer than the drawing edge. They also
+  // taper with age so the trail thins out the further back you look.
+  const doneStrokeMax = inSubagent ? 3.5 : 4;
+  const doneStrokeMin = inSubagent ? 2.6 : 3;
+  const doneStroke = doneStrokeMin + (doneStrokeMax - doneStrokeMin) * freshness;
   const strokeWidth = state === 'drawing'
     ? (inSubagent ? 5 : 5.5)
     : state === 'done'
-    ? Math.max(inSubagent ? 3 : 3.5, doneStroke)
+    ? doneStroke
     : state === 'idle'
     ? (inSubagent ? 2.5 : 3)
     : 2; // pruned
