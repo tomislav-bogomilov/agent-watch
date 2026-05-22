@@ -11,20 +11,20 @@ test('playback: starts paused; play advances; pause freezes; resume completes', 
   const successCountBefore = await page.locator('svg g[data-state="success"]').count();
   expect(successCountBefore).toBe(0);
 
-  // Press play
+  // Press play (default 0.25× → 1600 ms / node)
   await page.getByTestId('play-toggle').click();
-  await page.waitForTimeout(450);
+  await page.waitForTimeout(900);
   const midActive = await page.locator('svg g[data-state="active"]').first().getAttribute('data-id');
   expect(midActive).not.toBeNull();
 
   // Pause
   await page.getByTestId('play-toggle').click();
   const pausedAt = await page.locator('svg g[data-state="active"]').first().getAttribute('data-id');
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(1200);
   const stillAt = await page.locator('svg g[data-state="active"]').first().getAttribute('data-id');
   expect(stillAt).toBe(pausedAt);
 
-  // Resume and finish (default 400ms/node × 4 nodes ≈ 1.6s)
+  // Resume and finish (1600 ms/node × 4 nodes ≈ 6.4 s)
   await page.getByTestId('play-toggle').click();
-  await expect(page.locator('svg g[data-state="success"]')).toHaveCount(4, { timeout: 8_000 });
+  await expect(page.locator('svg g[data-state="success"]')).toHaveCount(4, { timeout: 15_000 });
 });

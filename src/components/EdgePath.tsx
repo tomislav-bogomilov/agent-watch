@@ -19,8 +19,12 @@ export function EdgePath({ edge, state, progress, inSubagent }: Props) {
       : 'var(--edge-trail)';
   const dashArray = state === 'drawing' ? `${pathLength(edge)}` : undefined;
   const dashOffset = state === 'drawing' ? pathLength(edge) * (1 - progress) : 0;
-  const opacity = state === 'pruned' ? 0.3 : state === 'idle' ? 0.5 : 1;
-  const strokeWidth = inSubagent ? 1.5 : 2;
+  const opacity = state === 'pruned' ? 0.35 : state === 'idle' ? 0.85 : 1;
+  const strokeWidth = state === 'drawing'
+    ? (inSubagent ? 3 : 3.5)
+    : state === 'done'
+    ? (inSubagent ? 2.5 : 3)
+    : (inSubagent ? 2 : 2.5);
   const dasharray = inSubagent && state !== 'drawing' ? '6 4' : dashArray;
 
   return (
@@ -29,6 +33,7 @@ export function EdgePath({ edge, state, progress, inSubagent }: Props) {
       fill="none"
       stroke={stroke}
       strokeWidth={strokeWidth}
+      strokeLinecap="round"
       strokeDasharray={dasharray}
       strokeDashoffset={dashOffset}
       opacity={opacity}

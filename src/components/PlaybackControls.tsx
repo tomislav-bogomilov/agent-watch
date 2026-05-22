@@ -3,12 +3,9 @@ import {
   nextIndexMatching,
   type PlaybackControls as Controls,
   type PlaybackState,
-  type Speed,
 } from '../playback/usePlayback';
 
 type Props = { state: PlaybackState; controls: Controls };
-
-const SPEEDS: Speed[] = [0.25, 0.5, 1, 2, 4];
 
 function Scrubber({ index, edgeProgress, total, onSeek }: {
   index: number; edgeProgress: number; total: number; onSeek: (i: number) => void;
@@ -100,18 +97,6 @@ export function PlaybackControls({ state, controls }: Props) {
         aria-label="step forward"
         title="step forward (→)"
       >›</button>
-      <div style={styles.speedGroup} role="group" aria-label="speed">
-        {SPEEDS.map((s) => (
-          <button
-            key={s}
-            onClick={() => controls.setSpeed(s)}
-            style={{ ...styles.speed, ...(state.speed === s ? styles.speedActive : {}) }}
-            data-testid={`speed-${s}`}
-          >
-            {s}×
-          </button>
-        ))}
-      </div>
       <div style={styles.jumpGroup}>
         <button
           style={styles.btn}
@@ -181,17 +166,5 @@ const styles = {
     fontFamily: 'inherit',
     fontSize: 12,
   },
-  speedGroup: { display: 'flex', marginLeft: 6 },
-  speed: {
-    background: 'transparent',
-    border: '1px solid var(--edge-idle)',
-    color: 'var(--text-dim)',
-    padding: '4px 6px',
-    marginLeft: -1,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    fontSize: 11,
-  },
-  speedActive: { color: 'var(--edge-trail)', borderColor: 'var(--edge-trail)' },
   jumpGroup: { display: 'flex' as const, gap: 4, marginLeft: 6 },
 };

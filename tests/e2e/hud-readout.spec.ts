@@ -8,12 +8,11 @@ test('HUD: summary and result populate as trail enters each node', async ({ page
   // Playback is paused by default — start it.
   await page.getByTestId('play-toggle').click();
 
-  // With BASE_MS_PER_NODE=400 at 1×, the Bash tool_call milestone (index 2 of 4)
-  // becomes active at ~400ms; its result line appears once edgeProgress >= 0.6
-  // (~640ms into playback). Pause at ~720ms so the HUD is frozen on the Bash
-  // node with the result typewriter in motion. The typewriter then completes
-  // while playback is paused, letting us assert the text reliably.
-  await page.waitForTimeout(720);
+  // Default speed is 0.25× → 1600ms per node. Bash tool_call (index 2 of 4)
+  // becomes active at ~1600ms; its result line appears once edgeProgress
+  // ≥ 0.6 (~2560ms into playback). Pause at ~2880ms so the HUD is frozen
+  // on the Bash node with the result typewriter in motion.
+  await page.waitForTimeout(2880);
   await page.getByTestId('play-toggle').click();
 
   // Summary should show one of the milestone summaries seen so far.

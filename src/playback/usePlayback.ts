@@ -54,7 +54,7 @@ export function usePlayback(root: Milestone | null): { state: PlaybackState; con
   const [index, setIndex] = useState(0);
   const [edgeProgress, setEdgeProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<Speed>(1);
+  const [speed, setSpeed] = useState<Speed>(0.25);
   const lastTickRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 

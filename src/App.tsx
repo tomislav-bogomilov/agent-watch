@@ -79,9 +79,22 @@ export default function App() {
   }
 
   const cameraRef = useRef<CameraApi | null>(null);
+  // Wrap controls so any user-initiated playback motion re-enables FOLLOW.
+  // Manual canvas panning still flips it off; this just keeps the camera
+  // attached to the playhead when the user is actually driving playback.
+  const followingControls = useMemo<typeof controls>(() => ({
+    ...controls,
+    play: () => { cameraRef.current?.setFollow(true); controls.play(); },
+    toggle: () => {
+      if (!playback.playing) cameraRef.current?.setFollow(true);
+      controls.toggle();
+    },
+    step: (d) => { cameraRef.current?.setFollow(true); controls.step(d); },
+    scrubTo: (i) => { cameraRef.current?.setFollow(true); controls.scrubTo(i); },
+    restart: () => { cameraRef.current?.setFollow(true); controls.restart(); },
+  }), [controls, playback.playing]);
   useKeyboard({
-    controls,
-    speed: playback.speed,
+    controls: followingControls,
     onFit: () => cameraRef.current?.fit(),
     onToggleFollow: () => cameraRef.current?.setFollow(!cameraRef.current.follow),
     onToggleSidebar: () => setSidebarCollapsed((v) => !v),
@@ -143,7 +156,7 @@ export default function App() {
         {session && !needsConfirm && (
           <div data-testid="chrome-gutter" style={styles.gutter}>
             <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
-            <PlaybackControls state={playback} controls={controls} />
+            <PlaybackControls state={playback} controls={followingControls} />
           </div>
         )}
         <DetailPanel
@@ -176,9 +189,10 @@ const styles = {
     background: 'rgba(5,8,13,0.5)',
     display: 'flex' as const,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
+    gap: 16,
     padding: '0 16px',
+    minWidth: 0,
+    overflow: 'hidden' as const,
   },
   empty: {
     position: 'absolute' as const, inset: 0,
