@@ -38,6 +38,18 @@ test('FIT button reduces scale toward fit after zoom', async ({ page }) => {
   expect(fitted.width).toBeLessThan(zoomed.width);
 });
 
+test('click node opens detail panel; close button dismisses', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('aside li', { hasText: 'demo/happy' }).click();
+  const firstNode = page.locator('svg g[data-id]').first();
+  await expect(firstNode).toBeVisible();
+  await firstNode.click();
+  const panel = page.getByTestId('detail-panel');
+  await expect(panel).toBeVisible();
+  await page.getByTestId('detail-close').click();
+  await expect(panel).toHaveCount(0);
+});
+
 test('tooltip lands within 260px of the hovered node', async ({ page }) => {
   await page.goto('/');
   await page.locator('aside li', { hasText: 'demo/happy' }).click();

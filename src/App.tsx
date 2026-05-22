@@ -3,6 +3,7 @@ import { SessionList } from './components/SessionList';
 import { GraphCanvas } from './components/GraphCanvas';
 import { NowPlaying } from './components/NowPlaying';
 import { PlaybackControls } from './components/PlaybackControls';
+import { DetailPanel } from './components/DetailPanel';
 import { useSession } from './api/hooks';
 import { usePlayback } from './playback/usePlayback';
 import type { Milestone, SessionMeta } from './parse/types';
@@ -42,6 +43,10 @@ export default function App() {
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   useEffect(() => { setPinnedId(null); }, [selected]);
+  const pinnedMilestone = useMemo(() => {
+    if (!session || !pinnedId) return null;
+    return playback.order.find((m) => m.id === pinnedId) ?? null;
+  }, [session, pinnedId, playback.order]);
   const needsConfirm = !!session && session.totalMilestones > 1000 && !confirmedIds.has(session.id);
 
   return (
@@ -50,7 +55,11 @@ export default function App() {
         selected={selected}
         onSelect={(s: SessionMeta) => setSelected({ projectId: s.projectId, sessionId: s.sessionId })}
       />
-      <main style={styles.main}>
+      <main style={{
+        ...styles.main,
+        paddingRight: pinnedMilestone ? 420 : 0,
+        transition: 'padding-right 240ms ease',
+      }}>
         {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
         {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
         {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
@@ -80,6 +89,7 @@ export default function App() {
             <PlaybackControls state={playback} controls={controls} />
           </>
         )}
+        <DetailPanel milestone={pinnedMilestone} onClose={() => setPinnedId(null)} />
       </main>
     </div>
   );
