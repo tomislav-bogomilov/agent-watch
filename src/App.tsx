@@ -97,7 +97,7 @@ export default function App() {
           </div>
         )}
         {session && !needsConfirm && (
-          <>
+          <div style={styles.canvasSlot}>
             <div style={styles.sessionHeader} data-testid="session-header">
               <div style={styles.sessionTitle}>SESSION {session.id.slice(0, 8)}</div>
               <div style={styles.sessionCwd}>{session.cwd}</div>
@@ -113,9 +113,13 @@ export default function App() {
             />
             <FilterToggles value={filters} onChange={setFilters} />
             <Legend />
+          </div>
+        )}
+        {session && !needsConfirm && (
+          <div data-testid="chrome-gutter" style={styles.gutter}>
             <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
             <PlaybackControls state={playback} controls={controls} />
-          </>
+          </div>
         )}
         <DetailPanel milestone={pinnedMilestone} onClose={() => setPinnedId(null)} />
       </main>
@@ -123,9 +127,29 @@ export default function App() {
   );
 }
 
+const GUTTER_HEIGHT = 110;
+
 const styles = {
   shell: { display: 'flex', height: '100%' },
-  main: { flex: 1, position: 'relative' as const, overflow: 'hidden' as const },
+  main: {
+    flex: 1,
+    position: 'relative' as const,
+    overflow: 'hidden' as const,
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+  },
+  canvasSlot: { flex: 1, minHeight: 0, position: 'relative' as const },
+  gutter: {
+    flexShrink: 0,
+    height: GUTTER_HEIGHT,
+    borderTop: '1px solid var(--grid)',
+    background: 'rgba(5,8,13,0.5)',
+    display: 'flex' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    padding: '0 16px',
+  },
   empty: {
     position: 'absolute' as const, inset: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',

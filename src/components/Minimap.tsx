@@ -44,7 +44,7 @@ export function Minimap({ layout, transform, viewport, currentLayoutPoint, onJum
       style={{
         position: 'absolute',
         right: 12,
-        bottom: 80,
+        bottom: 12,
         zIndex: 6,
         background: 'rgba(5,8,13,0.85)',
         border: '1px solid var(--edge-idle)',

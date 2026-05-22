@@ -164,10 +164,6 @@ export function PlaybackControls({ state, controls }: Props) {
 
 const styles = {
   bar: {
-    position: 'absolute' as const,
-    left: '50%',
-    bottom: 16,
-    transform: 'translateX(-50%)',
     display: 'flex',
     gap: 6,
     alignItems: 'center',
@@ -175,7 +171,6 @@ const styles = {
     border: '1px solid var(--edge-idle)',
     padding: '6px 10px',
     fontFamily: 'ui-monospace, monospace',
-    zIndex: 4,
   },
   btn: {
     background: 'transparent',

@@ -59,15 +59,11 @@ export function NowPlaying({ current, edgeProgress, inSubagent, speed }: Props) 
 
 const styles = {
   frame: {
-    position: 'absolute' as const,
-    left: '50%',
-    bottom: 80,
-    transform: 'translateX(-50%)',
-    minWidth: 520,
-    maxWidth: '70%',
+    minWidth: 460,
+    maxWidth: 720,
     background: 'rgba(5,8,13,0.85)',
     border: '1px solid',
-    padding: '10px 16px',
+    padding: '8px 14px',
     fontFamily: 'ui-monospace, monospace',
     backdropFilter: 'blur(2px)',
   },
