@@ -78,7 +78,7 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
   }, []);
 
   const camera = useCamera({ svgRef, layout, viewport });
-  const { transform, fit, setFollow, follow } = camera;
+  const { transform, fit, setFollow, follow, centerOn } = camera;
 
   useEffect(() => {
     onCameraReady?.(camera);
@@ -91,6 +91,24 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, viewport.width, viewport.height]);
+
+  const currentId = playback.order[playback.index]?.id;
+
+  // Auto-follow: when follow is on and the active node leaves the central 60%
+  // of the viewport, re-center on it. The 320 ms programmatic guard in
+  // useCamera prevents this from flipping follow off.
+  useEffect(() => {
+    if (!follow || !currentId) return;
+    const node = layout.nodes.find((n) => n.id === currentId);
+    if (!node) return;
+    const screenX = node.x * transform.k + transform.x;
+    const screenY = node.y * transform.k + transform.y;
+    const cx = viewport.width / 2;
+    const cy = viewport.height / 2;
+    if (Math.abs(screenX - cx) > viewport.width * 0.3 || Math.abs(screenY - cy) > viewport.height * 0.3) {
+      centerOn({ x: node.x, y: node.y }, transform.k);
+    }
+  }, [currentId, follow, layout.nodes, transform.k, transform.x, transform.y, viewport.height, viewport.width, centerOn]);
 
   const [hover, setHover] = useState<{ milestone: Milestone; screenX: number; screenY: number } | null>(null);
 
@@ -105,7 +123,6 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
     });
   }
 
-  const currentId = playback.order[playback.index]?.id;
   const traversedIds = new Set(playback.order.slice(0, playback.index + 1).map((m) => m.id));
   const successIds = session.successPath;
 
