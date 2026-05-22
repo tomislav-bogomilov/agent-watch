@@ -184,11 +184,15 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
           {layout.nodes.map((n) => {
             const inSub = subagentIds.has(n.id);
             let state: 'idle' | 'active' | 'success' | 'failed' | 'pruned';
-            if (n.milestone.failed) state = 'failed';
+            // While playback is in motion, the playhead always wins so the
+            // user can see which node is currently active even when that
+            // node lives in a failed or pruned subtree. Once playback is
+            // finished, the cursor releases and final states show through.
+            if (n.id === currentId && !playback.finished) state = 'active';
+            else if (n.milestone.failed) state = 'failed';
             else if (taintedIds.has(n.id)) state = 'pruned';
             else if (playback.finished && successIds.has(n.id)) state = 'success';
             else if (playback.finished && traversedIds.has(n.id)) state = 'success';
-            else if (n.id === currentId) state = 'active';
             else if (traversedIds.has(n.id)) state = 'success';
             else state = 'idle';
             if (isHidden(n.id, state)) return null;
