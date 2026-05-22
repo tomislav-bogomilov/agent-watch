@@ -54,13 +54,29 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filters, setFilters] = useState<Filters>({ hidePruned: false, hideSubagents: false, successOnly: false });
   const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const [panelDismissed, setPanelDismissed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
   const [detailWidth, setDetailWidth] = usePersistentWidth('tg.detail.width', 420, DETAIL_MIN, DETAIL_MAX);
-  useEffect(() => { setPinnedId(null); }, [selected]);
+  useEffect(() => { setPinnedId(null); setPanelDismissed(false); }, [selected]);
+  // When the user starts (or restarts) playback, clear any prior dismissal so
+  // the auto-show panel comes back.
+  useEffect(() => { if (playback.playing) setPanelDismissed(false); }, [playback.playing]);
+
   const pinnedMilestone = useMemo(() => {
     if (!session || !pinnedId) return null;
     return playback.order.find((m) => m.id === pinnedId) ?? null;
   }, [session, pinnedId, playback.order]);
+
+  // While playback has progressed (or is actively playing) and the user has
+  // neither pinned a node nor explicitly dismissed the panel, show the live
+  // current milestone in the detail panel.
+  const showLive = !pinnedMilestone && !panelDismissed && (playback.playing || playback.index > 0);
+  const displayedMilestone = pinnedMilestone ?? (showLive ? currentMilestone : null);
+
+  function handleDetailClose(): void {
+    if (pinnedId) setPinnedId(null);
+    else setPanelDismissed(true);
+  }
 
   const cameraRef = useRef<CameraApi | null>(null);
   useKeyboard({
@@ -69,7 +85,7 @@ export default function App() {
     onFit: () => cameraRef.current?.fit(),
     onToggleFollow: () => cameraRef.current?.setFollow(!cameraRef.current.follow),
     onToggleSidebar: () => setSidebarCollapsed((v) => !v),
-    onCloseDetail: () => setPinnedId(null),
+    onCloseDetail: handleDetailClose,
   });
   const needsConfirm = !!session && session.totalMilestones > 1000 && !confirmedIds.has(session.id);
 
@@ -85,7 +101,7 @@ export default function App() {
       />
       <main style={{
         ...styles.main,
-        paddingRight: pinnedMilestone ? detailWidth : 0,
+        paddingRight: displayedMilestone ? detailWidth : 0,
       }}>
         {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
         {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
@@ -131,8 +147,8 @@ export default function App() {
           </div>
         )}
         <DetailPanel
-          milestone={pinnedMilestone}
-          onClose={() => setPinnedId(null)}
+          milestone={displayedMilestone}
+          onClose={handleDetailClose}
           width={detailWidth}
           onResize={(d) => setDetailWidth((w) => w + d)}
         />

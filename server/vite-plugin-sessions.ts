@@ -12,8 +12,33 @@ type SessionMeta = {
   title?: string;
 };
 
-const TITLE_HEAD_BYTES = 16 * 1024;
+const TITLE_HEAD_BYTES = 64 * 1024;
 const TITLE_MAX_CHARS = 60;
+
+function isMeaningfulUserText(raw: string): string | null {
+  // Strip command tags and other XML-ish noise the CLI emits.
+  let cleaned = raw
+    .replace(/<command-name>.*?<\/command-name>/gs, ' ')
+    .replace(/<command-message>.*?<\/command-message>/gs, ' ')
+    .replace(/<command-args>(.*?)<\/command-args>/gs, ' $1 ')
+    .replace(/<local-command-stdout>.*?<\/local-command-stdout>/gs, ' ')
+    .replace(/<local-command-stderr>.*?<\/local-command-stderr>/gs, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return null;
+  // Skip bare slash commands like "/clear", "/model", "/compact" — they
+  // describe the operation, not the conversation. If the user typed a
+  // slash command with arguments we keep the args as the topic.
+  if (cleaned.startsWith('/')) {
+    const afterFirstSpace = cleaned.slice(cleaned.indexOf(' ') + 1).trim();
+    if (!afterFirstSpace || afterFirstSpace === cleaned) return null;
+    cleaned = afterFirstSpace;
+  }
+  // Skip caveats / system breadcrumbs (e.g., "Caveat: The messages below…").
+  if (/^caveat:/i.test(cleaned)) return null;
+  return cleaned;
+}
 
 async function extractTitle(filePath: string): Promise<string | undefined> {
   let handle: import('node:fs').promises.FileHandle | undefined;
@@ -39,7 +64,7 @@ async function extractTitle(filePath: string): Promise<string | undefined> {
         text = block?.text;
       }
       if (!text) continue;
-      const cleaned = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const cleaned = isMeaningfulUserText(text);
       if (!cleaned) continue;
       return cleaned.length > TITLE_MAX_CHARS ? `${cleaned.slice(0, TITLE_MAX_CHARS)}…` : cleaned;
     }
