@@ -1,24 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SessionList } from './components/SessionList';
+import { LibraryPanel, type Selection } from './components/library/LibraryPanel';
 import { GraphCanvas } from './components/GraphCanvas';
 import { NowPlaying } from './components/NowPlaying';
 import { PlaybackControls } from './components/PlaybackControls';
 import { DetailPanel } from './components/DetailPanel';
 import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
-import { useSession } from './api/hooks';
+import { usePromptList, useSession } from './api/hooks';
+import { sliceSession } from './parse/slice';
 import { usePlayback } from './playback/usePlayback';
 import { useKeyboard } from './playback/useKeyboard';
 import { usePersistentWidth } from './util/usePersistentWidth';
 import type { CameraApi } from './graph/useCamera';
-import type { Milestone, SessionMeta } from './parse/types';
+import type { Milestone, Session } from './parse/types';
 
 const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 520;
 const DETAIL_MIN = 320;
 const DETAIL_MAX = 720;
-
-type Selected = { projectId: string; sessionId: string } | null;
 
 function collectSubagentIds(root: Milestone): Set<string> {
   const ids = new Set<string>();
@@ -36,15 +35,25 @@ function collectSubagentIds(root: Milestone): Set<string> {
 }
 
 export default function App() {
-  const [selected, setSelected] = useState<Selected>(null);
-  const { data: session, isLoading, error } = useSession(
+  const [selected, setSelected] = useState<Selection | null>(null);
+  const { data: rawSession, isLoading, error } = useSession(
     selected?.projectId ?? null,
     selected?.sessionId ?? null
   );
-  const { state: playback, controls } = usePlayback(session?.root ?? null);
+  const promptsQuery = usePromptList();
+
+  // For prompt selections, derive an `effectiveSession` whose root is the
+  // sliced chain. For session selections, pass the parsed session through.
+  const effectiveSession: Session | null = useMemo(() => {
+    if (!rawSession) return null;
+    if (selected?.kind === 'prompt') return sliceSession(rawSession, selected.promptId);
+    return rawSession;
+  }, [rawSession, selected]);
+
+  const { state: playback, controls } = usePlayback(effectiveSession?.root ?? null);
   const subagentIds = useMemo(
-    () => (session ? collectSubagentIds(session.root) : new Set<string>()),
-    [session]
+    () => (effectiveSession ? collectSubagentIds(effectiveSession.root) : new Set<string>()),
+    [effectiveSession]
   );
 
   const currentMilestone = playback.order[playback.index] ?? null;
@@ -58,9 +67,6 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
   const [detailWidth, setDetailWidth] = usePersistentWidth('tg.detail.width', 420, DETAIL_MIN, DETAIL_MAX);
   useEffect(() => { setPinnedId(null); setPanelDismissed(false); }, [selected]);
-  // When the user starts (or restarts) playback, clear any prior dismissal
-  // AND release the explicit pin so the panel follows the playhead instead
-  // of staying stuck on the node the user previously clicked.
   useEffect(() => {
     if (playback.playing) {
       setPanelDismissed(false);
@@ -69,13 +75,10 @@ export default function App() {
   }, [playback.playing]);
 
   const pinnedMilestone = useMemo(() => {
-    if (!session || !pinnedId) return null;
+    if (!effectiveSession || !pinnedId) return null;
     return playback.order.find((m) => m.id === pinnedId) ?? null;
-  }, [session, pinnedId, playback.order]);
+  }, [effectiveSession, pinnedId, playback.order]);
 
-  // While playback has progressed (or is actively playing) and the user has
-  // neither pinned a node nor explicitly dismissed the panel, show the live
-  // current milestone in the detail panel.
   const showLive = !pinnedMilestone && !panelDismissed && (playback.playing || playback.index > 0);
   const displayedMilestone = pinnedMilestone ?? (showLive ? currentMilestone : null);
 
@@ -85,9 +88,6 @@ export default function App() {
   }
 
   const cameraRef = useRef<CameraApi | null>(null);
-  // Wrap controls so any user-initiated playback motion re-enables FOLLOW.
-  // Manual canvas panning still flips it off; this just keeps the camera
-  // attached to the playhead when the user is actually driving playback.
   const followingControls = useMemo<typeof controls>(() => ({
     ...controls,
     play: () => { cameraRef.current?.setFollow(true); controls.play(); },
@@ -106,13 +106,27 @@ export default function App() {
     onToggleSidebar: () => setSidebarCollapsed((v) => !v),
     onCloseDetail: handleDetailClose,
   });
-  const needsConfirm = !!session && session.totalMilestones > 1000 && !confirmedIds.has(session.id);
+  const needsConfirm = !!effectiveSession && effectiveSession.totalMilestones > 1000 && !confirmedIds.has(effectiveSession.id);
+
+  // Header overlay: in prompt mode, show `PROMPT N` where N = ordinal+1
+  // taken from the prompts query (cheap lookup, falls back to id).
+  const headerTitle = useMemo(() => {
+    if (!effectiveSession) return '';
+    if (selected?.kind === 'prompt') {
+      const p = promptsQuery.data?.find((x) => x.promptId === selected.promptId);
+      const n = p ? p.ordinal + 1 : null;
+      return n != null ? `PROMPT ${n}` : 'PROMPT';
+    }
+    return `SESSION ${effectiveSession.id.slice(0, 8)}`;
+  }, [effectiveSession, selected, promptsQuery.data]);
+
+  const isMissingSlice = !!rawSession && selected?.kind === 'prompt' && effectiveSession === null;
 
   return (
     <div style={styles.shell}>
-      <SessionList
+      <LibraryPanel
         selected={selected}
-        onSelect={(s: SessionMeta) => setSelected({ projectId: s.projectId, sessionId: s.sessionId })}
+        onSelect={setSelected}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
         width={sidebarWidth}
@@ -125,29 +139,30 @@ export default function App() {
         {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
         {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
         {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
-        {session && needsConfirm && (
+        {isMissingSlice && <div style={styles.empty} data-testid="prompt-not-found">PROMPT NOT FOUND</div>}
+        {effectiveSession && needsConfirm && (
           <div style={styles.overflow} data-testid="overflow-confirm">
             <div style={styles.overflowMsg}>
-              LARGE SESSION — {session.totalMilestones} MILESTONES
+              LARGE SESSION — {effectiveSession.totalMilestones} MILESTONES
             </div>
             <div style={styles.overflowSub}>Rendering may take a moment.</div>
             <button
               style={styles.overflowBtn}
               data-testid="load-anyway"
-              onClick={() => setConfirmedIds((s) => new Set(s).add(session.id))}
+              onClick={() => setConfirmedIds((s) => new Set(s).add(effectiveSession.id))}
             >
               LOAD ANYWAY
             </button>
           </div>
         )}
-        {session && !needsConfirm && (
+        {effectiveSession && !needsConfirm && (
           <div style={styles.canvasSlot}>
             <div style={styles.sessionHeader} data-testid="session-header">
-              <div style={styles.sessionTitle}>SESSION {session.id.slice(0, 8)}</div>
-              <div style={styles.sessionCwd}>{session.cwd}</div>
+              <div style={styles.sessionTitle}>{headerTitle}</div>
+              <div style={styles.sessionCwd}>{effectiveSession.cwd}</div>
             </div>
             <GraphCanvas
-              session={session}
+              session={effectiveSession}
               playback={playback}
               subagentIds={subagentIds}
               pinnedId={pinnedId}
@@ -159,7 +174,7 @@ export default function App() {
             <Legend />
           </div>
         )}
-        {session && !needsConfirm && (
+        {effectiveSession && !needsConfirm && (
           <div data-testid="chrome-gutter" style={styles.gutter}>
             <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
             <PlaybackControls state={playback} controls={followingControls} />
