@@ -16,17 +16,22 @@ function readWidth(key: string, fallback: number, min: number, max: number): num
   }
 }
 
+type Updater = number | ((prev: number) => number);
+
 export function usePersistentWidth(
   key: string,
   fallback: number,
   min: number,
   max: number,
-): [number, (next: number) => void] {
+): [number, (next: Updater) => void] {
   const [width, setWidthState] = useState<number>(() => readWidth(key, fallback, min, max));
-  const setWidth = useCallback((next: number) => {
-    const clamped = clamp(Math.round(next), min, max);
-    setWidthState(clamped);
-    try { localStorage.setItem(key, String(clamped)); } catch { /* ignore */ }
+  const setWidth = useCallback((next: Updater) => {
+    setWidthState((prev) => {
+      const raw = typeof next === 'function' ? next(prev) : next;
+      const clamped = clamp(Math.round(raw), min, max);
+      try { localStorage.setItem(key, String(clamped)); } catch { /* ignore */ }
+      return clamped;
+    });
   }, [key, min, max]);
   return [width, setWidth];
 }

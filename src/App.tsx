@@ -81,7 +81,7 @@ export default function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
         width={sidebarWidth}
-        onResize={(d) => setSidebarWidth(sidebarWidth + d)}
+        onResize={(d) => setSidebarWidth((w) => w + d)}
       />
       <main style={{
         ...styles.main,
@@ -134,7 +134,7 @@ export default function App() {
           milestone={pinnedMilestone}
           onClose={() => setPinnedId(null)}
           width={detailWidth}
-          onResize={(d) => setDetailWidth(detailWidth + d)}
+          onResize={(d) => setDetailWidth((w) => w + d)}
         />
       </main>
     </div>
