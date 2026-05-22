@@ -50,9 +50,26 @@ export type CameraApi = {
   centerOn: (pt: { x: number; y: number }, k?: number) => void;
 };
 
+const FOLLOW_STORAGE_KEY = 'tg.follow';
+
+function readInitialFollow(): boolean {
+  try {
+    const raw = localStorage.getItem(FOLLOW_STORAGE_KEY);
+    if (raw === null) return true;
+    return raw === '1';
+  } catch {
+    return true;
+  }
+}
+
 export function useCamera({ svgRef, layout, viewport }: Options): CameraApi {
   const [transform, setTransform] = useState<Transform>({ k: 1, x: 0, y: 0 });
-  const [follow, setFollow] = useState(true);
+  const [followState, setFollowState] = useState<boolean>(readInitialFollow);
+  const setFollow = useCallback((b: boolean) => {
+    setFollowState(b);
+    try { localStorage.setItem(FOLLOW_STORAGE_KEY, b ? '1' : '0'); } catch { /* ignore */ }
+  }, []);
+  const follow = followState;
   const zoomBehaviorRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const programmaticRef = useRef(false);
 
@@ -64,7 +81,8 @@ export function useCamera({ svgRef, layout, viewport }: Options): CameraApi {
       .on('zoom', (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
         setTransform({ k: event.transform.k, x: event.transform.x, y: event.transform.y });
         if (!programmaticRef.current && event.sourceEvent) {
-          setFollow(false);
+          setFollowState(false);
+          try { localStorage.setItem(FOLLOW_STORAGE_KEY, '0'); } catch { /* ignore */ }
         }
       });
     svgSel.call(zb);

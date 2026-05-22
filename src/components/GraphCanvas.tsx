@@ -87,31 +87,31 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
     onCameraReady?.(camera);
   }, [camera, onCameraReady]);
 
-  // Auto-fit when the session (and thus layout) changes, once viewport is known.
+  // Auto-fit ONCE per session. Tracks which session id was last fitted so a
+  // mere viewport change (e.g., right panel opening, sidebar resize) does not
+  // re-fit and disrupt the user's current zoom.
+  const fittedSessionRef = useRef<string | null>(null);
   useEffect(() => {
-    if (viewport.width > 1 && viewport.height > 1) {
-      fit();
-    }
+    if (viewport.width <= 1 || viewport.height <= 1) return;
+    if (fittedSessionRef.current === session.id) return;
+    fittedSessionRef.current = session.id;
+    fit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, viewport.width, viewport.height]);
+  }, [session.id, viewport.width, viewport.height]);
 
   const currentId = playback.order[playback.index]?.id;
 
-  // Auto-follow: when follow is on and the active node leaves the central 60%
-  // of the viewport, re-center on it. The 320 ms programmatic guard in
-  // useCamera prevents this from flipping follow off.
+  // Auto-follow: when follow is on, animate to the active node at the current
+  // zoom every time currentId changes. d3-zoom's 280 ms transition gives the
+  // tween; the 320 ms programmatic guard in useCamera prevents these from
+  // flipping follow off.
   useEffect(() => {
     if (!follow || !currentId) return;
     const node = layout.nodes.find((n) => n.id === currentId);
     if (!node) return;
-    const screenX = node.x * transform.k + transform.x;
-    const screenY = node.y * transform.k + transform.y;
-    const cx = viewport.width / 2;
-    const cy = viewport.height / 2;
-    if (Math.abs(screenX - cx) > viewport.width * 0.3 || Math.abs(screenY - cy) > viewport.height * 0.3) {
-      centerOn({ x: node.x, y: node.y }, transform.k);
-    }
-  }, [currentId, follow, layout.nodes, transform.k, transform.x, transform.y, viewport.height, viewport.width, centerOn]);
+    centerOn({ x: node.x, y: node.y }, transform.k);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentId, follow]);
 
   const [hover, setHover] = useState<{ milestone: Milestone; screenX: number; screenY: number } | null>(null);
 
