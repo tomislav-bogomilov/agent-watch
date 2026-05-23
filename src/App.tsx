@@ -18,6 +18,7 @@ const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 520;
 const DETAIL_MIN = 320;
 const DETAIL_MAX = 720;
+const NARROW_THRESHOLD = 1400;
 
 function collectSubagentIds(root: Milestone): Set<string> {
   const ids = new Set<string>();
@@ -78,6 +79,22 @@ export default function App() {
       setPinnedId(null);
     }
   }, [playback.playing]);
+
+  useEffect(() => {
+    let lastBucket: 'narrow' | 'wide' =
+      window.innerWidth < NARROW_THRESHOLD ? 'narrow' : 'wide';
+    setSidebarCollapsed(lastBucket === 'narrow');
+    const onResize = () => {
+      const next: 'narrow' | 'wide' =
+        window.innerWidth < NARROW_THRESHOLD ? 'narrow' : 'wide';
+      if (next !== lastBucket) {
+        lastBucket = next;
+        setSidebarCollapsed(next === 'narrow');
+      }
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const pinnedMilestone = useMemo(() => {
     if (!effectiveSession || !pinnedId) return null;
