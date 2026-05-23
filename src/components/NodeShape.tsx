@@ -111,10 +111,10 @@ export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }:
             height={12}
             rx={2}
             ry={2}
-            fill="rgba(5,8,13,0.92)"
+            fill="#05080d"
             stroke={colors.stroke}
             strokeWidth={0.75}
-            opacity={state === 'pruned' ? 0.45 : 0.95}
+            opacity={state === 'pruned' ? 0.45 : 1}
           />
           <text
             x={16}
@@ -123,7 +123,7 @@ export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }:
             fontSize={9}
             letterSpacing={0.5}
             fontFamily="ui-monospace, monospace"
-            fill={colors.text}
+            fill={colors.stroke}
             style={{ pointerEvents: 'none' }}
           >
             {formatTokens(node.milestone.contextSize)}
