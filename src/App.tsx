@@ -61,7 +61,12 @@ export default function App() {
 
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [filters, setFilters] = useState<Filters>({ hidePruned: false, hideSubagents: false, successOnly: false });
+  const [filters, setFilters] = useState<Filters>({
+    hidePruned: false,
+    hideSubagents: false,
+    successOnly: false,
+    showAllContext: false,
+  });
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [panelDismissed, setPanelDismissed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
