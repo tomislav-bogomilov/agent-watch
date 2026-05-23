@@ -67,7 +67,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
   const [titles, setTitles] = useState<Record<string, string>>(() => readJson<Record<string, string>>(STORAGE_TITLES, {}));
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
-  const expandedInit = useRef(false);
+  const expandedInit = useRef<Set<LibraryMode>>(new Set());
 
   function setMode(next: LibraryMode): void {
     setModeState(next);
@@ -148,10 +148,14 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
   }, [mode, sessionsByProject, promptsByProject, order]);
 
   useEffect(() => {
-    if (expandedInit.current) return;
+    if (expandedInit.current.has(mode)) return;
     const haveData = mode === 'sessions' ? !!sessionsQuery.data : !!promptsQuery.data;
     if (!haveData || groups.length === 0) return;
-    expandedInit.current = true;
+    expandedInit.current.add(mode);
+    // First visit to this mode in the current session: if the user has no
+    // persisted expansion preferences at all, expand every group. Once any
+    // persisted state exists we respect it — including for modes the user
+    // hasn't opened yet.
     if (expanded.size === 0 && readJson<string[]>(STORAGE_EXPANDED, []).length === 0) {
       setExpanded(new Set(groups.map((g) => g.key)));
     }
