@@ -221,6 +221,8 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
             else state = 'idle';
             if (isHidden(n.id, state)) return null;
             const isPinned = n.id === pinnedId;
+            const isTraversed = traversedIds.has(n.id) || n.id === currentId;
+            const showContextBadge = filters.showAllContext || isTraversed;
             return (
               <g
                 key={n.id}
@@ -229,7 +231,7 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
                 onClick={(e) => { e.stopPropagation(); onPin(isPinned ? null : n.id); }}
                 style={{ cursor: 'pointer' }}
               >
-                <NodeShape node={n} state={state} inSubagent={inSub} pinned={isPinned} />
+                <NodeShape node={n} state={state} inSubagent={inSub} pinned={isPinned} showContextBadge={showContextBadge} />
               </g>
             );
           })}
