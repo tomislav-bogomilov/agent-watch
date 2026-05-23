@@ -6,6 +6,7 @@ import { PlaybackControls } from './components/PlaybackControls';
 import { DetailPanel } from './components/DetailPanel';
 import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
+import { CopyCwdButton } from './components/CopyCwdButton';
 import { usePromptList, useSession } from './api/hooks';
 import { sliceSession } from './parse/slice';
 import { usePlayback } from './playback/usePlayback';
@@ -183,7 +184,10 @@ export default function App() {
             <div style={styles.canvasSlot}>
               <div style={styles.sessionHeader} data-testid="session-header">
                 <div style={styles.sessionTitle}>{headerTitle}</div>
-                <div style={styles.sessionCwd}>{effectiveSession.cwd}</div>
+                <div style={styles.sessionCwdRow}>
+                  <span style={styles.sessionCwd}>{effectiveSession.cwd}</span>
+                  <CopyCwdButton value={effectiveSession.cwd} />
+                </div>
               </div>
               <GraphCanvas
                 session={effectiveSession}
@@ -272,6 +276,12 @@ const styles = {
     color: 'var(--text-dim)',
     fontFamily: 'ui-monospace, monospace',
     marginTop: 2,
+  },
+  sessionCwdRow: {
+    display: 'flex' as const,
+    alignItems: 'center',
+    marginTop: 2,
+    pointerEvents: 'auto' as const,
   },
   overflow: {
     position: 'absolute' as const, inset: 0,
