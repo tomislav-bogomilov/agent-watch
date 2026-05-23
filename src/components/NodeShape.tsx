@@ -102,6 +102,16 @@ export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }:
       {state === 'failed' && (
         <circle cx={W - 10} cy={6} r={3.5} fill="var(--node-failed)" filter="url(#tg-glow)" />
       )}
+      {pinned && (
+        <path
+          d={d}
+          transform="translate(-3,-3) scale(1.05)"
+          fill="none"
+          stroke="var(--edge-trail)"
+          strokeWidth={1.5}
+          style={{ filter: 'url(#tg-glow)' }}
+        />
+      )}
       {showContextBadge && node.milestone.contextSize != null && (
         <g data-testid="context-badge" transform={`translate(${W - 28}, -8)`} style={{ pointerEvents: 'none' }}>
           <rect
@@ -129,16 +139,6 @@ export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }:
             {formatTokens(node.milestone.contextSize)}
           </text>
         </g>
-      )}
-      {pinned && (
-        <path
-          d={d}
-          transform="translate(-3,-3) scale(1.05)"
-          fill="none"
-          stroke="var(--edge-trail)"
-          strokeWidth={1.5}
-          style={{ filter: 'url(#tg-glow)' }}
-        />
       )}
     </g>
   );
