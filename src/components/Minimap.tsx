@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, MouseEvent as ReactMouseEvent } from 'react';
 import type { LayoutResult } from '../graph/layout';
 import type { Transform } from '../graph/useCamera';
@@ -23,10 +23,13 @@ const WHEEL_BASE = 1.0015;
 
 export function Minimap({ layout, transform, viewport, currentLayoutPoint, onJump, onPan, onZoom }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const dragStateRef = useRef<{
     rectOffsetInLayout: Point; // (cursorLayout - rectTopLeft) at drag start
   } | null>(null);
   const draggedRef = useRef(false);
+  const transformRef = useRef<Transform>(transform);
+  transformRef.current = transform;
 
   const sx = W / Math.max(1, layout.width);
   const sy = H / Math.max(1, layout.height);
@@ -60,6 +63,7 @@ export function Minimap({ layout, transform, viewport, currentLayoutPoint, onJum
     if (!isPointInRect(layoutPt, rectLayout)) return; // click-to-jump path handles it
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
+    setIsDragging(true);
     dragStateRef.current = {
       rectOffsetInLayout: { x: layoutPt.x - rectLayout.x, y: layoutPt.y - rectLayout.y },
     };
@@ -83,12 +87,15 @@ export function Minimap({ layout, transform, viewport, currentLayoutPoint, onJum
     if (dragStateRef.current) {
       e.currentTarget.releasePointerCapture(e.pointerId);
       dragStateRef.current = null;
+      setIsDragging(false);
     }
     // draggedRef stays true until the synthesized click clears it.
   }
 
   // Wheel handler attached non-passive so we can preventDefault and stop the
-  // surrounding canvas from also wheeling.
+  // surrounding canvas from also wheeling. Reads transform.k from a ref so
+  // rapid scrolling doesn't churn the listener (which would risk reading a
+  // stale k between React renders).
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -96,20 +103,20 @@ export function Minimap({ layout, transform, viewport, currentLayoutPoint, onJum
       ev.preventDefault();
       const rect = svg!.getBoundingClientRect();
       const layoutPt = layoutFromMinimapPixel(ev.clientX - rect.x, ev.clientY - rect.y, offX, offY, s);
-      const factor = Math.pow(WHEEL_BASE, -ev.deltaY);
-      const nextK = Math.min(SCALE_MAX, Math.max(SCALE_MIN, transform.k * factor));
+      // Normalize deltaY across deltaMode values so Firefox/Linux (lines) and
+      // page-mode events scale consistently with pixel-mode events.
+      const LINE_HEIGHT = 40;
+      const PAGE_HEIGHT = 800;
+      const normalizedDelta = ev.deltaMode === 1 ? ev.deltaY * LINE_HEIGHT
+                            : ev.deltaMode === 2 ? ev.deltaY * PAGE_HEIGHT
+                            : ev.deltaY;
+      const factor = Math.pow(WHEEL_BASE, -normalizedDelta);
+      const nextK = Math.min(SCALE_MAX, Math.max(SCALE_MIN, transformRef.current.k * factor));
       onZoom(layoutPt, nextK);
     }
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => { svg.removeEventListener('wheel', onWheel); };
-  }, [offX, offY, s, transform.k, onZoom]);
-
-  // Cursor: grab when the cursor sits inside the viewport rect, crosshair
-  // elsewhere. Cheap to recompute per render — there's no live mousemove
-  // listener for hover; the cursor swaps via inline `style.cursor`. Browsers
-  // refresh cursor as the pointer moves over the element so we only need to
-  // set the right default; for an extra-correct version we'd track hover.
-  const cursorStyle = 'crosshair';
+  }, [offX, offY, s, onZoom]);
 
   return (
     <svg
@@ -129,7 +136,7 @@ export function Minimap({ layout, transform, viewport, currentLayoutPoint, onJum
         zIndex: 6,
         background: 'rgba(5,8,13,0.85)',
         border: '1px solid var(--edge-idle)',
-        cursor: cursorStyle,
+        cursor: isDragging ? 'grabbing' : 'crosshair',
         touchAction: 'none',
       }}
     >
