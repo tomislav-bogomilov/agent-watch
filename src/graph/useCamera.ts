@@ -68,7 +68,7 @@ export type CameraApi = {
   setFollow: (b: boolean) => void;
   fit: () => void;
   frameInitial: (rootPoint: { x: number; y: number }) => void;
-  centerOn: (pt: { x: number; y: number }, k?: number) => void;
+  centerOn: (pt: { x: number; y: number }, k?: number, opts?: { animate?: boolean }) => void;
 };
 
 export function useCamera({ svgRef, layout, viewport }: Options): CameraApi {
@@ -123,9 +123,10 @@ export function useCamera({ svgRef, layout, viewport }: Options): CameraApi {
     applyTransform(initialFrameTransform(rootPoint, viewport));
   }, [applyTransform, viewport]);
 
-  const centerOn = useCallback((pt: { x: number; y: number }, k?: number) => {
+  const centerOn = useCallback((pt: { x: number; y: number }, k?: number, opts?: { animate?: boolean }) => {
     const targetK = k ?? Math.max(0.6, transform.k);
-    applyTransform(centerOnTransform(pt, viewport, targetK));
+    const animate = opts?.animate ?? true;
+    applyTransform(centerOnTransform(pt, viewport, targetK), animate);
   }, [applyTransform, viewport, transform.k]);
 
   return { transform, follow, setFollow, fit, frameInitial, centerOn };

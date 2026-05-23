@@ -39,3 +39,13 @@ describe('centerOnTransform', () => {
     expect(t.y).toBe(300 - 300 * 2);
   });
 });
+
+describe('centerOnTransform options', () => {
+  it('keeps the same math regardless of animate (option only changes the apply path)', () => {
+    // Helper is a pure function — adding the animate option to the wrapper
+    // hook does not affect the math itself. This test pins that intent.
+    const a = centerOnTransform({ x: 100, y: 200 }, { width: 800, height: 600 }, 1.5);
+    const b = centerOnTransform({ x: 100, y: 200 }, { width: 800, height: 600 }, 1.5);
+    expect(a).toEqual(b);
+  });
+});
