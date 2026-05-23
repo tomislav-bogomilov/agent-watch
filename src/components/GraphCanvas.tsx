@@ -82,21 +82,25 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
   }, []);
 
   const camera = useCamera({ svgRef, layout, viewport });
-  const { transform, fit, setFollow, follow, centerOn } = camera;
+  const { transform, fit, frameInitial, setFollow, follow, centerOn } = camera;
 
   useEffect(() => {
     onCameraReady?.(camera);
   }, [camera, onCameraReady]);
 
-  // Auto-fit ONCE per session. Tracks which session id was last fitted so a
-  // mere viewport change (e.g., right panel opening, sidebar resize) does not
-  // re-fit and disrupt the user's current zoom.
+  // Initial framing ONCE per session: anchor the root near the top of the
+  // viewport at 1:1 zoom so the first ~7 nodes are visible regardless of how
+  // large the session is. Tracks which session id was last framed so a mere
+  // viewport change (e.g., right panel opening, sidebar resize) does not
+  // re-frame and disrupt the user's current zoom.
   const fittedSessionRef = useRef<string | null>(null);
   useEffect(() => {
     if (viewport.width <= 1 || viewport.height <= 1) return;
     if (fittedSessionRef.current === session.id) return;
     fittedSessionRef.current = session.id;
-    fit();
+    const root = layout.nodes[0];
+    if (root) frameInitial({ x: root.x, y: root.y });
+    else fit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, viewport.width, viewport.height]);
 

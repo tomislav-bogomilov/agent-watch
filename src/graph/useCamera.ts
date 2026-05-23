@@ -36,6 +36,26 @@ export function centerOnTransform(
   };
 }
 
+// Initial framing on session load: anchor the root node near the top of the
+// viewport at 1:1 zoom so the first ~7 nodes are visible (NODE_Y_SPACING is
+// 110, so 6 × 110 = 660 below the root fits inside an 800px-tall canvas with
+// padding to spare). Replaces the old fit-the-whole-graph default which made
+// large sessions render as tiny dots.
+const INITIAL_TOP_PADDING = 80;
+const INITIAL_K = 1;
+
+export function initialFrameTransform(
+  rootPoint: { x: number; y: number },
+  viewport: Viewport,
+  k: number = INITIAL_K,
+): Transform {
+  return {
+    k,
+    x: viewport.width / 2 - rootPoint.x * k,
+    y: INITIAL_TOP_PADDING - rootPoint.y * k,
+  };
+}
+
 type Options = {
   svgRef: React.RefObject<SVGSVGElement | null>;
   layout: Bounds;
@@ -47,6 +67,7 @@ export type CameraApi = {
   follow: boolean;
   setFollow: (b: boolean) => void;
   fit: () => void;
+  frameInitial: (rootPoint: { x: number; y: number }) => void;
   centerOn: (pt: { x: number; y: number }, k?: number) => void;
 };
 
@@ -98,10 +119,14 @@ export function useCamera({ svgRef, layout, viewport }: Options): CameraApi {
     applyTransform(fitTransform(layout, viewport, 24));
   }, [applyTransform, layout, viewport]);
 
+  const frameInitial = useCallback((rootPoint: { x: number; y: number }) => {
+    applyTransform(initialFrameTransform(rootPoint, viewport));
+  }, [applyTransform, viewport]);
+
   const centerOn = useCallback((pt: { x: number; y: number }, k?: number) => {
     const targetK = k ?? Math.max(0.6, transform.k);
     applyTransform(centerOnTransform(pt, viewport, targetK));
   }, [applyTransform, viewport, transform.k]);
 
-  return { transform, follow, setFollow, fit, centerOn };
+  return { transform, follow, setFollow, fit, frameInitial, centerOn };
 }
