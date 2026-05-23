@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import type { SessionMeta } from '../../parse/types';
 import { ItemShell } from './ItemShell';
-import type { ItemVariant } from './itemStyle';
 
 type Props = {
   items: SessionMeta[];
   selectedSessionId: string | null;
   titles: Record<string, string>;
-  variant: ItemVariant;
   onSelect: (s: SessionMeta) => void;
   onRename: (sessionId: string, title: string) => void;
 };
@@ -17,7 +15,7 @@ function basename(cwd: string): string {
   return parts[parts.length - 1] ?? cwd;
 }
 
-export function SessionsList({ items, selectedSessionId, titles, variant, onSelect, onRename }: Props) {
+export function SessionsList({ items, selectedSessionId, titles, onSelect, onRename }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
 
@@ -41,7 +39,6 @@ export function SessionsList({ items, selectedSessionId, titles, variant, onSele
         return (
           <ItemShell
             key={`${s.projectId}/${s.sessionId}`}
-            variant={variant}
             selected={isSelected}
             onClick={() => { if (!isEditing) onSelect(s); }}
             testId={`session-item-${s.sessionId}`}
