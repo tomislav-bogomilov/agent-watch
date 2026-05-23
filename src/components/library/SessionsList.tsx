@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import type { SessionMeta } from '../../parse/types';
+import { ItemShell } from './ItemShell';
+import type { ItemVariant } from './itemStyle';
 
 type Props = {
   items: SessionMeta[];
   selectedSessionId: string | null;
   titles: Record<string, string>;
+  variant: ItemVariant;
   onSelect: (s: SessionMeta) => void;
   onRename: (sessionId: string, title: string) => void;
 };
@@ -14,7 +17,7 @@ function basename(cwd: string): string {
   return parts[parts.length - 1] ?? cwd;
 }
 
-export function SessionsList({ items, selectedSessionId, titles, onSelect, onRename }: Props) {
+export function SessionsList({ items, selectedSessionId, titles, variant, onSelect, onRename }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
 
@@ -36,11 +39,12 @@ export function SessionsList({ items, selectedSessionId, titles, onSelect, onRen
         const displayTitle = titles[s.sessionId] ?? s.title ?? basename(s.cwd);
         const isEditing = editingId === s.sessionId;
         return (
-          <li
+          <ItemShell
             key={`${s.projectId}/${s.sessionId}`}
+            variant={variant}
+            selected={isSelected}
             onClick={() => { if (!isEditing) onSelect(s); }}
-            style={{ ...styles.item, ...(isSelected ? styles.itemSelected : {}) }}
-            data-testid={`session-item-${s.sessionId}`}
+            testId={`session-item-${s.sessionId}`}
           >
             {isEditing ? (
               <input
@@ -65,11 +69,10 @@ export function SessionsList({ items, selectedSessionId, titles, onSelect, onRen
                 {displayTitle}
               </div>
             )}
-            <div style={styles.itemCwd} title={s.cwd}>{s.cwd}</div>
             <div style={styles.itemMeta}>
               {new Date(s.startedAt).toLocaleString()} · {Math.round(s.sizeBytes / 1024)}KB
             </div>
-          </li>
+          </ItemShell>
         );
       })}
     </ul>
@@ -78,15 +81,6 @@ export function SessionsList({ items, selectedSessionId, titles, onSelect, onRen
 
 const styles = {
   list: { listStyle: 'none', padding: 0, margin: 0 },
-  item: {
-    padding: '8px 12px',
-    cursor: 'pointer',
-    borderLeft: '2px solid transparent',
-  },
-  itemSelected: {
-    borderLeftColor: 'var(--edge-trail)',
-    background: 'rgba(0, 229, 255, 0.04)',
-  },
   itemTitle: {
     fontSize: 12,
     color: 'var(--text)',
@@ -94,15 +88,6 @@ const styles = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
     fontFamily: 'ui-monospace, monospace',
-  },
-  itemCwd: {
-    fontSize: 10,
-    color: 'var(--text-dim)',
-    overflow: 'hidden' as const,
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap' as const,
-    fontFamily: 'ui-monospace, monospace',
-    marginTop: 2,
   },
   itemMeta: {
     fontSize: 10,

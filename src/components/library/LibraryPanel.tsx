@@ -4,6 +4,7 @@ import type { PromptMeta, SessionMeta } from '../../parse/types';
 import { ResizeHandle } from '../ResizeHandle';
 import { PromptsList } from './PromptsList';
 import { SessionsList } from './SessionsList';
+import { setItemVariant, useItemVariant, type ItemVariant } from './itemStyle';
 
 export type LibraryMode = 'sessions' | 'prompts';
 
@@ -59,6 +60,7 @@ function readMode(): LibraryMode {
 export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize }: Props) {
   const sessionsQuery = useSessionList();
   const promptsQuery = usePromptList();
+  const itemVariant = useItemVariant();
 
   const [mode, setModeState] = useState<LibraryMode>(() => readMode());
   const [query, setQuery] = useState('');
@@ -232,6 +234,21 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
         style={styles.filter}
         data-testid="session-filter"
       />
+      <div style={styles.spikeBar} data-testid="spike-bar" title="card-style spike">
+        <span style={styles.spikeLabel}>STYLE</span>
+        {(['A', 'B', 'C'] as ItemVariant[]).map((v) => {
+          const active = itemVariant === v;
+          return (
+            <button
+              key={v}
+              onClick={() => setItemVariant(v)}
+              style={{ ...styles.spikeBtn, ...(active ? styles.spikeBtnActive : {}) }}
+              data-testid={`spike-${v}`}
+              aria-pressed={active}
+            >{v}</button>
+          );
+        })}
+      </div>
       {isLoading && <div style={styles.muted}>scanning…</div>}
       {error && <div style={styles.error}>error: {(error as Error).message}</div>}
       {hasData && groups.length === 0 && <div style={styles.muted}>(none)</div>}
@@ -271,6 +288,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
                   items={g.items as SessionMeta[]}
                   selectedSessionId={selectedSessionId}
                   titles={titles}
+                  variant={itemVariant}
                   onSelect={(s) => onSelect({ kind: 'session', projectId: s.projectId, sessionId: s.sessionId })}
                   onRename={onRename}
                 />
@@ -280,6 +298,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
                   items={g.items as unknown as PromptMeta[]}
                   sessionTitles={titles}
                   selectedPromptId={selectedPromptId}
+                  variant={itemVariant}
                   onSelect={(p) => onSelect({ kind: 'prompt', projectId: p.projectId, sessionId: p.sessionId, promptId: p.promptId })}
                 />
               )}
@@ -363,4 +382,32 @@ const styles = {
   groupCount: { color: 'var(--text-dim)' },
   muted: { padding: '0 12px', color: 'var(--text-dim)', fontSize: 12 },
   error: { padding: '0 12px', color: 'var(--node-failed)', fontSize: 12 },
+  spikeBar: {
+    display: 'flex' as const,
+    alignItems: 'center',
+    gap: 6,
+    padding: '0 12px 8px',
+  },
+  spikeLabel: {
+    fontSize: 9,
+    letterSpacing: 2,
+    color: 'var(--text-dim)',
+    fontFamily: 'ui-monospace, monospace',
+    marginRight: 2,
+  },
+  spikeBtn: {
+    background: 'transparent',
+    border: '1px solid var(--edge-idle)',
+    color: 'var(--text-dim)',
+    fontFamily: 'ui-monospace, monospace',
+    fontSize: 10,
+    letterSpacing: 1,
+    padding: '2px 8px',
+    cursor: 'pointer',
+  },
+  spikeBtnActive: {
+    borderColor: 'var(--edge-trail)',
+    color: 'var(--edge-trail)',
+    boxShadow: '0 0 8px rgba(0, 229, 255, 0.35)',
+  },
 };
