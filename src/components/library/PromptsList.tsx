@@ -1,12 +1,10 @@
 import type { PromptMeta } from '../../parse/types';
 import { ItemShell } from './ItemShell';
-import type { ItemVariant } from './itemStyle';
 
 type Props = {
   items: PromptMeta[];
   sessionTitles: Record<string, string>;
   selectedPromptId: string | null;
-  variant: ItemVariant;
   onSelect: (p: PromptMeta) => void;
 };
 
@@ -16,7 +14,7 @@ function sessionSubtitle(p: PromptMeta, titles: Record<string, string>): string 
   return `SESSION ${p.sessionId.slice(0, 8)}`;
 }
 
-export function PromptsList({ items, sessionTitles, selectedPromptId, variant, onSelect }: Props) {
+export function PromptsList({ items, sessionTitles, selectedPromptId, onSelect }: Props) {
   return (
     <ul style={styles.list}>
       {items.map((p) => {
@@ -24,7 +22,6 @@ export function PromptsList({ items, sessionTitles, selectedPromptId, variant, o
         return (
           <ItemShell
             key={p.promptId}
-            variant={variant}
             selected={isSelected}
             onClick={() => onSelect(p)}
             testId={`prompt-item-${p.promptId}`}
