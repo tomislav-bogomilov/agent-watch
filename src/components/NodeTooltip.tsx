@@ -1,4 +1,5 @@
 import type { Milestone } from '../parse/types';
+import { formatTokens } from '../util/formatTokens';
 
 type Props = { milestone: Milestone; screenX: number; screenY: number };
 
@@ -24,6 +25,27 @@ export function NodeTooltip({ milestone, screenX, screenY }: Props) {
     >
       <div style={{ color: 'var(--edge-trail)', marginBottom: 2 }}>{milestone.label}</div>
       <div style={{ color: 'var(--text-dim)' }}>{milestone.summary}</div>
+      {milestone.usage && (
+        <div
+          data-testid="node-tooltip-context"
+          style={{
+            marginTop: 6,
+            paddingTop: 6,
+            borderTop: '1px solid var(--grid)',
+            color: 'var(--text-dim)',
+            fontSize: 11,
+          }}
+        >
+          <div style={{ color: 'var(--edge-trail)', marginBottom: 2 }}>
+            ctx · {formatTokens(milestone.contextSize ?? 0)}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 8 }}>
+            <span>input</span><span style={{ textAlign: 'right', color: 'var(--text)' }}>{formatTokens(milestone.usage.input)}</span>
+            <span>cache</span><span style={{ textAlign: 'right', color: 'var(--text)' }}>{formatTokens(milestone.usage.cacheRead + milestone.usage.cacheCreation)}</span>
+            <span>output</span><span style={{ textAlign: 'right', color: 'var(--text)' }}>{formatTokens(milestone.usage.output)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

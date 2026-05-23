@@ -4,6 +4,7 @@ export type Filters = {
   hidePruned: boolean;
   hideSubagents: boolean;
   successOnly: boolean;
+  showAllContext: boolean;
 };
 
 type Props = { value: Filters; onChange: (next: Filters) => void };
@@ -25,6 +26,15 @@ export function FilterToggles({ value, onChange }: Props) {
       <label style={styles.row}>
         <input type="checkbox" checked={value.successOnly} onChange={tg('successOnly')} data-testid="filter-success-only" />
         <span>success only</span>
+      </label>
+      <label style={styles.row}>
+        <input
+          type="checkbox"
+          checked={value.showAllContext}
+          onChange={tg('showAllContext')}
+          data-testid="filter-show-all-context"
+        />
+        <span>show all context</span>
       </label>
     </div>
   );

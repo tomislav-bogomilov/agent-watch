@@ -38,11 +38,11 @@ function Scrubber({ index, edgeProgress, total, onSeek }: {
       style={{
         position: 'relative',
         height: 6,
-        width: 320,
+        flex: '1 1 auto',
+        minWidth: 80,
         background: 'rgba(26,58,74,0.6)',
         border: '1px solid var(--edge-idle)',
         cursor: 'pointer',
-        marginRight: 8,
       }}
     >
       <div
@@ -68,12 +68,6 @@ function Scrubber({ index, edgeProgress, total, onSeek }: {
 export function PlaybackControls({ state, controls }: Props) {
   return (
     <div style={styles.bar}>
-      <Scrubber
-        index={state.index}
-        edgeProgress={state.edgeProgress}
-        total={state.order.length}
-        onSeek={controls.scrubTo}
-      />
       <button
         onClick={() => controls.step(-1)}
         style={styles.btn}
@@ -97,6 +91,12 @@ export function PlaybackControls({ state, controls }: Props) {
         aria-label="step forward"
         title="step forward (→)"
       >›</button>
+      <Scrubber
+        index={state.index}
+        edgeProgress={state.edgeProgress}
+        total={state.order.length}
+        onSeek={controls.scrubTo}
+      />
       <div style={styles.jumpGroup}>
         <button
           style={styles.btn}

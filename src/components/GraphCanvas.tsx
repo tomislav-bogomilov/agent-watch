@@ -17,6 +17,7 @@ type Props = {
   subagentIds: Set<string>;
   pinnedId: string | null;
   onPin: (id: string | null) => void;
+  onScrubTo: (index: number) => void;
   filters: Filters;
   onCameraReady?: (api: CameraApi) => void;
 };
@@ -55,7 +56,7 @@ function computeSubagentRegions(root: Milestone, nodes: LaidOutNode[]): Subagent
   return regions;
 }
 
-export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, filters, onCameraReady }: Props) {
+export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, onScrubTo, filters, onCameraReady }: Props) {
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
     () => computeSubagentRegions(session.root, layout.nodes),
@@ -81,21 +82,25 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
   }, []);
 
   const camera = useCamera({ svgRef, layout, viewport });
-  const { transform, fit, setFollow, follow, centerOn } = camera;
+  const { transform, fit, frameInitial, setFollow, follow, centerOn } = camera;
 
   useEffect(() => {
     onCameraReady?.(camera);
   }, [camera, onCameraReady]);
 
-  // Auto-fit ONCE per session. Tracks which session id was last fitted so a
-  // mere viewport change (e.g., right panel opening, sidebar resize) does not
-  // re-fit and disrupt the user's current zoom.
+  // Initial framing ONCE per session: anchor the root near the top of the
+  // viewport at 1:1 zoom so the first ~7 nodes are visible regardless of how
+  // large the session is. Tracks which session id was last framed so a mere
+  // viewport change (e.g., right panel opening, sidebar resize) does not
+  // re-frame and disrupt the user's current zoom.
   const fittedSessionRef = useRef<string | null>(null);
   useEffect(() => {
     if (viewport.width <= 1 || viewport.height <= 1) return;
     if (fittedSessionRef.current === session.id) return;
     fittedSessionRef.current = session.id;
-    fit();
+    const root = layout.nodes[0];
+    if (root) frameInitial({ x: root.x, y: root.y });
+    else fit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, viewport.width, viewport.height]);
 
@@ -221,15 +226,22 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
             else state = 'idle';
             if (isHidden(n.id, state)) return null;
             const isPinned = n.id === pinnedId;
+            const isTraversed = traversedIds.has(n.id) || n.id === currentId;
+            const showContextBadge = filters.showAllContext || isTraversed;
             return (
               <g
                 key={n.id}
                 onMouseEnter={(e) => handleNodeEnter(n.milestone, e)}
                 onMouseLeave={() => setHover(null)}
-                onClick={(e) => { e.stopPropagation(); onPin(isPinned ? null : n.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const idx = orderIndex.get(n.id);
+                  if (idx != null) onScrubTo(idx);
+                  onPin(isPinned ? null : n.id);
+                }}
                 style={{ cursor: 'pointer' }}
               >
-                <NodeShape node={n} state={state} inSubagent={inSub} pinned={isPinned} />
+                <NodeShape node={n} state={state} inSubagent={inSub} pinned={isPinned} showContextBadge={showContextBadge} />
               </g>
             );
           })}

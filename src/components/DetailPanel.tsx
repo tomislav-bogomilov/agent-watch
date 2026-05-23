@@ -30,10 +30,33 @@ export function DetailPanel({ milestone, onClose, width, onResize }: Props) {
           {milestone.result}
         </div>
       )}
+      {milestone.usage && (
+        <div data-testid="detail-context" style={styles.contextBlock}>
+          <div style={styles.contextHead}>CONTEXT</div>
+          <ContextRow label="total" value={milestone.contextSize ?? 0} bright />
+          <ContextRow label="  input" value={milestone.usage.input} />
+          <ContextRow label="  cache read" value={milestone.usage.cacheRead} />
+          <ContextRow label="  cache write" value={milestone.usage.cacheCreation} />
+          <ContextRow label="  output" value={milestone.usage.output} />
+        </div>
+      )}
       {milestone.detail && (
         <pre style={styles.detail}>{milestone.detail}</pre>
       )}
     </aside>
+  );
+}
+
+function ContextRow({ label, value, bright }: { label: string; value: number; bright?: boolean }) {
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: '1fr auto', fontSize: 11,
+      color: bright ? 'var(--text)' : 'var(--text-dim)',
+      fontFamily: 'ui-monospace, monospace',
+    }}>
+      <span>{label}</span>
+      <span style={{ color: 'var(--text)' }}>{value.toLocaleString('en-US')}</span>
+    </div>
   );
 }
 
@@ -65,5 +88,15 @@ const styles = {
     whiteSpace: 'pre-wrap' as const, margin: 0,
     background: 'rgba(15,38,50,0.4)', padding: '8px 10px',
     border: '1px solid var(--grid)',
+  },
+  contextBlock: {
+    margin: '0 0 12px 0',
+    padding: '6px 10px',
+    border: '1px solid var(--grid)',
+    background: 'rgba(15,38,50,0.4)',
+  },
+  contextHead: {
+    fontSize: 10, letterSpacing: 3,
+    color: 'var(--edge-trail)', marginBottom: 4,
   },
 };

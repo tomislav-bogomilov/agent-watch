@@ -6,6 +6,13 @@ export type MilestoneKind =
   | 'user_followup'
   | 'completion';
 
+export type ContextUsage = {
+  input: number;
+  cacheRead: number;
+  cacheCreation: number;
+  output: number;
+};
+
 export type Milestone = {
   id: string;
   kind: MilestoneKind;
@@ -18,6 +25,8 @@ export type Milestone = {
   toolName?: string;
   raw: unknown;
   children: Milestone[];
+  usage?: ContextUsage;
+  contextSize?: number;
 };
 
 export type Session = {

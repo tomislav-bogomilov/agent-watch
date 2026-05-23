@@ -13,7 +13,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5174',
     headless: true,
-    viewport: { width: 1280, height: 800 },
+    viewport: { width: 1600, height: 900 },
   },
   webServer: {
     command: 'npm run dev -- --port 5174',

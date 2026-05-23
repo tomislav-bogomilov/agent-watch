@@ -18,6 +18,8 @@ const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 520;
 const DETAIL_MIN = 320;
 const DETAIL_MAX = 720;
+const NARROW_THRESHOLD = 1400;
+const CONTENT_MAX = 2400;
 
 function collectSubagentIds(root: Milestone): Set<string> {
   const ids = new Set<string>();
@@ -61,7 +63,12 @@ export default function App() {
 
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [filters, setFilters] = useState<Filters>({ hidePruned: false, hideSubagents: false, successOnly: false });
+  const [filters, setFilters] = useState<Filters>({
+    hidePruned: false,
+    hideSubagents: false,
+    successOnly: false,
+    showAllContext: false,
+  });
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [panelDismissed, setPanelDismissed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
@@ -73,6 +80,22 @@ export default function App() {
       setPinnedId(null);
     }
   }, [playback.playing]);
+
+  useEffect(() => {
+    let lastBucket: 'narrow' | 'wide' =
+      window.innerWidth < NARROW_THRESHOLD ? 'narrow' : 'wide';
+    setSidebarCollapsed(lastBucket === 'narrow');
+    const onResize = () => {
+      const next: 'narrow' | 'wide' =
+        window.innerWidth < NARROW_THRESHOLD ? 'narrow' : 'wide';
+      if (next !== lastBucket) {
+        lastBucket = next;
+        setSidebarCollapsed(next === 'narrow');
+      }
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const pinnedMilestone = useMemo(() => {
     if (!effectiveSession || !pinnedId) return null;
@@ -132,66 +155,67 @@ export default function App() {
         width={sidebarWidth}
         onResize={(d) => setSidebarWidth((w) => w + d)}
       />
-      <main style={{
-        ...styles.main,
-        paddingRight: displayedMilestone ? detailWidth : 0,
-      }}>
-        {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
-        {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
-        {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
-        {isMissingSlice && <div style={styles.empty} data-testid="prompt-not-found">PROMPT NOT FOUND</div>}
-        {effectiveSession && needsConfirm && (
-          <div style={styles.overflow} data-testid="overflow-confirm">
-            <div style={styles.overflowMsg}>
-              LARGE SESSION — {effectiveSession.totalMilestones} MILESTONES
+      <main style={styles.main}>
+        <div style={{
+          ...styles.contentFrame,
+          paddingRight: displayedMilestone ? detailWidth : 0,
+        }}>
+          {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
+          {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
+          {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
+          {isMissingSlice && <div style={styles.empty} data-testid="prompt-not-found">PROMPT NOT FOUND</div>}
+          {effectiveSession && needsConfirm && (
+            <div style={styles.overflow} data-testid="overflow-confirm">
+              <div style={styles.overflowMsg}>
+                LARGE SESSION — {effectiveSession.totalMilestones} MILESTONES
+              </div>
+              <div style={styles.overflowSub}>Rendering may take a moment.</div>
+              <button
+                style={styles.overflowBtn}
+                data-testid="load-anyway"
+                onClick={() => setConfirmedIds((s) => new Set(s).add(effectiveSession.id))}
+              >
+                LOAD ANYWAY
+              </button>
             </div>
-            <div style={styles.overflowSub}>Rendering may take a moment.</div>
-            <button
-              style={styles.overflowBtn}
-              data-testid="load-anyway"
-              onClick={() => setConfirmedIds((s) => new Set(s).add(effectiveSession.id))}
-            >
-              LOAD ANYWAY
-            </button>
-          </div>
-        )}
-        {effectiveSession && !needsConfirm && (
-          <div style={styles.canvasSlot}>
-            <div style={styles.sessionHeader} data-testid="session-header">
-              <div style={styles.sessionTitle}>{headerTitle}</div>
-              <div style={styles.sessionCwd}>{effectiveSession.cwd}</div>
+          )}
+          {effectiveSession && !needsConfirm && (
+            <div style={styles.canvasSlot}>
+              <div style={styles.sessionHeader} data-testid="session-header">
+                <div style={styles.sessionTitle}>{headerTitle}</div>
+                <div style={styles.sessionCwd}>{effectiveSession.cwd}</div>
+              </div>
+              <GraphCanvas
+                session={effectiveSession}
+                playback={playback}
+                subagentIds={subagentIds}
+                pinnedId={pinnedId}
+                onPin={setPinnedId}
+                onScrubTo={followingControls.scrubTo}
+                filters={filters}
+                onCameraReady={(api) => { cameraRef.current = api; }}
+              />
+              <FilterToggles value={filters} onChange={setFilters} />
+              <Legend />
             </div>
-            <GraphCanvas
-              session={effectiveSession}
-              playback={playback}
-              subagentIds={subagentIds}
-              pinnedId={pinnedId}
-              onPin={setPinnedId}
-              filters={filters}
-              onCameraReady={(api) => { cameraRef.current = api; }}
-            />
-            <FilterToggles value={filters} onChange={setFilters} />
-            <Legend />
-          </div>
-        )}
-        {effectiveSession && !needsConfirm && (
-          <div data-testid="chrome-gutter" style={styles.gutter}>
-            <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
-            <PlaybackControls state={playback} controls={followingControls} />
-          </div>
-        )}
-        <DetailPanel
-          milestone={displayedMilestone}
-          onClose={handleDetailClose}
-          width={detailWidth}
-          onResize={(d) => setDetailWidth((w) => w + d)}
-        />
+          )}
+          {effectiveSession && !needsConfirm && (
+            <div data-testid="chrome-gutter" style={styles.gutter}>
+              <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
+              <PlaybackControls state={playback} controls={followingControls} />
+            </div>
+          )}
+          <DetailPanel
+            milestone={displayedMilestone}
+            onClose={handleDetailClose}
+            width={detailWidth}
+            onResize={(d) => setDetailWidth((w) => w + d)}
+          />
+        </div>
       </main>
     </div>
   );
 }
-
-const GUTTER_HEIGHT = 110;
 
 const styles = {
   shell: { display: 'flex', height: '100%' },
@@ -202,16 +226,25 @@ const styles = {
     display: 'flex' as const,
     flexDirection: 'column' as const,
   },
+  contentFrame: {
+    maxWidth: CONTENT_MAX,
+    width: '100%',
+    margin: '0 auto',
+    flex: 1,
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+    position: 'relative' as const,
+    minHeight: 0,
+  },
   canvasSlot: { flex: 1, minHeight: 0, position: 'relative' as const },
   gutter: {
     flexShrink: 0,
-    height: GUTTER_HEIGHT,
     borderTop: '1px solid var(--grid)',
     background: 'rgba(5,8,13,0.5)',
     display: 'flex' as const,
-    alignItems: 'center',
-    gap: 16,
-    padding: '0 16px',
+    flexDirection: 'column' as const,
+    gap: 6,
+    padding: '8px 16px',
     minWidth: 0,
     overflow: 'hidden' as const,
   },

@@ -1,7 +1,7 @@
 import { extractLabel } from './extract-label';
 import { extractSummary } from './extract-summary';
 import { extractResult } from './extract-result';
-import type { Milestone, RawContentBlock, RawEvent } from './types';
+import type { ContextUsage, Milestone, RawContentBlock, RawEvent } from './types';
 
 type ToolUseBlock = { id: string; name: string; input: Record<string, unknown> };
 
@@ -40,6 +40,20 @@ function toolResults(ev: RawEvent): Map<string, { content: string; isError: bool
     }
   }
   return result;
+}
+
+function extractUsage(ev: RawEvent): { usage: ContextUsage; contextSize: number } | undefined {
+  const u = (ev.message as { usage?: Record<string, unknown> } | undefined)?.usage;
+  if (!u) return undefined;
+  const input = Number(u.input_tokens ?? 0);
+  const cacheRead = Number(u.cache_read_input_tokens ?? 0);
+  const cacheCreation = Number(u.cache_creation_input_tokens ?? 0);
+  const output = Number(u.output_tokens ?? 0);
+  if (!Number.isFinite(input + cacheRead + cacheCreation + output)) return undefined;
+  return {
+    usage: { input, cacheRead, cacheCreation, output },
+    contextSize: input + cacheRead + cacheCreation,
+  };
 }
 
 function makeMilestone(partial: Omit<Milestone, 'children'> & { children?: Milestone[] }): Milestone {
@@ -98,6 +112,7 @@ export function buildMilestones(events: RawEvent[]): Milestone {
     } else if (ev.type === 'assistant' && ev.message) {
       const text = plainText(ev);
       const tools = toolUses(ev);
+      const usageInfo = extractUsage(ev);
 
       if (text && tools.length === 0) {
         flat.push(
@@ -110,6 +125,8 @@ export function buildMilestones(events: RawEvent[]): Milestone {
             timestamp: ev.timestamp,
             failed: false,
             raw: ev,
+            usage: usageInfo?.usage,
+            contextSize: usageInfo?.contextSize,
           })
         );
       }
@@ -139,6 +156,8 @@ export function buildMilestones(events: RawEvent[]): Milestone {
             failed,
             toolName: tu.name,
             raw: { event: ev, toolUse: tu, toolResult: result },
+            usage: usageInfo?.usage,
+            contextSize: usageInfo?.contextSize,
           })
         );
       }
@@ -151,6 +170,19 @@ export function buildMilestones(events: RawEvent[]): Milestone {
       flat[i] = { ...flat[i], kind: 'completion', label: 'Done' };
       break;
     }
+  }
+
+  // Propagate usage from the next milestone onto user-prompt milestones,
+  // which carry no usage of their own. The next milestone in the flat list
+  // is also the next in the chain (chain is linear), so this matches
+  // "context state right after the prompt was appended."
+  for (let i = 0; i < flat.length - 1; i++) {
+    const m = flat[i];
+    if (m.kind !== 'root_prompt' && m.kind !== 'user_followup') continue;
+    if (m.usage) continue;
+    const next = flat[i + 1];
+    if (!next.usage) continue;
+    flat[i] = { ...m, usage: next.usage, contextSize: next.contextSize };
   }
 
   // Chain flat list into a tree (one child per parent for sequential flow)
