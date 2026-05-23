@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('clicking a graph node moves the playhead and pins the detail panel', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).first().click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
   await page.locator('svg g[data-id]').first().waitFor();
   await page.getByTestId('chrome-gutter').waitFor();
 
@@ -28,7 +28,7 @@ test('clicking a graph node moves the playhead and pins the detail panel', async
 
 test('after a click, pressing play resumes from the clicked node', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).first().click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
   await page.locator('svg g[data-id]').first().waitFor();
   await page.getByTestId('chrome-gutter').waitFor();
 

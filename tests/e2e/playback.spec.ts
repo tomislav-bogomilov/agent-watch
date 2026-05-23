@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('playback: starts paused; play advances; pause freezes; resume completes', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
   await expect(page.locator('svg g[data-id]').first()).toBeVisible();
 
   // Should remain paused: even after waiting longer than the whole playback would take,

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('failure: failed tool_call renders red with red-dot indicator', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/fail' }).click();
+  await page.locator('[data-project-key="demo/fail"] li[data-testid^="session-item"]').click();
   await expect(page.locator('svg g[data-id]').first()).toBeVisible();
   // The Read tool call should be in failed state
   await expect(page.locator('svg g[data-state="failed"]')).toHaveCount(1, { timeout: 5_000 });

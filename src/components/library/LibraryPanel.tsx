@@ -249,6 +249,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
           return (
             <div
               key={g.key}
+              data-project-key={g.key}
               style={{ ...styles.group, ...(isDragOver ? styles.groupDragOver : {}) }}
               onDragOver={(e) => { if (dragKey) { e.preventDefault(); setDragOverKey(g.key); } }}
               onDragLeave={() => { if (dragOverKey === g.key) setDragOverKey(null); }}

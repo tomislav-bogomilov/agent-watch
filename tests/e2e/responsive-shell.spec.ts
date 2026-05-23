@@ -25,7 +25,7 @@ test('sidebar auto-collapses below 1400px and re-expands above', async ({ page }
 test('canvas+gutter are capped and centered above 2400px wide', async ({ page }) => {
   await page.setViewportSize({ width: 3400, height: 1000 });
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).first().click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
   await page.locator('svg g[data-id]').first().waitFor();
   await page.getByTestId('chrome-gutter').waitFor();
 

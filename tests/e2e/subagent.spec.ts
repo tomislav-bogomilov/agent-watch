@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('subagent: subtree renders, traversal descends first', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/sub' }).click();
+  await page.locator('[data-project-key="demo/sub"] li[data-testid^="session-item"]').click();
   await expect(page.locator('svg g[data-id]').first()).toBeVisible();
   // Total milestones: main (3) + subagent (3) = 6
   await expect(page.locator('svg g[data-id]')).toHaveCount(6, { timeout: 5_000 });

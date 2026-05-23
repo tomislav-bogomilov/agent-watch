@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 async function loadDemoHappy(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).first().click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
   await page.locator('svg g[data-id]').first().waitFor();
   await page.getByTestId('chrome-gutter').waitFor();
 }

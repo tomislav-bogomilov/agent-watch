@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('scrubber click jumps playhead and pauses', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
   await expect(page.locator('svg g[data-id]').first()).toBeVisible();
 
   // Start playback so we can verify the scrubber pauses it.
@@ -22,7 +22,7 @@ test('scrubber click jumps playhead and pauses', async ({ page }) => {
 
 test('step-forward button advances one milestone', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
   await expect(page.locator('svg g[data-id]').first()).toBeVisible();
   const before = await page.getByTestId('scrubber-handle').getAttribute('data-pct');
   await page.getByTestId('step-forward').click();

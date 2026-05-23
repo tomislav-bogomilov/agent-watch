@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('wheel-zoom enlarges nodes (graph is no longer fit-to-screen only)', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
   const firstNode = page.locator('svg g[data-id]').first();
   await expect(firstNode).toBeVisible();
   const before = await firstNode.boundingBox();
@@ -20,7 +20,7 @@ test('wheel-zoom enlarges nodes (graph is no longer fit-to-screen only)', async 
 
 test('FIT button reduces scale toward fit after zoom', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
   const firstNode = page.locator('svg g[data-id]').first();
   await expect(firstNode).toBeVisible();
   const svg = page.locator('svg').first();
@@ -40,7 +40,7 @@ test('FIT button reduces scale toward fit after zoom', async ({ page }) => {
 
 test('click node opens detail panel; close button dismisses', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
   const firstNode = page.locator('svg g[data-id]').first();
   await expect(firstNode).toBeVisible();
   await firstNode.click();
@@ -52,7 +52,7 @@ test('click node opens detail panel; close button dismisses', async ({ page }) =
 
 test('tooltip lands within 260px of the hovered node', async ({ page }) => {
   await page.goto('/');
-  await page.locator('aside li', { hasText: 'demo/happy' }).click();
+  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
   const node = page.locator('svg g[data-id]').first();
   await expect(node).toBeVisible();
   await node.hover();
