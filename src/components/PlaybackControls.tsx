@@ -38,7 +38,8 @@ function Scrubber({ index, edgeProgress, total, onSeek }: {
       style={{
         position: 'relative',
         height: 6,
-        width: 320,
+        flex: '1 1 auto',
+        minWidth: 80,
         background: 'rgba(26,58,74,0.6)',
         border: '1px solid var(--edge-idle)',
         cursor: 'pointer',

@@ -197,8 +197,6 @@ export default function App() {
   );
 }
 
-const GUTTER_HEIGHT = 110;
-
 const styles = {
   shell: { display: 'flex', height: '100%' },
   main: {
@@ -211,13 +209,12 @@ const styles = {
   canvasSlot: { flex: 1, minHeight: 0, position: 'relative' as const },
   gutter: {
     flexShrink: 0,
-    height: GUTTER_HEIGHT,
     borderTop: '1px solid var(--grid)',
     background: 'rgba(5,8,13,0.5)',
     display: 'flex' as const,
-    alignItems: 'center',
-    gap: 16,
-    padding: '0 16px',
+    flexDirection: 'column' as const,
+    gap: 6,
+    padding: '8px 16px',
     minWidth: 0,
     overflow: 'hidden' as const,
   },

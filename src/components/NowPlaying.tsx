@@ -60,8 +60,7 @@ export function NowPlaying({ current, edgeProgress, inSubagent, speed }: Props) 
 const styles = {
   frame: {
     minWidth: 0,
-    flex: '1 1 380px',
-    maxWidth: 720,
+    width: '100%',
     maxHeight: 94,
     overflowY: 'auto' as const,
     background: 'rgba(5,8,13,0.92)',
