@@ -19,6 +19,7 @@ const SIDEBAR_MAX = 520;
 const DETAIL_MIN = 320;
 const DETAIL_MAX = 720;
 const NARROW_THRESHOLD = 1400;
+const CONTENT_MAX = 2400;
 
 function collectSubagentIds(root: Milestone): Set<string> {
   const ids = new Set<string>();
@@ -154,61 +155,63 @@ export default function App() {
         width={sidebarWidth}
         onResize={(d) => setSidebarWidth((w) => w + d)}
       />
-      <main style={{
-        ...styles.main,
-        paddingRight: displayedMilestone ? detailWidth : 0,
-      }}>
-        {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
-        {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
-        {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
-        {isMissingSlice && <div style={styles.empty} data-testid="prompt-not-found">PROMPT NOT FOUND</div>}
-        {effectiveSession && needsConfirm && (
-          <div style={styles.overflow} data-testid="overflow-confirm">
-            <div style={styles.overflowMsg}>
-              LARGE SESSION — {effectiveSession.totalMilestones} MILESTONES
+      <main style={styles.main}>
+        <div style={{
+          ...styles.contentFrame,
+          paddingRight: displayedMilestone ? detailWidth : 0,
+        }}>
+          {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
+          {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
+          {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
+          {isMissingSlice && <div style={styles.empty} data-testid="prompt-not-found">PROMPT NOT FOUND</div>}
+          {effectiveSession && needsConfirm && (
+            <div style={styles.overflow} data-testid="overflow-confirm">
+              <div style={styles.overflowMsg}>
+                LARGE SESSION — {effectiveSession.totalMilestones} MILESTONES
+              </div>
+              <div style={styles.overflowSub}>Rendering may take a moment.</div>
+              <button
+                style={styles.overflowBtn}
+                data-testid="load-anyway"
+                onClick={() => setConfirmedIds((s) => new Set(s).add(effectiveSession.id))}
+              >
+                LOAD ANYWAY
+              </button>
             </div>
-            <div style={styles.overflowSub}>Rendering may take a moment.</div>
-            <button
-              style={styles.overflowBtn}
-              data-testid="load-anyway"
-              onClick={() => setConfirmedIds((s) => new Set(s).add(effectiveSession.id))}
-            >
-              LOAD ANYWAY
-            </button>
-          </div>
-        )}
-        {effectiveSession && !needsConfirm && (
-          <div style={styles.canvasSlot}>
-            <div style={styles.sessionHeader} data-testid="session-header">
-              <div style={styles.sessionTitle}>{headerTitle}</div>
-              <div style={styles.sessionCwd}>{effectiveSession.cwd}</div>
+          )}
+          {effectiveSession && !needsConfirm && (
+            <div style={styles.canvasSlot}>
+              <div style={styles.sessionHeader} data-testid="session-header">
+                <div style={styles.sessionTitle}>{headerTitle}</div>
+                <div style={styles.sessionCwd}>{effectiveSession.cwd}</div>
+              </div>
+              <GraphCanvas
+                session={effectiveSession}
+                playback={playback}
+                subagentIds={subagentIds}
+                pinnedId={pinnedId}
+                onPin={setPinnedId}
+                onScrubTo={followingControls.scrubTo}
+                filters={filters}
+                onCameraReady={(api) => { cameraRef.current = api; }}
+              />
+              <FilterToggles value={filters} onChange={setFilters} />
+              <Legend />
             </div>
-            <GraphCanvas
-              session={effectiveSession}
-              playback={playback}
-              subagentIds={subagentIds}
-              pinnedId={pinnedId}
-              onPin={setPinnedId}
-              onScrubTo={followingControls.scrubTo}
-              filters={filters}
-              onCameraReady={(api) => { cameraRef.current = api; }}
-            />
-            <FilterToggles value={filters} onChange={setFilters} />
-            <Legend />
-          </div>
-        )}
-        {effectiveSession && !needsConfirm && (
-          <div data-testid="chrome-gutter" style={styles.gutter}>
-            <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
-            <PlaybackControls state={playback} controls={followingControls} />
-          </div>
-        )}
-        <DetailPanel
-          milestone={displayedMilestone}
-          onClose={handleDetailClose}
-          width={detailWidth}
-          onResize={(d) => setDetailWidth((w) => w + d)}
-        />
+          )}
+          {effectiveSession && !needsConfirm && (
+            <div data-testid="chrome-gutter" style={styles.gutter}>
+              <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
+              <PlaybackControls state={playback} controls={followingControls} />
+            </div>
+          )}
+          <DetailPanel
+            milestone={displayedMilestone}
+            onClose={handleDetailClose}
+            width={detailWidth}
+            onResize={(d) => setDetailWidth((w) => w + d)}
+          />
+        </div>
       </main>
     </div>
   );
@@ -222,6 +225,16 @@ const styles = {
     overflow: 'hidden' as const,
     display: 'flex' as const,
     flexDirection: 'column' as const,
+  },
+  contentFrame: {
+    maxWidth: CONTENT_MAX,
+    width: '100%',
+    margin: '0 auto',
+    flex: 1,
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+    position: 'relative' as const,
+    minHeight: 0,
   },
   canvasSlot: { flex: 1, minHeight: 0, position: 'relative' as const },
   gutter: {
