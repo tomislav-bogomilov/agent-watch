@@ -219,4 +219,72 @@ describe('buildMilestones', () => {
     expect(child.usage).toBeUndefined();
     expect(child.contextSize).toBeUndefined();
   });
+
+  it('propagates the next milestone usage onto a root_prompt', () => {
+    const events: RawEvent[] = [
+      userMsg('1', null, 'Solve this please'),
+      {
+        uuid: '2',
+        parentUuid: '1',
+        timestamp: t,
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'on it' }],
+          usage: {
+            input_tokens: 5,
+            cache_read_input_tokens: 100,
+            cache_creation_input_tokens: 200,
+            output_tokens: 10,
+          },
+        } as unknown as RawEvent['message'],
+      },
+    ];
+    const root = buildMilestones(events);
+    expect(root.kind).toBe('root_prompt');
+    expect(root.usage).toEqual({ input: 5, cacheRead: 100, cacheCreation: 200, output: 10 });
+    expect(root.contextSize).toBe(305);
+  });
+
+  it('propagates next-milestone usage onto a user_followup', () => {
+    const events: RawEvent[] = [
+      userMsg('1', null, 'Hi'),
+      assistantText('2', '1', 'hello'),
+      userMsg('3', '2', 'Now do something else'),
+      {
+        uuid: '4',
+        parentUuid: '3',
+        timestamp: t,
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'ok' }],
+          usage: {
+            input_tokens: 1,
+            cache_read_input_tokens: 2,
+            cache_creation_input_tokens: 3,
+            output_tokens: 4,
+          },
+        } as unknown as RawEvent['message'],
+      },
+    ];
+    // root_prompt -> assistant_turn(2) -> user_followup(3) -> completion(4)
+    const root = buildMilestones(events);
+    const a = root.children[0];
+    const u2 = a.children[0];
+    expect(u2.kind).toBe('user_followup');
+    expect(u2.usage).toEqual({ input: 1, cacheRead: 2, cacheCreation: 3, output: 4 });
+    expect(u2.contextSize).toBe(6);
+  });
+
+  it('leaves a trailing user prompt with no following assistant turn without usage', () => {
+    // synthetic edge case: user message with no assistant reply afterward
+    const events: RawEvent[] = [
+      userMsg('1', null, 'Hi'),
+    ];
+    const root = buildMilestones(events);
+    expect(root.kind).toBe('root_prompt');
+    expect(root.usage).toBeUndefined();
+    expect(root.contextSize).toBeUndefined();
+  });
 });

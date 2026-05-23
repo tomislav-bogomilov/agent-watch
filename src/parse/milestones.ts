@@ -172,6 +172,19 @@ export function buildMilestones(events: RawEvent[]): Milestone {
     }
   }
 
+  // Propagate usage from the next milestone onto user-prompt milestones,
+  // which carry no usage of their own. The next milestone in the flat list
+  // is also the next in the chain (chain is linear), so this matches
+  // "context state right after the prompt was appended."
+  for (let i = 0; i < flat.length - 1; i++) {
+    const m = flat[i];
+    if (m.kind !== 'root_prompt' && m.kind !== 'user_followup') continue;
+    if (m.usage) continue;
+    const next = flat[i + 1];
+    if (!next.usage) continue;
+    flat[i] = { ...m, usage: next.usage, contextSize: next.contextSize };
+  }
+
   // Chain flat list into a tree (one child per parent for sequential flow)
   if (flat.length === 0) {
     return makeMilestone({
