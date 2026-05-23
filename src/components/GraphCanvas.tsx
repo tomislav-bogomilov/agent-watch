@@ -17,6 +17,7 @@ type Props = {
   subagentIds: Set<string>;
   pinnedId: string | null;
   onPin: (id: string | null) => void;
+  onScrubTo: (index: number) => void;
   filters: Filters;
   onCameraReady?: (api: CameraApi) => void;
 };
@@ -55,7 +56,7 @@ function computeSubagentRegions(root: Milestone, nodes: LaidOutNode[]): Subagent
   return regions;
 }
 
-export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, filters, onCameraReady }: Props) {
+export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, onScrubTo, filters, onCameraReady }: Props) {
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
     () => computeSubagentRegions(session.root, layout.nodes),
@@ -228,7 +229,12 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, f
                 key={n.id}
                 onMouseEnter={(e) => handleNodeEnter(n.milestone, e)}
                 onMouseLeave={() => setHover(null)}
-                onClick={(e) => { e.stopPropagation(); onPin(isPinned ? null : n.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const idx = orderIndex.get(n.id);
+                  if (idx != null) onScrubTo(idx);
+                  onPin(isPinned ? null : n.id);
+                }}
                 style={{ cursor: 'pointer' }}
               >
                 <NodeShape node={n} state={state} inSubagent={inSub} pinned={isPinned} showContextBadge={showContextBadge} />

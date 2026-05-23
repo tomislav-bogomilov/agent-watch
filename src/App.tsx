@@ -172,6 +172,7 @@ export default function App() {
               subagentIds={subagentIds}
               pinnedId={pinnedId}
               onPin={setPinnedId}
+              onScrubTo={followingControls.scrubTo}
               filters={filters}
               onCameraReady={(api) => { cameraRef.current = api; }}
             />
