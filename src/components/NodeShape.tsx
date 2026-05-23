@@ -103,7 +103,7 @@ export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }:
         <circle cx={W - 10} cy={6} r={3.5} fill="var(--node-failed)" filter="url(#tg-glow)" />
       )}
       {showContextBadge && node.milestone.contextSize != null && (
-        <g data-testid="context-badge" transform={`translate(${W - 28}, -8)`}>
+        <g data-testid="context-badge" transform={`translate(${W - 28}, -8)`} style={{ pointerEvents: 'none' }}>
           <rect
             x={0}
             y={0}
