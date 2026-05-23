@@ -44,7 +44,7 @@ Population in `src/parse/milestones.ts`:
   - The `assistant_turn` milestone (if the event has text-only output), or
   - Every `tool_call` / `subagent_spawn` milestone derived from the event's `tool_use` blocks (they share one Claude turn → share one usage).
 - Tool-only assistant events (no text) still attach usage to each derived tool milestone.
-- For user-prompt milestones (`root_prompt`, `user_followup`) which have no own usage, do a small post-pass on the flat list: for each user-prompt milestone, copy the **next** milestone's `usage` and `contextSize` onto it ("context state right after this prompt was appended"). If no following milestone has usage, leave both undefined.
+- For user-prompt milestones (`root_prompt`, `user_followup`) which have no own usage, do a small post-pass on the flat list: for each user-prompt milestone, copy the **next** milestone's `usage` and `contextSize` onto it ("context state right after this prompt was appended"). If no following milestone has usage, leave both undefined. Side effect: a clicked user-prompt's detail panel `CONTEXT` block shows the same numbers as the next node, which is correct ("context as the model saw it once the prompt was in place") but worth knowing.
 
 ### 1.2 Formatting
 
@@ -97,12 +97,12 @@ When `showAllContext` is true, the chip renders on **every** node that has `cont
 ```
 ─────────────
 ctx · 47k
-  input    6
-  cache  47.0k        ← cache_read + cache_creation, combined
-  out      389
+  input        6
+  cache    47.0k       ← cache_read + cache_creation, combined
+  output     389
 ```
 
-Numbers right-aligned, monospace, dim color for labels and bright for values. If `usage` is undefined, the section is omitted.
+(For a milestone whose `usage = { input: 6, cacheRead: 18209, cacheCreation: 28826, output: 389 }`: chip shows `47k`, hover combines cache_read + cache_creation into a single `cache` row at one-decimal precision.) Numbers right-aligned, monospace, dim color for labels and bright for values. If `usage` is undefined, the section is omitted.
 
 ### 1.6 Detail panel
 
