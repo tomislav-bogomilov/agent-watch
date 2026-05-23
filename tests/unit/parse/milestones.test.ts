@@ -144,4 +144,79 @@ describe('buildMilestones', () => {
     expect(inner.children[0].kind).toBe('completion');
     expect(inner.children[0].summary).toBe('All done');
   });
+
+  it('captures usage on an assistant_turn milestone', () => {
+    const events: RawEvent[] = [
+      userMsg('1', null, 'Hello'),
+      {
+        uuid: '2',
+        parentUuid: '1',
+        timestamp: t,
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'hi' }],
+          usage: {
+            input_tokens: 6,
+            cache_read_input_tokens: 18209,
+            cache_creation_input_tokens: 28826,
+            output_tokens: 389,
+          },
+        } as unknown as RawEvent['message'],
+      },
+    ];
+    const root = buildMilestones(events);
+    // root is root_prompt; its child is the completion (final assistant_turn promoted)
+    const assistant = root.children[0];
+    expect(assistant.usage).toEqual({ input: 6, cacheRead: 18209, cacheCreation: 28826, output: 389 });
+    expect(assistant.contextSize).toBe(6 + 18209 + 28826);
+  });
+
+  it('shares usage across multiple tool_call milestones from the same assistant event', () => {
+    const events: RawEvent[] = [
+      userMsg('1', null, 'Hi'),
+      {
+        uuid: '2',
+        parentUuid: '1',
+        timestamp: t,
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'tool_use', id: 'tu1', name: 'Read', input: { file_path: '/a' } },
+            { type: 'tool_use', id: 'tu2', name: 'Grep', input: { pattern: 'x' } },
+          ],
+          usage: {
+            input_tokens: 10,
+            cache_read_input_tokens: 100,
+            cache_creation_input_tokens: 200,
+            output_tokens: 50,
+          },
+        } as unknown as RawEvent['message'],
+      },
+      toolResult('3', '2', 'tu1', 'ok'),
+      toolResult('4', '2', 'tu2', 'ok'),
+    ];
+    const root = buildMilestones(events);
+    const t1 = root.children[0];
+    const t2 = t1.children[0];
+    expect(t1.kind).toBe('tool_call');
+    expect(t2.kind).toBe('tool_call');
+    const expected = { input: 10, cacheRead: 100, cacheCreation: 200, output: 50 };
+    expect(t1.usage).toEqual(expected);
+    expect(t2.usage).toEqual(expected);
+    expect(t1.contextSize).toBe(310);
+    expect(t2.contextSize).toBe(310);
+  });
+
+  it('leaves usage undefined when the assistant event has no usage block', () => {
+    const events: RawEvent[] = [
+      userMsg('1', null, 'Hi'),
+      assistantText('2', '1', 'bare response, no usage field'),
+    ];
+    const root = buildMilestones(events);
+    const child = root.children[0];
+    expect(child.usage).toBeUndefined();
+    expect(child.contextSize).toBeUndefined();
+  });
 });
