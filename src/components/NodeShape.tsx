@@ -1,5 +1,6 @@
 import type { LaidOutNode } from '../graph/layout';
 import type { MilestoneKind } from '../parse/types';
+import { formatTokens } from '../util/formatTokens';
 
 type State = 'idle' | 'active' | 'success' | 'failed' | 'pruned';
 
@@ -8,6 +9,7 @@ type Props = {
   state: State;
   inSubagent: boolean;
   pinned?: boolean;
+  showContextBadge?: boolean;
 };
 
 function glyphFor(kind: MilestoneKind): string {
@@ -65,7 +67,7 @@ function shapeFor(kind: MilestoneKind): { d: string; labelX: number } {
   }
 }
 
-export function NodeShape({ node, state, inSubagent, pinned }: Props) {
+export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }: Props) {
   const colors = colorsFor(state, inSubagent, node.milestone.kind);
   const useGlow = state === 'active' || state === 'success';
   const { d, labelX } = shapeFor(node.milestone.kind);
@@ -99,6 +101,34 @@ export function NodeShape({ node, state, inSubagent, pinned }: Props) {
       </text>
       {state === 'failed' && (
         <circle cx={W - 10} cy={6} r={3.5} fill="var(--node-failed)" filter="url(#tg-glow)" />
+      )}
+      {showContextBadge && node.milestone.contextSize != null && (
+        <g data-testid="context-badge" transform={`translate(${W - 28}, -8)`}>
+          <rect
+            x={0}
+            y={0}
+            width={32}
+            height={12}
+            rx={2}
+            ry={2}
+            fill="rgba(5,8,13,0.92)"
+            stroke={colors.stroke}
+            strokeWidth={0.75}
+            opacity={state === 'pruned' ? 0.45 : 0.95}
+          />
+          <text
+            x={16}
+            y={9}
+            textAnchor="middle"
+            fontSize={9}
+            letterSpacing={0.5}
+            fontFamily="ui-monospace, monospace"
+            fill={colors.text}
+            style={{ pointerEvents: 'none' }}
+          >
+            {formatTokens(node.milestone.contextSize)}
+          </text>
+        </g>
       )}
       {pinned && (
         <path
