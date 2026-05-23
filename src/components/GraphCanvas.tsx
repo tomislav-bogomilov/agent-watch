@@ -277,6 +277,8 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
         viewport={viewport}
         currentLayoutPoint={currentId ? layout.nodes.find((n) => n.id === currentId) ?? null : null}
         onJump={(pt) => centerOn(pt, transform.k)}
+        onPan={(pt) => centerOn(pt, transform.k, { animate: false })}
+        onZoom={(pt, k) => centerOn(pt, k, { animate: false })}
       />
       {hover && <NodeTooltip milestone={hover.milestone} screenX={hover.screenX} screenY={hover.screenY} />}
     </div>
