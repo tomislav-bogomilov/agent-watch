@@ -20,6 +20,7 @@ type Props = {
   filters: Filters;
   onCameraReady?: (api: CameraApi) => void;
   liveEngaged: boolean;
+  compact?: boolean;
 };
 
 type SubagentRegion = { x: number; y: number; width: number; height: number };
@@ -58,7 +59,7 @@ function computeSubagentRegions(root: Milestone, nodes: LaidOutNode[]): Subagent
 
 export function GraphCanvas({
   session, playback, subagentIds, pinnedId, onPin, onScrubTo, filters, onCameraReady,
-  liveEngaged,
+  liveEngaged, compact = false,
 }: Props) {
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
@@ -250,19 +251,21 @@ export function GraphCanvas({
           })}
         </g>
       </svg>
-      <button
-        data-testid="fit-button"
-        onClick={() => fit()}
-        style={{
-          position: 'absolute', top: 12, right: 12, zIndex: 6,
-          background: 'rgba(5,8,13,0.85)', border: '1px solid var(--edge-idle)',
-          color: 'var(--text)', padding: '2px 8px', cursor: 'pointer',
-          fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: 2,
-          height: 20, boxSizing: 'border-box',
-        }}
-        title="fit (F)"
-      >FIT</button>
-      {!liveEngaged && (
+      {!compact && (
+        <button
+          data-testid="fit-button"
+          onClick={() => fit()}
+          style={{
+            position: 'absolute', top: 12, right: 12, zIndex: 6,
+            background: 'rgba(5,8,13,0.85)', border: '1px solid var(--edge-idle)',
+            color: 'var(--text)', padding: '2px 8px', cursor: 'pointer',
+            fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: 2,
+            height: 20, boxSizing: 'border-box',
+          }}
+          title="fit (F)"
+        >FIT</button>
+      )}
+      {!liveEngaged && !compact && (
         <button
           data-testid="follow-toggle"
           onClick={() => setFollow(!follow)}
@@ -278,15 +281,17 @@ export function GraphCanvas({
           title="follow playhead (L)"
         >FOLLOW</button>
       )}
-      <Minimap
-        layout={layout}
-        transform={transform}
-        viewport={viewport}
-        currentLayoutPoint={currentId ? layout.nodes.find((n) => n.id === currentId) ?? null : null}
-        onJump={(pt) => centerOn(pt, transform.k)}
-        onPan={(pt) => centerOn(pt, transform.k, { animate: false })}
-        onZoom={(pt, k) => centerOn(pt, k, { animate: false })}
-      />
+      {!compact && (
+        <Minimap
+          layout={layout}
+          transform={transform}
+          viewport={viewport}
+          currentLayoutPoint={currentId ? layout.nodes.find((n) => n.id === currentId) ?? null : null}
+          onJump={(pt) => centerOn(pt, transform.k)}
+          onPan={(pt) => centerOn(pt, transform.k, { animate: false })}
+          onZoom={(pt, k) => centerOn(pt, k, { animate: false })}
+        />
+      )}
       {hover && <NodeTooltip milestone={hover.milestone} screenX={hover.screenX} screenY={hover.screenY} />}
     </div>
   );
