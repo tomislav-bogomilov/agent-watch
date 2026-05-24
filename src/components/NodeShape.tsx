@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { LaidOutNode } from '../graph/layout';
 import type { MilestoneKind } from '../parse/types';
 import { formatTokens } from '../util/formatTokens';
@@ -67,7 +68,7 @@ function shapeFor(kind: MilestoneKind): { d: string; labelX: number } {
   }
 }
 
-export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }: Props) {
+export const NodeShape = memo(function NodeShape({ node, state, inSubagent, pinned, showContextBadge }: Props) {
   const colors = colorsFor(state, inSubagent, node.milestone.kind);
   const useGlow = state === 'active' || state === 'success';
   const { d, labelX } = shapeFor(node.milestone.kind);
@@ -142,7 +143,7 @@ export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }:
       )}
     </g>
   );
-}
+});
 
 function tintFor(kind: MilestoneKind): { fill: string; accent: string } {
   // Distinct neon tints per kind, on the TRON cyan/violet/teal axis.
