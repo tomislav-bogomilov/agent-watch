@@ -145,14 +145,20 @@ async function readSessionPayload(root: string, projectId: string, sessionId: st
   const projectDir = path.join(root, projectId);
   const sessionPath = path.join(projectDir, `${sessionId}.jsonl`);
   const jsonl = await fs.readFile(sessionPath, 'utf8');
-  const subagents: { id: string; jsonl: string }[] = [];
+  const subagents: { id: string; jsonl: string; lastUpdatedAt: string }[] = [];
   const subagentDir = path.join(projectDir, sessionId, 'subagents');
   try {
     const files = await fs.readdir(subagentDir);
     for (const f of files) {
       if (!f.endsWith('.jsonl')) continue;
-      const content = await fs.readFile(path.join(subagentDir, f), 'utf8');
-      subagents.push({ id: f.replace(/\.jsonl$/, ''), jsonl: content });
+      const full = path.join(subagentDir, f);
+      const stat = await fs.stat(full);
+      const content = await fs.readFile(full, 'utf8');
+      subagents.push({
+        id: f.replace(/\.jsonl$/, ''),
+        jsonl: content,
+        lastUpdatedAt: stat.mtime.toISOString(),
+      });
     }
   } catch {
     // no subagent dir -> empty list
