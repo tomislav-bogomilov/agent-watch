@@ -19,7 +19,7 @@ export function usePromptList() {
   });
 }
 
-export function useSession(projectId: string | null, sessionId: string | null) {
+export function useSession(projectId: string | null, sessionId: string | null, live: boolean = false) {
   return useQuery<Session>({
     queryKey: ['session', projectId, sessionId],
     queryFn: async () => {
@@ -27,5 +27,8 @@ export function useSession(projectId: string | null, sessionId: string | null) {
       return parseSession(payload);
     },
     enabled: !!projectId && !!sessionId,
+    refetchInterval: live ? POLL_MS : false,
   });
 }
+
+export { isLiveMeta } from '../components/live/liveness';
