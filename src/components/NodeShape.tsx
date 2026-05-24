@@ -112,6 +112,7 @@ export const NodeShape = memo(function NodeShape({ node, state, inSubagent, pinn
           fill="none"
           stroke="var(--edge-trail)"
           strokeWidth={1.5}
+          style={{ filter: 'url(#tg-glow)' }}
         />
       )}
       {showContextBadge && node.milestone.contextSize != null && (

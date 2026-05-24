@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNowMs } from './useNowMs';
 import { nextPaneStatus, type PaneState } from './paneStatus';
 import { SUBAGENT_STABLE_MS, TICK_MS } from './liveness';
@@ -31,20 +31,28 @@ function mapsEqual(prev: Record<string, PaneState>, next: Record<string, PaneSta
  *  when the derived map is value-equal to the previous one, so memoized
  *  consumers don't rerender on idle 1Hz ticks.
  *
- *  `overrides` lets callers (e.g. freezeToggle) pin a specific PaneState for
- *  a key, bypassing the time-derived computation for that entry. */
+ *  Returns the map plus a `seed(key, state)` callback. Calling `seed` writes
+ *  directly into the hook's prev-ref, so the next tick's `nextPaneStatus`
+ *  call uses the seeded state as `prevState`. Unlike a "permanent override",
+ *  the seed is consumed once and then evolves naturally — file activity will
+ *  unfreeze a frozen pane and the seed does not re-apply afterward. */
 export function useStatusMap(
   entries: Entry[],
   keyToFileId: Map<string, string>,
   subagentMtimes: Record<string, string>,
   userClosedKeys: Set<string>,
-  overrides: Record<string, PaneState>,
   intervalMs: number = TICK_MS,
-): Record<string, PaneState> {
+): { statusMap: Record<string, PaneState>; seed: (key: string, state: PaneState) => void } {
   const nowMs = useNowMs(intervalMs);
   const prevRef = useRef<Record<string, PaneState>>({});
+  const [seedVersion, setSeedVersion] = useState(0);
 
-  return useMemo(() => {
+  const seed = useCallback((key: string, state: PaneState) => {
+    prevRef.current = { ...prevRef.current, [key]: state };
+    setSeedVersion((v) => v + 1);
+  }, []);
+
+  const statusMap = useMemo(() => {
     const next: Record<string, PaneState> = {};
     const prev = prevRef.current;
     for (const e of entries) {
@@ -54,11 +62,8 @@ export function useStatusMap(
       // we have no signal that they've gone quiet, so we default to "just updated".
       const lastUpdatedMs = mtimeIso ? new Date(mtimeIso).getTime() : nowMs;
       const staleAtOpen = (nowMs - lastUpdatedMs) >= SUBAGENT_STABLE_MS;
-      // An override seeds the prevState fed into nextPaneStatus, so a 'closing'
-      // override evolves toward 'closed' and a 'frozen' override stays frozen
-      // until file activity resumes. userClosedKeys still wins below regardless.
       const prevState: PaneState =
-        overrides[e.key] ?? prev[e.key] ?? (staleAtOpen
+        prev[e.key] ?? (staleAtOpen
           ? { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
           : { status: 'active', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null });
       next[e.key] = userClosedKeys.has(e.key)
@@ -68,5 +73,7 @@ export function useStatusMap(
     if (mapsEqual(prev, next)) return prev;
     prevRef.current = next;
     return next;
-  }, [entries, keyToFileId, subagentMtimes, userClosedKeys, overrides, nowMs]);
+  }, [entries, keyToFileId, subagentMtimes, userClosedKeys, nowMs, seedVersion]);
+
+  return { statusMap, seed };
 }

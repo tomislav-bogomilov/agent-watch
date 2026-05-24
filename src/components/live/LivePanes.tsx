@@ -3,7 +3,7 @@ import type { Session, Milestone } from '../../parse/types';
 import { LivePane } from './LivePane';
 import { extractSubagentPaneRoot } from './extractSubagentPaneRoot';
 import { subagentLabel } from './subagentLabel';
-import { remainingSeconds, type PaneState } from './paneStatus';
+import { remainingSeconds } from './paneStatus';
 import { TICK_MS, CLOSING_MS } from './liveness';
 import { pickVisibleSubagentEntries } from './visibleSubagents';
 import { makeLivePlayback } from './livePlayback';
@@ -82,9 +82,8 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   const mainFittedRef = useRef(false);
 
   const nowMs = useNowMs(TICK_MS);
-  const [statusOverrides, setStatusOverrides] = useState<Record<string, PaneState>>({});
-  const statusMap = useStatusMap(
-    subagentEntries, keyToFileId, subagentMtimes, userClosedKeys, statusOverrides
+  const { statusMap, seed: seedPaneStatus } = useStatusMap(
+    subagentEntries, keyToFileId, subagentMtimes, userClosedKeys
   );
   const statusMapRef = useRef(statusMap);
   useEffect(() => { statusMapRef.current = statusMap; }, [statusMap]);
@@ -96,7 +95,6 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     mainFittedRef.current = false;
     mainCameraRef.current = null;
     setUserClosedKeys(new Set());
-    setStatusOverrides({});
   }, [session.id]);
 
   const displayable = pickVisibleSubagentEntries(subagentEntries, keyToFileId, subagentMtimes, statusMap, nowMs);
@@ -115,31 +113,20 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
 
   const closePaneByKey = useCallback((key: string) => {
     setUserClosedKeys((prev) => { const next = new Set(prev); next.add(key); return next; });
-    setStatusOverrides((prev) => { const { [key]: _removed, ...rest } = prev; return rest; });
   }, []);
 
   const freezeToggleByKey = useCallback((key: string) => {
-    setStatusOverrides((prev) => {
-      const current = statusMapRef.current[key];
-      if (!current) return prev;
-      if (current.status === 'frozen') {
-        const newClosingStartedAt = Date.now() - (CLOSING_MS - (current.frozenRemainingMs ?? CLOSING_MS));
-        return {
-          ...prev,
-          [key]: { ...current, status: 'closing', frozenAt: null, frozenRemainingMs: null, closingStartedAt: newClosingStartedAt },
-        };
-      }
-      if (current.status === 'closing') {
-        const elapsed = Date.now() - (current.closingStartedAt ?? Date.now());
-        const remaining = Math.max(0, CLOSING_MS - elapsed);
-        return {
-          ...prev,
-          [key]: { ...current, status: 'frozen', frozenAt: Date.now(), frozenRemainingMs: remaining },
-        };
-      }
-      return prev;
-    });
-  }, []);
+    const current = statusMapRef.current[key];
+    if (!current) return;
+    if (current.status === 'frozen') {
+      const newClosingStartedAt = Date.now() - (CLOSING_MS - (current.frozenRemainingMs ?? CLOSING_MS));
+      seedPaneStatus(key, { ...current, status: 'closing', frozenAt: null, frozenRemainingMs: null, closingStartedAt: newClosingStartedAt });
+    } else if (current.status === 'closing') {
+      const elapsed = Date.now() - (current.closingStartedAt ?? Date.now());
+      const remaining = Math.max(0, CLOSING_MS - elapsed);
+      seedPaneStatus(key, { ...current, status: 'frozen', frozenAt: Date.now(), frozenRemainingMs: remaining });
+    }
+  }, [seedPaneStatus]);
 
   const handleMainCameraReady = useCallback((api: CameraApi) => {
     mainCameraRef.current = api;

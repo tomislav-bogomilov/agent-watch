@@ -19,39 +19,39 @@ describe('useStatusMap', () => {
     const mtimes = { fa: '2026-05-24T12:00:00Z', fb: '2026-05-24T12:00:00Z' };
     const userClosed = new Set<string>();
     const { result } = renderHook(() =>
-      useStatusMap(entries, keyToFileId, mtimes, userClosed, {}, TICK)
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK)
     );
-    expect(Object.keys(result.current)).toEqual(['a', 'b']);
-    expect(result.current.a.status).toBe('active');
-    expect(result.current.b.status).toBe('active');
+    expect(Object.keys(result.current.statusMap)).toEqual(['a', 'b']);
+    expect(result.current.statusMap.a.status).toBe('active');
+    expect(result.current.statusMap.b.status).toBe('active');
   });
 
-  it('returns the SAME object reference across ticks when nothing changed', () => {
+  it('returns the SAME statusMap object reference across ticks when nothing changed', () => {
     const entries: Entry[] = [{ key: 'a' }];
     const keyToFileId = new Map([['a', 'fa']]);
     const mtimes = { fa: '2026-05-24T12:00:00Z' };
     const userClosed = new Set<string>();
     const { result } = renderHook(() =>
-      useStatusMap(entries, keyToFileId, mtimes, userClosed, {}, TICK)
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK)
     );
-    const first = result.current;
+    const first = result.current.statusMap;
     act(() => { vi.advanceTimersByTime(TICK); });
-    expect(result.current).toBe(first); // reference-equal: no rerender propagation
+    expect(result.current.statusMap).toBe(first);
   });
 
-  it('returns a new reference when an entry transitions state', () => {
+  it('returns a new statusMap reference when an entry transitions state', () => {
     const entries: Entry[] = [{ key: 'a' }];
     const keyToFileId = new Map([['a', 'fa']]);
     const mtimes = { fa: '2026-05-24T12:00:00Z' };
     const userClosed = new Set<string>();
     const { result } = renderHook(() =>
-      useStatusMap(entries, keyToFileId, mtimes, userClosed, {}, TICK)
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK)
     );
-    const first = result.current;
+    const first = result.current.statusMap;
     // 31s of inactivity → transitions to 'closing'
     act(() => { vi.advanceTimersByTime(31_000); });
-    expect(result.current).not.toBe(first);
-    expect(result.current.a.status).toBe('closing');
+    expect(result.current.statusMap).not.toBe(first);
+    expect(result.current.statusMap.a.status).toBe('closing');
   });
 
   it('marks user-closed entries as closed regardless of mtime activity', () => {
@@ -60,58 +60,76 @@ describe('useStatusMap', () => {
     const mtimes = { fa: '2026-05-24T12:00:00Z' };
     const userClosed = new Set(['a']);
     const { result } = renderHook(() =>
-      useStatusMap(entries, keyToFileId, mtimes, userClosed, {}, TICK)
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK)
     );
-    expect(result.current.a.status).toBe('closed');
+    expect(result.current.statusMap.a.status).toBe('closed');
   });
 
-  it('seeds nextPaneStatus from a frozen override and stays frozen when the file is stale', () => {
-    const entries: Entry[] = [{ key: 'a' }];
-    const keyToFileId = new Map([['a', 'fa']]);
-    // Stale mtime so the activity-resumed branch doesn't override the seed.
-    const mtimes = { fa: '2026-05-24T11:55:00Z' };
-    const userClosed = new Set<string>();
-    const overrides = {
-      a: { status: 'frozen' as const, closingStartedAt: null, frozenAt: 0, frozenRemainingMs: 5000 },
-    };
-    const { result } = renderHook(() =>
-      useStatusMap(entries, keyToFileId, mtimes, userClosed, overrides, TICK)
-    );
-    expect(result.current.a.status).toBe('frozen');
-  });
-
-  it('lets a closing override evolve toward closed via nextPaneStatus', () => {
+  it('exposes a seed callback that injects state into the next tick', () => {
     const entries: Entry[] = [{ key: 'a' }];
     const keyToFileId = new Map([['a', 'fa']]);
     const mtimes = { fa: '2026-05-24T11:55:00Z' };  // stale
     const userClosed = new Set<string>();
-    const closingStartedAt = Date.now();
-    const overrides = {
-      a: { status: 'closing' as const, closingStartedAt, frozenAt: null, frozenRemainingMs: null },
-    };
-    const { result, rerender } = renderHook(
-      ({ ovr }: { ovr: typeof overrides }) =>
-        useStatusMap(entries, keyToFileId, mtimes, userClosed, ovr, TICK),
-      { initialProps: { ovr: overrides } }
+    const { result } = renderHook(() =>
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK)
     );
-    expect(result.current.a.status).toBe('closing');
-    // Advance past CLOSING_MS (30s) and re-render with the same override.
-    act(() => { vi.advanceTimersByTime(31_000); });
-    rerender({ ovr: overrides });
-    expect(result.current.a.status).toBe('closed');
+    act(() => {
+      result.current.seed('a', {
+        status: 'frozen',
+        closingStartedAt: null,
+        frozenAt: 0,
+        frozenRemainingMs: 5000,
+      });
+    });
+    expect(result.current.statusMap.a.status).toBe('frozen');
   });
 
-  it('userClosedKeys wins over a frozen override', () => {
+  it('does not re-freeze a pane after file activity has unfrozen it', () => {
+    const entries: Entry[] = [{ key: 'a' }];
+    const keyToFileId = new Map([['a', 'fa']]);
+    // Start with stale mtime, then update to fresh, then back to stale.
+    const initialMtimes = { fa: '2026-05-24T11:55:00Z' };
+    const userClosed = new Set<string>();
+    const { result, rerender } = renderHook(
+      ({ mtimes }: { mtimes: Record<string, string> }) =>
+        useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK),
+      { initialProps: { mtimes: initialMtimes } }
+    );
+    // Seed a frozen state.
+    act(() => {
+      result.current.seed('a', {
+        status: 'frozen',
+        closingStartedAt: null,
+        frozenAt: 0,
+        frozenRemainingMs: 5000,
+      });
+    });
+    expect(result.current.statusMap.a.status).toBe('frozen');
+    // Simulate file activity: rerender with a fresh mtime.
+    rerender({ mtimes: { fa: '2026-05-24T12:00:00Z' } });
+    expect(result.current.statusMap.a.status).toBe('active');
+    // Now simulate the file going quiet for 30+ seconds (no further activity).
+    act(() => { vi.advanceTimersByTime(31_000); });
+    // Pane should NOT re-freeze — natural evolution from 'active' → 'closing', not back to 'frozen'.
+    expect(result.current.statusMap.a.status).toBe('closing');
+  });
+
+  it('userClosedKeys produces a closed state regardless of seed', () => {
     const entries: Entry[] = [{ key: 'a' }];
     const keyToFileId = new Map([['a', 'fa']]);
     const mtimes = { fa: '2026-05-24T11:55:00Z' };
     const userClosed = new Set(['a']);
-    const overrides = {
-      a: { status: 'frozen' as const, closingStartedAt: null, frozenAt: 0, frozenRemainingMs: 5000 },
-    };
     const { result } = renderHook(() =>
-      useStatusMap(entries, keyToFileId, mtimes, userClosed, overrides, TICK)
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK)
     );
-    expect(result.current.a.status).toBe('closed');
+    act(() => {
+      result.current.seed('a', {
+        status: 'frozen',
+        closingStartedAt: null,
+        frozenAt: 0,
+        frozenRemainingMs: 5000,
+      });
+    });
+    expect(result.current.statusMap.a.status).toBe('closed');
   });
 });
