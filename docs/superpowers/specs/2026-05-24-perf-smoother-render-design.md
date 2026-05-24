@@ -12,7 +12,7 @@
 - Eliminate visible flicker on LIVE when subagents appear/disappear and on every 7s poll.
 - Hold ≥55fps on playback for sessions up to ~500 milestones on commodity laptop hardware.
 - Reduce idle CPU when LIVE is up but nothing is changing.
-- Pixel-identical visuals: same glows, animations, breathing, shimmers — no exceptions.
+- Visuals indistinguishable to the user: same glows, animations, breathing, shimmers. Where a substitution is needed for performance (e.g. §6 swaps animated `drop-shadow` for animated `opacity` on already-glowing elements), the result must be imperceptible side-by-side; verified before merging.
 
 ### Non-goals
 - No rendering-stack rewrite (SVG stays SVG; no canvas/WebGL).
@@ -200,7 +200,7 @@ The follow effect runs on `[currentId, follow, viewport.width, viewport.height]`
 - **Playback rerender count:** wrap `EdgePath` in a `React.Profiler` boundary during a test playback of an N-node session. After §3, commit count should be close to `2N` (each edge transitions through ~2 states) instead of `N × number-of-RAF-ticks`.
 
 ### Visual verification (manual, gated)
-- Side-by-side before/after screenshots at three states — idle, mid-playback, LIVE with 2 subagent panes. Goal: pixel-identical or imperceptibly different. Drive via the `verify` skill and Playwright MCP; ask the user to confirm.
+- Side-by-side before/after screenshots at three states — idle, mid-playback, LIVE with 2 subagent panes. Goal: indistinguishable to the user (§1). Drive via the `verify` skill and Playwright MCP; ask the user to confirm.
 
 ### Profiling (manual, evidence-based)
 - Chrome Performance trace on a known session, before and after the full change. Capture: average frame time during playback, paint time per frame, scripting time per poll in LIVE. Numbers go in the PR description as evidence.
