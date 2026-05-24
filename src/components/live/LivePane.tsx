@@ -21,6 +21,8 @@ type Props = {
   borderless?: boolean;
   /** Exposes the inner GraphCanvas camera api so parents (LivePanes N=1) can wire toolbar FIT actions. */
   onCameraReady?: (api: CameraApi) => void;
+  /** When provided, renders a red close button in the pane's top-right. Clicking it flips the pane status to 'closed' immediately (skipping the closing countdown). MAIN panes do not get this affordance — there's exactly one per session. */
+  onClose?: () => void;
 };
 
 const ALL_FILTERS: Filters = { hidePruned: false, hideSubagents: false, successOnly: false, showAllContext: false };
@@ -108,7 +110,7 @@ function collectInnerSubagentIds(root: Milestone): Set<string> {
 export function LivePane({
   kind, label, root, cwd, paneId,
   closingSeconds, frozen, onToggleFreeze,
-  borderless = false, onCameraReady,
+  borderless = false, onCameraReady, onClose,
 }: Props) {
   const accent = kind === 'main' ? '#00e5ff' : '#b894ff';
   const [pinnedId, setPinnedId] = useState<string | null>(null);
@@ -198,6 +200,33 @@ export function LivePane({
             frozen={frozen ?? false}
             onToggleFreeze={onToggleFreeze}
           />
+        )}
+
+        {onClose && (
+          <button
+            data-testid="live-pane-close"
+            aria-label={`close pane ${label}`}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            style={{
+              position: 'absolute',
+              top: 6,
+              right: 6,
+              width: 18,
+              height: 14,
+              padding: 0,
+              background: 'rgba(255,80,80,0.18)',
+              border: '1px solid #ff5050',
+              color: '#ff7c7c',
+              fontFamily: 'ui-monospace, monospace',
+              fontSize: 9,
+              lineHeight: 1,
+              letterSpacing: 1,
+              cursor: 'pointer',
+              boxShadow: '0 0 6px rgba(255,80,80,0.45)',
+              zIndex: 6,
+            }}
+            title="close pane"
+          >×</button>
         )}
       </div>
 

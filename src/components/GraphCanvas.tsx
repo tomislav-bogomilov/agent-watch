@@ -120,16 +120,20 @@ export function GraphCanvas({
   const currentId = playback.order[playback.index]?.id;
 
   // Auto-follow: when follow is on, animate to the active node at the current
-  // zoom every time currentId changes. d3-zoom's 280 ms transition gives the
-  // tween; the 320 ms programmatic guard in useCamera prevents these from
-  // flipping follow off.
+  // zoom every time currentId changes OR the viewport changes (pane resize,
+  // mount-time first measure). The viewport deps fix LIVE-mode re-layouts
+  // where panes grow/shrink as sub-agents join/leave — without them the
+  // camera stays on its previous transform and the current node drifts off.
+  // d3-zoom's 280 ms transition gives the tween; the 320 ms programmatic
+  // guard in useCamera prevents these from flipping follow off.
   useEffect(() => {
     if (!follow || !currentId) return;
+    if (viewport.width <= 1 || viewport.height <= 1) return;
     const node = layout.nodes.find((n) => n.id === currentId);
     if (!node) return;
     centerOn({ x: node.x, y: node.y }, transform.k);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentId, follow]);
+  }, [currentId, follow, viewport.width, viewport.height]);
 
   const [hover, setHover] = useState<{ milestone: Milestone; screenX: number; screenY: number } | null>(null);
 

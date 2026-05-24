@@ -139,6 +139,13 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     cam.setFollow(true);
   }, [total, mainOrderLength]);
 
+  function closePane(key: string): void {
+    setStatusMap((prev) => ({
+      ...prev,
+      [key]: { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null },
+    }));
+  }
+
   function freezeToggle(key: string): void {
     setStatusMap((prev) => {
       const s = prev[key];
@@ -220,6 +227,7 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
                 closingSeconds={showCountdown ? closingSeconds : null}
                 frozen={frozen}
                 onToggleFreeze={() => freezeToggle(e.key)}
+                onClose={() => closePane(e.key)}
               />
             </div>
           );
