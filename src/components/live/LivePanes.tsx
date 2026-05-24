@@ -6,9 +6,7 @@ import { subagentLabel } from './subagentLabel';
 import { nextPaneStatus, remainingSeconds, type PaneState } from './paneStatus';
 import { TICK_MS, CLOSING_MS, SUBAGENT_STABLE_MS } from './liveness';
 import { pickVisibleSubagentEntries } from './visibleSubagents';
-import { GraphCanvas } from '../GraphCanvas';
 import { makeLivePlayback } from './livePlayback';
-import type { Filters } from '../FilterToggles';
 import { CanvasToolbar } from '../CanvasToolbar';
 import type { CameraApi } from '../../graph/useCamera';
 
@@ -17,8 +15,6 @@ type Props = {
   subagentMtimes: Record<string, string>;
   onToggleLive: () => void;
 };
-
-const ALL_FILTERS: Filters = { hidePruned: false, hideSubagents: false, successOnly: false, showAllContext: false };
 
 const outerStyle: CSSProperties = {
   width: '100%',
@@ -160,14 +156,10 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     });
   }
 
-  // N=1 fullscreen short-circuit — render GraphCanvas directly with no cut-corner border.
+  // N=1 fullscreen short-circuit — borderless LivePane (no cut-corner, no
+  // pane header, no notches) so a single MAIN reads as a fullscreen canvas
+  // but retains the embedded detail panel + click-to-pin behavior.
   if (total === 1) {
-    const mainSession: Session = { ...session, root: mainRoot, totalMilestones: mainPlayback.order.length };
-    // mainRoot has inner sub-agent subtrees stripped, so no nodes belong to a
-    // sub-agent. Pass an empty Set instead of running collectSubagentIds —
-    // that helper still walks each spawn.children[0] as "inner", which in a
-    // stripped tree is the main continuation and would be falsely highlighted.
-    const subagentIds = new Set<string>();
     return (
       <div style={outerStyle}>
         <CanvasToolbar
@@ -181,27 +173,14 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
           onToggleFollow={() => {}}
         />
         <div data-testid="live-panes-grid" data-n={1} data-fullscreen="true" style={fullscreenStyle}>
-          <GraphCanvas
-            session={mainSession}
-            playback={mainPlayback}
-            subagentIds={subagentIds}
-            pinnedId={null}
-            onPin={() => { /* App-level detail panel takes over at N=1 */ }}
-            onScrubTo={() => { /* no playback in LIVE */ }}
-            filters={ALL_FILTERS}
-            liveEngaged={true}
-            compact={false}
-            hideSubagentRegions={true}
-            onCameraReady={(api) => {
-              mainCameraRef.current = api;
-              if (!mainFittedRef.current) {
-                mainFittedRef.current = true;
-                // No fit() — for huge sessions fit-to-all scales nodes to dots.
-                // setFollow(true) keeps the camera centered on the latest node
-                // at the existing 1:1 zoom; user FIT or panning still works.
-                api.setFollow(true);
-              }
-            }}
+          <LivePane
+            kind="main"
+            label="MAIN"
+            root={mainRoot}
+            cwd={session.cwd}
+            paneId="main"
+            borderless={true}
+            onCameraReady={(api) => { mainCameraRef.current = api; }}
           />
         </div>
       </div>

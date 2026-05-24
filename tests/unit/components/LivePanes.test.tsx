@@ -42,11 +42,12 @@ describe('LivePanes', () => {
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-05-24T12:00:00Z')); });
   afterEach(() => { vi.useRealTimers(); });
 
-  it('renders just MAIN fullscreen when there are no sub-agents (N=1)', () => {
+  it('renders one borderless MAIN LivePane when there are no sub-agents (N=1)', () => {
     const session = makeSession([m('a')], []);
     render(<LivePanes session={session} subagentMtimes={{}} onToggleLive={() => {}} />);
-    // At N=1, no LivePane wrapper — directly a fullscreen grid container.
-    expect(screen.queryByTestId('live-pane')).toBeNull();
+    // N=1 uses a single borderless LivePane (keeps detail panel + click-to-pin).
+    expect(screen.getAllByTestId('live-pane')).toHaveLength(1);
+    expect(screen.getByTestId('live-pane-detail')).toBeTruthy();
     const grid = screen.getByTestId('live-panes-grid');
     expect(grid.getAttribute('data-n')).toBe('1');
     expect(grid.getAttribute('data-fullscreen')).toBe('true');
@@ -80,11 +81,12 @@ describe('LivePanes', () => {
     rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />);
     expect(screen.getByTestId('countdown-chip')).toBeTruthy();
 
-    // Advance another 31s — pane should be gone (now fullscreen MAIN, no LivePane wrapper)
+    // Advance another 31s — sub-agent pane should be gone (only the borderless MAIN remains)
     act(() => { vi.advanceTimersByTime(31_000); });
     rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />);
-    expect(screen.queryByTestId('live-pane')).toBeNull();
+    expect(screen.getAllByTestId('live-pane')).toHaveLength(1);
     expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('1');
+    expect(screen.getByTestId('live-panes-grid').getAttribute('data-fullscreen')).toBe('true');
   });
 
   it('hides historical sub-agents whose file mtime is older than 30s at session open', () => {
@@ -111,7 +113,8 @@ describe('LivePanes', () => {
     // Advance through one tick so the statusMap effect runs and any
     // transient 'closing' pane would appear if the guard were wrong.
     act(() => { vi.advanceTimersByTime(1_500); });
-    expect(screen.queryByTestId('live-pane')).toBeNull();
+    // Only the borderless MAIN pane remains; the stale sub-agent never appears.
+    expect(screen.getAllByTestId('live-pane')).toHaveLength(1);
     expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('1');
   });
 });

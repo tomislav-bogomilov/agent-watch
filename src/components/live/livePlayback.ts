@@ -4,11 +4,10 @@ import type { Milestone } from '../../parse/types';
 
 /**
  * In LIVE mode there is no playback — we always show every milestone we've
- * received so far, with the most recent one as the "active" node. This helper
- * synthesizes a PlaybackState that the existing GraphCanvas rendering can
- * consume: every node is past the current position, edges are fully drawn,
- * and `index` points at the last node so the camera-follow logic centers on
- * the live tip.
+ * received so far, with the most recent one as the "active" node. The
+ * `finished: false` flag is intentional: it keeps `GraphCanvas`'s state
+ * computation treating `currentId` as the active node (so it renders with
+ * the accent highlight). `edgeProgress: 1` keeps all edges drawn fully.
  */
 export function makeLivePlayback(root: Milestone): PlaybackState {
   const order = flattenDFS(root);
@@ -19,6 +18,6 @@ export function makeLivePlayback(root: Milestone): PlaybackState {
     edgeProgress: 1,
     playing: false,
     speed: 1,
-    finished: true,
+    finished: false,
   };
 }

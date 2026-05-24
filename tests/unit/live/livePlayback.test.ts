@@ -14,7 +14,7 @@ describe('makeLivePlayback', () => {
     expect(pb.index).toBe(2);
     expect(pb.edgeProgress).toBe(1);
     expect(pb.playing).toBe(false);
-    expect(pb.finished).toBe(true);
+    expect(pb.finished).toBe(false);
   });
 
   it('handles a single-node tree', () => {
@@ -22,6 +22,6 @@ describe('makeLivePlayback', () => {
     const pb = makeLivePlayback(root);
     expect(pb.index).toBe(0);
     expect(pb.edgeProgress).toBe(1);
-    expect(pb.finished).toBe(true);
+    expect(pb.finished).toBe(false);
   });
 });
