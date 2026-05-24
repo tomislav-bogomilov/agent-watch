@@ -8,6 +8,7 @@ import { DetailPanel } from './components/DetailPanel';
 import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
 import { CopyCwdButton } from './components/CopyCwdButton';
+import { LiveButton } from './components/live/LiveButton';
 import { usePromptList, useSession, useSessionList, isLiveMeta } from './api/hooks';
 import { sliceSession } from './parse/slice';
 import { usePlayback } from './playback/usePlayback';
@@ -209,6 +210,9 @@ export default function App() {
                 <div style={styles.sessionCwdRow}>
                   <span style={styles.sessionCwd}>{effectiveSession.cwd}</span>
                   <CopyCwdButton value={effectiveSession.cwd} />
+                  {sessionIsLive && (
+                    <LiveButton engaged={liveEngaged} onToggle={() => setLiveEngaged((v) => !v)} />
+                  )}
                 </div>
               </div>
               {liveEngaged ? (
@@ -225,8 +229,6 @@ export default function App() {
                     filters={filters}
                     onCameraReady={(api) => { cameraRef.current = api; }}
                     liveEngaged={liveEngaged}
-                    sessionIsLive={sessionIsLive}
-                    onToggleLive={() => setLiveEngaged((v) => !v)}
                   />
                   <FilterToggles value={filters} onChange={setFilters} />
                   <Legend />

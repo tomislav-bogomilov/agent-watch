@@ -20,3 +20,16 @@ test('live tag: card shows [● LIVE] for a session with a recent mtime', async 
   await expect(card.locator('[data-testid="live-tag"]')).toBeVisible({ timeout: 15_000 });
   await expect(card.locator('[data-testid="live-tag"]')).toHaveText(/LIVE/);
 });
+
+test('live mode: auto-engages when opening a live session, renders multi-pane', async ({ page }) => {
+  const fixture = path.resolve(__dirname, '../fixtures/claude-projects/C--demo-live/2026-05-24-live-fixture.jsonl');
+  const now = new Date();
+  await utimes(fixture, now, now);
+
+  await page.goto('/');
+  await page.locator('[data-testid="session-item-2026-05-24-live-fixture"]').click();
+
+  // Multi-pane grid should appear; LIVE button should show aria-pressed=true.
+  await expect(page.locator('[data-testid="live-panes-grid"]')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-testid="live-button"]')).toHaveAttribute('aria-pressed', 'true');
+});

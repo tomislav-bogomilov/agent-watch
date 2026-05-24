@@ -10,8 +10,6 @@ import { useCamera, type CameraApi } from '../graph/useCamera';
 import type { Filters } from './FilterToggles';
 import type { Milestone, Session } from '../parse/types';
 import type { PlaybackState } from '../playback/usePlayback';
-import { LiveButton } from './live/LiveButton';
-
 type Props = {
   session: Session;
   playback: PlaybackState;
@@ -22,8 +20,6 @@ type Props = {
   filters: Filters;
   onCameraReady?: (api: CameraApi) => void;
   liveEngaged: boolean;
-  sessionIsLive: boolean;
-  onToggleLive: () => void;
 };
 
 type SubagentRegion = { x: number; y: number; width: number; height: number };
@@ -62,7 +58,7 @@ function computeSubagentRegions(root: Milestone, nodes: LaidOutNode[]): Subagent
 
 export function GraphCanvas({
   session, playback, subagentIds, pinnedId, onPin, onScrubTo, filters, onCameraReady,
-  liveEngaged, sessionIsLive, onToggleLive,
+  liveEngaged,
 }: Props) {
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
@@ -281,11 +277,6 @@ export function GraphCanvas({
           }}
           title="follow playhead (L)"
         >FOLLOW</button>
-      )}
-      {sessionIsLive && (
-        <div style={{ position: 'absolute', top: 12, right: liveEngaged ? 50 : 88, zIndex: 6 }}>
-          <LiveButton engaged={liveEngaged} onToggle={onToggleLive} />
-        </div>
       )}
       <Minimap
         layout={layout}
