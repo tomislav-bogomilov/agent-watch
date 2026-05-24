@@ -75,7 +75,7 @@ describe('LivePanes', () => {
     );
     expect(screen.queryByTestId('countdown-chip')).toBeNull();
 
-    // Advance 61s — should enter closing
+    // Advance 31s — should enter closing
     act(() => { vi.advanceTimersByTime(31_000); });
     rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} />);
     expect(screen.getByTestId('countdown-chip')).toBeTruthy();
