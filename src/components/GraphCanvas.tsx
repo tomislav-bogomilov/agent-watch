@@ -157,12 +157,38 @@ export function GraphCanvas({
   // camera stays on its previous transform and the current node drifts off.
   // d3-zoom's 280 ms transition gives the tween; the 320 ms programmatic
   // guard in useCamera prevents these from flipping follow off.
+  //
+  // RAF-debounce: coalesce rapid viewport ticks (e.g. sidebar resize) into a
+  // single follow tween per frame. Tolerance skip: if the active node is
+  // already within 8 screen-px of viewport center, skip the tween entirely to
+  // prevent judder from stacking 280 ms tweens.
+  const followRafRef = useRef<number | null>(null);
   useEffect(() => {
     if (!follow || !currentId) return;
     if (viewport.width <= 1 || viewport.height <= 1) return;
     const node = layout.nodes.find((n) => n.id === currentId);
     if (!node) return;
-    centerOn({ x: node.x, y: node.y }, transform.k);
+
+    // Cancel any pending follow tween scheduled in the same frame.
+    if (followRafRef.current != null) cancelAnimationFrame(followRafRef.current);
+    followRafRef.current = requestAnimationFrame(() => {
+      followRafRef.current = null;
+      // Tolerance: skip the tween if the node is already within 8 screen-px
+      // of the viewport center at the current zoom.
+      const screenX = node.x * transform.k + transform.x;
+      const screenY = node.y * transform.k + transform.y;
+      const dx = screenX - viewport.width / 2;
+      const dy = screenY - viewport.height / 2;
+      if (Math.sqrt(dx * dx + dy * dy) < 8) return;
+      centerOn({ x: node.x, y: node.y }, transform.k);
+    });
+
+    return () => {
+      if (followRafRef.current != null) {
+        cancelAnimationFrame(followRafRef.current);
+        followRafRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentId, follow, viewport.width, viewport.height]);
 
