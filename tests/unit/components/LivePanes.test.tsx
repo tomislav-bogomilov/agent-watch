@@ -100,4 +100,18 @@ describe('LivePanes', () => {
     expect(screen.getAllByTestId('live-pane')).toHaveLength(2);
     expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('2');
   });
+
+  it('hides 35s-stale sub-agents at session open (no transient closing pane in the 30-60s band)', () => {
+    const session = makeSession([m('a')], [
+      { id: 'agent-aaaa1111', lastUpdatedAt: '2026-05-24T11:59:25Z', root: m('s1') }, // 35s old
+    ]);
+    render(<LivePanes session={session} subagentMtimes={{
+      'agent-aaaa1111': '2026-05-24T11:59:25Z',
+    }} />);
+    // Advance through one tick so the statusMap effect runs and any
+    // transient 'closing' pane would appear if the guard were wrong.
+    act(() => { vi.advanceTimersByTime(1_500); });
+    expect(screen.queryByTestId('live-pane')).toBeNull();
+    expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('1');
+  });
 });

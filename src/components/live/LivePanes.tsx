@@ -109,7 +109,7 @@ export function LivePanes({ session, subagentMtimes }: Props) {
         const fileId = keyToFileId.get(e.key);
         const mtimeIso = fileId ? subagentMtimes[fileId] : undefined;
         const lastUpdatedMs = mtimeIso ? new Date(mtimeIso).getTime() : nowMs;
-        const isHistorical = (nowMs - lastUpdatedMs) >= SUBAGENT_STABLE_MS + CLOSING_MS;
+        const isHistorical = (nowMs - lastUpdatedMs) >= SUBAGENT_STABLE_MS;
         const prevState: PaneState = prev[e.key] ?? (isHistorical
           ? { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
           : { status: 'active', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
