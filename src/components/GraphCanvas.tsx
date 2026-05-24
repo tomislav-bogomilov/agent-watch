@@ -7,6 +7,7 @@ import { NodeTooltip } from './NodeTooltip';
 import { Minimap } from './Minimap';
 import { collectTaintedIds } from '../parse/failure';
 import { useCamera, type CameraApi } from '../graph/useCamera';
+import { visibleLayoutRect, nodeInRect, edgeIntersectsRect } from '../graph/viewport';
 import type { Filters } from './FilterToggles';
 import type { Milestone, Session } from '../parse/types';
 import type { PlaybackState } from '../playback/usePlayback';
@@ -119,6 +120,36 @@ export function GraphCanvas({
 
   const currentId = playback.order[playback.index]?.id;
 
+  const VIEWPORT_MARGIN = 200;
+
+  const visibleRect = useMemo(
+    () => visibleLayoutRect(
+      { k: transform.k, x: transform.x, y: transform.y },
+      { width: viewport.width, height: viewport.height },
+      VIEWPORT_MARGIN
+    ),
+    [transform.k, transform.x, transform.y, viewport.width, viewport.height]
+  );
+
+  const visibleNodes = useMemo(() => {
+    return layout.nodes.filter((n) => nodeInRect(n, visibleRect) || n.id === currentId);
+  }, [layout.nodes, visibleRect, currentId]);
+
+  const visibleEdges = useMemo(
+    () => layout.edges.filter((e) => edgeIntersectsRect(e, visibleRect)),
+    [layout.edges, visibleRect]
+  );
+
+  const visibleSubagentRegions = useMemo(
+    () => subagentRegions.filter((r) =>
+      edgeIntersectsRect(
+        { sourceX: r.x, sourceY: r.y, targetX: r.x + r.width, targetY: r.y + r.height },
+        visibleRect
+      )
+    ),
+    [subagentRegions, visibleRect]
+  );
+
   // Auto-follow: when follow is on, animate to the active node at the current
   // zoom every time currentId changes OR the viewport changes (pane resize,
   // mount-time first measure). The viewport deps fix LIVE-mode re-layouts
@@ -183,7 +214,7 @@ export function GraphCanvas({
       >
         <GraphDefs />
         <g className="zoom-layer" transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
-          {subagentRegions.map((r, i) => (
+          {visibleSubagentRegions.map((r, i) => (
             <rect
               key={`sg-region-${i}`}
               x={r.x} y={r.y} width={r.width} height={r.height}
@@ -193,7 +224,7 @@ export function GraphCanvas({
               data-testid="subagent-region"
             />
           ))}
-          {layout.edges.map((e) => {
+          {visibleEdges.map((e) => {
             const key = `${e.sourceId}->${e.targetId}`;
             const isTraversed = traversedIds.has(e.targetId);
             const isCurrent = key === traversedEdgeKey;
@@ -227,7 +258,7 @@ export function GraphCanvas({
               />
             );
           })}
-          {layout.nodes.map((n) => {
+          {visibleNodes.map((n) => {
             const inSub = subagentIds.has(n.id);
             let state: 'idle' | 'active' | 'success' | 'failed' | 'pruned';
             // While playback is in motion, the playhead always wins so the
