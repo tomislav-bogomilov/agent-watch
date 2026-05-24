@@ -82,11 +82,15 @@ export function SessionsList({ items, selectedSessionId, titles, onSelect, onRen
 const styles = {
   list: { listStyle: 'none', padding: 0, margin: 0 },
   itemTitle: {
-    fontSize: 12,
+    fontSize: 10,
     color: 'var(--text)',
+    display: '-webkit-box' as const,
+    WebkitLineClamp: 3,
+    WebkitBoxOrient: 'vertical' as const,
     overflow: 'hidden' as const,
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap' as const,
+    whiteSpace: 'normal' as const,
+    lineHeight: 1.35,
+    wordBreak: 'break-word' as const,
     fontFamily: 'ui-monospace, monospace',
   },
   itemMeta: {
