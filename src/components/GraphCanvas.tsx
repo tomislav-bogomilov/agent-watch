@@ -59,7 +59,7 @@ function computeSubagentRegions(root: Milestone, nodes: LaidOutNode[]): Subagent
 
 export function GraphCanvas({
   session, playback, subagentIds, pinnedId, onPin, onScrubTo, filters, onCameraReady,
-  liveEngaged, compact = false,
+  liveEngaged: _liveEngaged, compact = false,
 }: Props) {
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
@@ -86,7 +86,7 @@ export function GraphCanvas({
   }, []);
 
   const camera = useCamera({ svgRef, layout, viewport });
-  const { transform, fit, frameInitial, setFollow, follow, centerOn } = camera;
+  const { transform, fit, frameInitial, follow, centerOn } = camera;
 
   useEffect(() => {
     onCameraReady?.(camera);
@@ -251,36 +251,6 @@ export function GraphCanvas({
           })}
         </g>
       </svg>
-      {!compact && (
-        <button
-          data-testid="fit-button"
-          onClick={() => fit()}
-          style={{
-            position: 'absolute', top: 12, right: 12, zIndex: 6,
-            background: 'rgba(5,8,13,0.85)', border: '1px solid var(--edge-idle)',
-            color: 'var(--text)', padding: '2px 8px', cursor: 'pointer',
-            fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: 2,
-            height: 20, boxSizing: 'border-box',
-          }}
-          title="fit (F)"
-        >FIT</button>
-      )}
-      {!liveEngaged && !compact && (
-        <button
-          data-testid="follow-toggle"
-          onClick={() => setFollow(!follow)}
-          style={{
-            position: 'absolute', top: 12, right: 50, zIndex: 6,
-            background: 'rgba(5,8,13,0.85)',
-            border: `1px solid ${follow ? 'var(--edge-trail)' : 'var(--edge-idle)'}`,
-            color: follow ? 'var(--edge-trail)' : 'var(--text)',
-            padding: '2px 8px', cursor: 'pointer',
-            fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: 2,
-            height: 20, boxSizing: 'border-box',
-          }}
-          title="follow playhead (L)"
-        >FOLLOW</button>
-      )}
       {!compact && (
         <Minimap
           layout={layout}
