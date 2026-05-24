@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LibraryPanel, type Selection } from './components/library/LibraryPanel';
+import { CanvasToolbar } from './components/CanvasToolbar';
 import { GraphCanvas } from './components/GraphCanvas';
 import { LivePanes } from './components/live/LivePanes';
 import { NowPlaying } from './components/NowPlaying';
@@ -8,7 +9,6 @@ import { DetailPanel } from './components/DetailPanel';
 import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
 import { CopyCwdButton } from './components/CopyCwdButton';
-import { LiveButton } from './components/live/LiveButton';
 import { usePromptList, useSession, useSessionList, isLiveMeta } from './api/hooks';
 import { sliceSession } from './parse/slice';
 import { usePlayback } from './playback/usePlayback';
@@ -213,19 +213,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* LIVE button: top-right canvas overlay, visible in both modes */}
-              {sessionIsLive && (
-                <div style={{
-                  position: 'absolute',
-                  top: 12,
-                  right: liveEngaged ? 50 : 88,
-                  zIndex: 6,
-                  pointerEvents: 'auto',
-                }}>
-                  <LiveButton engaged={liveEngaged} onToggle={() => setLiveEngaged((v) => !v)} />
-                </div>
-              )}
-
               {liveEngaged ? (
                 <LivePanes session={effectiveSession} subagentMtimes={effectiveSession.subagentMtimes} />
               ) : (
@@ -240,6 +227,19 @@ export default function App() {
                     filters={filters}
                     onCameraReady={(api) => { cameraRef.current = api; }}
                     liveEngaged={liveEngaged}
+                  />
+                  <CanvasToolbar
+                    showLive={sessionIsLive}
+                    liveEngaged={liveEngaged}
+                    onToggleLive={() => setLiveEngaged((v) => !v)}
+                    showFit={true}
+                    onFit={() => cameraRef.current?.fit()}
+                    showFollow={true}
+                    follow={cameraRef.current?.follow ?? false}
+                    onToggleFollow={() => {
+                      const next = !(cameraRef.current?.follow ?? false);
+                      cameraRef.current?.setFollow(next);
+                    }}
                   />
                   <FilterToggles value={filters} onChange={setFilters} />
                   <Legend />
