@@ -22,10 +22,15 @@ export function formatPath(path: string): string {
   if (m) return '~' + m[3] + path.slice(m[0].length);
 
   // 2) Windows "split dot" username appearing as two dot-free segments,
-  //    e.g. C:\Users\foo\bar\rest. Both segments must be dot-free; otherwise
-  //    we'd accidentally eat real subfolders. Excludes common folder names
-  //    in the second segment to avoid matching alice\projects as a split name.
-  const winSplit = /^([A-Za-z]:[\\/])Users[\\/]([^\\/.]+)[\\/](?!projects|documents|downloads|desktop|code|src|bin|data|work|cache|temp|logs)([^\\/.]+)([\\/])/;
+  //    e.g. C:\Users\foo\bar\rest. Both segments must be dot-free AND neither
+  //    may match a common folder name — otherwise we'd accidentally eat real
+  //    subfolders. This is a pragmatic heuristic: there's no foolproof way to
+  //    tell a real two-segment username from "<user>/<topfolder>" without OS
+  //    context, so we exclude the most common folder-name segments.
+  const FOLDER_BLACKLIST = '(?:projects|documents|downloads|desktop|code|src|bin|data|work|cache|temp|logs)';
+  const winSplit = new RegExp(
+    `^([A-Za-z]:[\\\\/])Users[\\\\/](?!${FOLDER_BLACKLIST}(?:[\\\\/]|$))([^\\\\/.]+)[\\\\/](?!${FOLDER_BLACKLIST}(?:[\\\\/]|$))([^\\\\/.]+)([\\\\/])`
+  );
   m = path.match(winSplit);
   if (m) return '~' + m[4] + path.slice(m[0].length);
 

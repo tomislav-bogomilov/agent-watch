@@ -24,11 +24,20 @@ describe('formatPath', () => {
     expect(formatPath('D:\\Users\\bob\\code')).toBe('~\\code');
   });
 
-  it('does NOT consume two segments when the first segment IS a single-word username', () => {
-    // Edge case: a single-segment user "alice" has only one path segment after
-    // /Users/. We must not eat into "projects" thinking it's the second half
-    // of the username. The single-segment branch wins here.
+  it('does NOT consume two segments when the second segment matches a common folder name', () => {
+    // Edge case: the split-dot pattern should not match when the second segment
+    // is a common folder name like "projects". Both segments are guarded by the
+    // blacklist, so split-dot rejects; falls through to single-segment branch.
     expect(formatPath('C:/Users/alice/projects/x')).toBe('~/projects/x');
+  });
+
+  it('treats a username matching a blacklisted folder word as single-segment', () => {
+    // Edge case: a real user named "work" (or "code", "src", etc.) must not
+    // have their FIRST subdirectory consumed as the second half of a fake
+    // split username. Falls through to the single-segment branch.
+    expect(formatPath('C:/Users/work/myproject/file')).toBe('~/myproject/file');
+    expect(formatPath('C:/Users/code/realrepo/file')).toBe('~/realrepo/file');
+    expect(formatPath('C:\\Users\\src\\lib\\index')).toBe('~\\lib\\index');
   });
 
   it('replaces macOS home with ~/', () => {
