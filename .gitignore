@@ -42,3 +42,7 @@ test-results/
 
 # Ad-hoc screenshots
 tg-*.png
+# Local screenshots from playwright/verification runs
+/*.png
+.playwright-mcp/
+.superpowers/
