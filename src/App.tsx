@@ -249,7 +249,7 @@ export default function App() {
                   <div style={styles.headerToolGroup} data-testid="canvas-toolbar">
                     <button
                       type="button"
-                      style={{ ...styles.headerToolBtn, ...styles.headerToolBtnOn }}
+                      style={styles.headerToolBtn}
                       onClick={() => cameraRef.current?.fit()}
                       data-testid="fit-button"
                       aria-label="fit"
