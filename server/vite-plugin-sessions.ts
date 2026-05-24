@@ -8,6 +8,7 @@ type SessionMeta = {
   sessionId: string;
   cwd: string;
   startedAt: string;
+  lastUpdatedAt: string;
   sizeBytes: number;
   title?: string;
 };
@@ -130,6 +131,7 @@ async function listSessions(root: string): Promise<SessionMeta[]> {
         sessionId,
         cwd: decodeProjectId(projectId),
         startedAt: stat.mtime.toISOString(),
+        lastUpdatedAt: stat.mtime.toISOString(),
         sizeBytes: stat.size,
         title,
       });
