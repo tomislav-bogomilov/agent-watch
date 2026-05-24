@@ -160,8 +160,7 @@ export function LivePane({
     >
       {showNotches && <>
         <span style={notchStyle('tl', accent)} />
-        {/* Skip the top-right notch when the close button is shown there — they'd overlap. */}
-        {!onClose && <span style={notchStyle('tr', accent)} />}
+        <span style={notchStyle('tr', accent)} />
         <span style={notchStyle('bl', accent)} />
         <span style={notchStyle('br', accent)} />
       </>}
@@ -172,26 +171,43 @@ export function LivePane({
           aria-label={`close pane ${label}`}
           onClick={(e) => { e.stopPropagation(); onClose(); }}
           style={{
-            // Red right-triangle filling the pane's top-right cut-corner —
-            // same geometry as the cyan tr notch it replaces. Anchored at
-            // (top:0, right:0), clip-path keeps only the upper-right
-            // triangle so the click target sits flush against the cut
-            // corner shape and not the rectangular bounding box.
+            // 28x28 box anchored at the top-right. clip-path leaves the
+            // *lower-left* right-triangle (TL, BR, BL) — the right-angle
+            // sits at the bottom-left, the hypotenuse runs parallel to the
+            // pane's cut diagonal. The whole triangle lives inside the
+            // pane polygon (no slivers eaten by the parent clip), so it
+            // reads as a complete shape and the X glyph stays visible.
             position: 'absolute',
             top: 0,
             right: 0,
-            width: 18,
-            height: 18,
+            width: 28,
+            height: 28,
             padding: 0,
-            background: '#ff5050',
+            background: '#ff4d4d',
             border: 'none',
-            clipPath: 'polygon(0 0, 100% 0, 100% 100%)',
+            clipPath: 'polygon(0 0, 100% 100%, 0 100%)',
             cursor: 'pointer',
-            boxShadow: '0 0 8px #ff5050',
+            boxShadow: '0 0 10px rgba(255,80,80,0.65)',
             zIndex: 7,
           }}
           title="close pane"
-        />
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: 4,
+              bottom: 2,
+              fontFamily: 'ui-monospace, monospace',
+              fontSize: 14,
+              lineHeight: 1,
+              color: '#fff',
+              textShadow: '0 0 4px rgba(0,0,0,0.6)',
+              pointerEvents: 'none',
+              userSelect: 'none',
+            }}
+          >×</span>
+        </button>
       )}
 
       <div style={canvasHost(showHeader)}>
