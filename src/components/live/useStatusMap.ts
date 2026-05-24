@@ -29,12 +29,16 @@ function mapsEqual(prev: Record<string, PaneState>, next: Record<string, PaneSta
 
 /** Status map for the LIVE subagent panes. Returns the same object reference
  *  when the derived map is value-equal to the previous one, so memoized
- *  consumers don't rerender on idle 1Hz ticks. */
+ *  consumers don't rerender on idle 1Hz ticks.
+ *
+ *  `overrides` lets callers (e.g. freezeToggle) pin a specific PaneState for
+ *  a key, bypassing the time-derived computation for that entry. */
 export function useStatusMap(
   entries: Entry[],
   keyToFileId: Map<string, string>,
   subagentMtimes: Record<string, string>,
   userClosedKeys: Set<string>,
+  overrides: Record<string, PaneState>,
   intervalMs: number = TICK_MS,
 ): Record<string, PaneState> {
   const nowMs = useNowMs(intervalMs);
@@ -44,10 +48,6 @@ export function useStatusMap(
     const next: Record<string, PaneState> = {};
     const prev = prevRef.current;
     for (const e of entries) {
-      if (userClosedKeys.has(e.key)) {
-        next[e.key] = { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null };
-        continue;
-      }
       const fileId = keyToFileId.get(e.key);
       const mtimeIso = fileId ? subagentMtimes[fileId] : undefined;
       // Entries without a file mapping or recorded mtime stay 'active' indefinitely —
@@ -58,10 +58,13 @@ export function useStatusMap(
         prev[e.key] ?? (staleAtOpen
           ? { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
           : { status: 'active', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null });
-      next[e.key] = nextPaneStatus(prevState, lastUpdatedMs, nowMs);
+      const computed = userClosedKeys.has(e.key)
+        ? ({ status: 'closed' as const, closingStartedAt: null, frozenAt: null, frozenRemainingMs: null })
+        : nextPaneStatus(prevState, lastUpdatedMs, nowMs);
+      next[e.key] = overrides[e.key] ?? computed;
     }
     if (mapsEqual(prev, next)) return prev;
     prevRef.current = next;
     return next;
-  }, [entries, keyToFileId, subagentMtimes, userClosedKeys, nowMs]);
+  }, [entries, keyToFileId, subagentMtimes, userClosedKeys, overrides, nowMs]);
 }

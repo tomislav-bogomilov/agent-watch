@@ -3,12 +3,14 @@ import type { Session, Milestone } from '../../parse/types';
 import { LivePane } from './LivePane';
 import { extractSubagentPaneRoot } from './extractSubagentPaneRoot';
 import { subagentLabel } from './subagentLabel';
-import { nextPaneStatus, remainingSeconds, type PaneState } from './paneStatus';
-import { TICK_MS, CLOSING_MS, SUBAGENT_STABLE_MS } from './liveness';
+import { remainingSeconds, type PaneState } from './paneStatus';
+import { TICK_MS, CLOSING_MS } from './liveness';
 import { pickVisibleSubagentEntries } from './visibleSubagents';
 import { makeLivePlayback } from './livePlayback';
 import { CanvasToolbar } from '../CanvasToolbar';
 import type { CameraApi } from '../../graph/useCamera';
+import { useNowMs } from './useNowMs';
+import { useStatusMap } from './useStatusMap';
 
 type Props = {
   session: Session;
@@ -88,17 +90,15 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     return map;
   }, [subagentEntries, fileIds]);
 
-  const [statusMap, setStatusMap] = useState<Record<string, PaneState>>({});
   const [userClosedKeys, setUserClosedKeys] = useState<Set<string>>(new Set());
-  const [nowMs, setNowMs] = useState(Date.now());
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mainCameraRef = useRef<CameraApi | null>(null);
   const mainFittedRef = useRef(false);
 
-  useEffect(() => {
-    intervalRef.current = setInterval(() => setNowMs(Date.now()), TICK_MS);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, []);
+  const nowMs = useNowMs(TICK_MS);
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, PaneState>>({});
+  const statusMap = useStatusMap(
+    subagentEntries, keyToFileId, subagentMtimes, userClosedKeys, statusOverrides
+  );
 
   // Switching to a different live session must re-fit on first ready, so reset
   // both refs whenever session.id changes. Also drop any user-closed flags
@@ -107,32 +107,8 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     mainFittedRef.current = false;
     mainCameraRef.current = null;
     setUserClosedKeys(new Set());
+    setStatusOverrides({});
   }, [session.id]);
-
-  useEffect(() => {
-    setStatusMap((prev) => {
-      const next: Record<string, PaneState> = {};
-      for (const e of subagentEntries) {
-        // User-closed panes are sticky: don't re-evaluate them even if the
-        // sub-agent's file keeps getting touched (which would otherwise hit
-        // nextPaneStatus's "activity resumed → active" branch and re-open it).
-        if (userClosedKeys.has(e.key)) {
-          next[e.key] = { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null };
-          continue;
-        }
-        const fileId = keyToFileId.get(e.key);
-        const mtimeIso = fileId ? subagentMtimes[fileId] : undefined;
-        const lastUpdatedMs = mtimeIso ? new Date(mtimeIso).getTime() : nowMs;
-        const staleAtOpen = (nowMs - lastUpdatedMs) >= SUBAGENT_STABLE_MS;
-        const prevState: PaneState = prev[e.key] ?? (staleAtOpen
-          ? { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
-          : { status: 'active', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
-        );
-        next[e.key] = nextPaneStatus(prevState, lastUpdatedMs, nowMs);
-      }
-      return next;
-    });
-  }, [nowMs, subagentEntries, keyToFileId, subagentMtimes, userClosedKeys]);
 
   const displayable = pickVisibleSubagentEntries(subagentEntries, keyToFileId, subagentMtimes, statusMap, nowMs);
   const total = 1 + displayable.length;
@@ -150,32 +126,28 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   }, [total, mainOrderLength]);
 
   function closePane(key: string): void {
-    setUserClosedKeys((prev) => {
-      const next = new Set(prev);
-      next.add(key);
-      return next;
-    });
-    setStatusMap((prev) => ({
-      ...prev,
-      [key]: { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null },
-    }));
+    setUserClosedKeys((prev) => { const next = new Set(prev); next.add(key); return next; });
+    // userClosedKeys path in useStatusMap will produce the closed state automatically;
+    // no override needed here.
   }
 
   function freezeToggle(key: string): void {
-    setStatusMap((prev) => {
-      const s = prev[key];
-      if (!s) return prev;
-      if (s.status === 'frozen') {
-        const newClosingStartedAt = nowMs - (CLOSING_MS - (s.frozenRemainingMs ?? CLOSING_MS));
-        return { ...prev, [key]: { ...s, status: 'closing', frozenAt: null, frozenRemainingMs: null, closingStartedAt: newClosingStartedAt } };
-      }
-      if (s.status === 'closing') {
-        const elapsed = nowMs - (s.closingStartedAt ?? nowMs);
-        const remaining = Math.max(0, CLOSING_MS - elapsed);
-        return { ...prev, [key]: { ...s, status: 'frozen', frozenAt: nowMs, frozenRemainingMs: remaining } };
-      }
-      return prev;
-    });
+    const current = statusMap[key];
+    if (!current) return;
+    if (current.status === 'frozen') {
+      const newClosingStartedAt = nowMs - (CLOSING_MS - (current.frozenRemainingMs ?? CLOSING_MS));
+      setStatusOverrides((prev) => ({
+        ...prev,
+        [key]: { ...current, status: 'closing', frozenAt: null, frozenRemainingMs: null, closingStartedAt: newClosingStartedAt },
+      }));
+    } else if (current.status === 'closing') {
+      const elapsed = nowMs - (current.closingStartedAt ?? nowMs);
+      const remaining = Math.max(0, CLOSING_MS - elapsed);
+      setStatusOverrides((prev) => ({
+        ...prev,
+        [key]: { ...current, status: 'frozen', frozenAt: nowMs, frozenRemainingMs: remaining },
+      }));
+    }
   }
 
   // N=1 fullscreen short-circuit — borderless LivePane (no cut-corner, no

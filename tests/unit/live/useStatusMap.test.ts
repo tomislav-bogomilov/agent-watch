@@ -19,7 +19,7 @@ describe('useStatusMap', () => {
     const mtimes = { fa: '2026-05-24T12:00:00Z', fb: '2026-05-24T12:00:00Z' };
     const userClosed = new Set<string>();
     const { result } = renderHook(() =>
-      useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK)
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, {}, TICK)
     );
     expect(Object.keys(result.current)).toEqual(['a', 'b']);
     expect(result.current.a.status).toBe('active');
@@ -32,7 +32,7 @@ describe('useStatusMap', () => {
     const mtimes = { fa: '2026-05-24T12:00:00Z' };
     const userClosed = new Set<string>();
     const { result } = renderHook(() =>
-      useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK)
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, {}, TICK)
     );
     const first = result.current;
     act(() => { vi.advanceTimersByTime(TICK); });
@@ -45,7 +45,7 @@ describe('useStatusMap', () => {
     const mtimes = { fa: '2026-05-24T12:00:00Z' };
     const userClosed = new Set<string>();
     const { result } = renderHook(() =>
-      useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK)
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, {}, TICK)
     );
     const first = result.current;
     // 31s of inactivity → transitions to 'closing'
@@ -60,8 +60,22 @@ describe('useStatusMap', () => {
     const mtimes = { fa: '2026-05-24T12:00:00Z' };
     const userClosed = new Set(['a']);
     const { result } = renderHook(() =>
-      useStatusMap(entries, keyToFileId, mtimes, userClosed, TICK)
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, {}, TICK)
     );
     expect(result.current.a.status).toBe('closed');
+  });
+
+  it('honors explicit overrides over derived state', () => {
+    const entries: Entry[] = [{ key: 'a' }];
+    const keyToFileId = new Map([['a', 'fa']]);
+    const mtimes = { fa: '2026-05-24T12:00:00Z' };
+    const userClosed = new Set<string>();
+    const overrides = {
+      a: { status: 'frozen' as const, closingStartedAt: null, frozenAt: 0, frozenRemainingMs: 5000 },
+    };
+    const { result } = renderHook(() =>
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, overrides, TICK)
+    );
+    expect(result.current.a.status).toBe('frozen');
   });
 });
