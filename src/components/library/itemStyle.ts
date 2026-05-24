@@ -14,7 +14,7 @@ export const ITEM_STYLE: ItemStyle = {
   outer: { listStyle: 'none', padding: '3px 8px' },
   inner: {
     position: 'relative',
-    padding: '8px 12px',
+    padding: '8px 10px',
     border: '1px solid rgba(110, 224, 238, 0.10)',
     background: 'radial-gradient(ellipse 75% 120% at 18% 50%, rgba(0, 229, 255, 0.085) 0%, rgba(0, 229, 255, 0.02) 55%, rgba(0, 229, 255, 0) 80%)',
     cursor: 'pointer',
