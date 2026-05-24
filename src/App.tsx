@@ -210,11 +210,22 @@ export default function App() {
                 <div style={styles.sessionCwdRow}>
                   <span style={styles.sessionCwd}>{effectiveSession.cwd}</span>
                   <CopyCwdButton value={effectiveSession.cwd} />
-                  {sessionIsLive && (
-                    <LiveButton engaged={liveEngaged} onToggle={() => setLiveEngaged((v) => !v)} />
-                  )}
                 </div>
               </div>
+
+              {/* LIVE button: top-right canvas overlay, visible in both modes */}
+              {sessionIsLive && (
+                <div style={{
+                  position: 'absolute',
+                  top: 12,
+                  right: liveEngaged ? 50 : 88,
+                  zIndex: 6,
+                  pointerEvents: 'auto',
+                }}>
+                  <LiveButton engaged={liveEngaged} onToggle={() => setLiveEngaged((v) => !v)} />
+                </div>
+              )}
+
               {liveEngaged ? (
                 <LivePanes session={effectiveSession} subagentMtimes={effectiveSession.subagentMtimes} />
               ) : (
