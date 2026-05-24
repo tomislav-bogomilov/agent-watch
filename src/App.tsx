@@ -7,7 +7,7 @@ import { DetailPanel } from './components/DetailPanel';
 import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
 import { CopyCwdButton } from './components/CopyCwdButton';
-import { usePromptList, useSession } from './api/hooks';
+import { usePromptList, useSession, useSessionList, isLiveMeta } from './api/hooks';
 import { sliceSession } from './parse/slice';
 import { usePlayback } from './playback/usePlayback';
 import { useKeyboard } from './playback/useKeyboard';
@@ -39,9 +39,19 @@ function collectSubagentIds(root: Milestone): Set<string> {
 
 export default function App() {
   const [selected, setSelected] = useState<Selection | null>(null);
+  const sessionsQuery = useSessionList();
+  const selectedMeta = useMemo(() => {
+    if (!selected || !sessionsQuery.data) return null;
+    return sessionsQuery.data.find(
+      (s) => s.projectId === selected.projectId && s.sessionId === selected.sessionId
+    ) ?? null;
+  }, [selected, sessionsQuery.data]);
+  const sessionIsLive = selectedMeta ? isLiveMeta(selectedMeta) : false;
+  const [liveEngaged, setLiveEngaged] = useState(false);
   const { data: rawSession, isLoading, error } = useSession(
     selected?.projectId ?? null,
-    selected?.sessionId ?? null
+    selected?.sessionId ?? null,
+    sessionIsLive || liveEngaged,
   );
   const promptsQuery = usePromptList();
 
@@ -75,6 +85,17 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
   const [detailWidth, setDetailWidth] = usePersistentWidth('tg.detail.width', 420, DETAIL_MIN, DETAIL_MAX);
   useEffect(() => { setPinnedId(null); setPanelDismissed(false); }, [selected]);
+  const lastAutoEngagedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selected || !selectedMeta) {
+      lastAutoEngagedRef.current = null;
+      return;
+    }
+    const key = `${selected.projectId}/${selected.sessionId}`;
+    if (lastAutoEngagedRef.current === key) return;
+    lastAutoEngagedRef.current = key;
+    setLiveEngaged(isLiveMeta(selectedMeta));
+  }, [selected, selectedMeta]);
   useEffect(() => {
     if (playback.playing) {
       setPanelDismissed(false);
