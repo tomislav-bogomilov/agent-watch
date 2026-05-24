@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { SessionMeta } from '../../parse/types';
 import { ItemShell } from './ItemShell';
+import { LiveTag } from './LiveTag';
+import { isLiveMeta } from '../../api/hooks';
 
 type Props = {
   items: SessionMeta[];
@@ -67,7 +69,8 @@ export function SessionsList({ items, selectedSessionId, titles, onSelect, onRen
               </div>
             )}
             <div style={styles.itemMeta}>
-              {new Date(s.startedAt).toLocaleString()} · {Math.round(s.sizeBytes / 1024)}KB
+              <span>{new Date(s.startedAt).toLocaleString()} · {Math.round(s.sizeBytes / 1024)}KB</span>
+              {isLiveMeta(s) && <LiveTag />}
             </div>
           </ItemShell>
         );
@@ -91,6 +94,10 @@ const styles = {
     color: 'var(--text-dim)',
     marginTop: 2,
     fontFamily: 'ui-monospace, monospace',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   editInput: {
     width: '100%',
