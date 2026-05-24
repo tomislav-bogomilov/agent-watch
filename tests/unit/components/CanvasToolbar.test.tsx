@@ -42,6 +42,25 @@ describe('CanvasToolbar', () => {
     expect(screen.getByTestId('follow-toggle')).toBeTruthy();
   });
 
+  it('reflects follow state via aria-pressed on the FOLLOW button', () => {
+    const { rerender } = render(
+      <CanvasToolbar
+        showLive={false} liveEngaged={false} onToggleLive={noop}
+        showFit={false} onFit={noop}
+        showFollow={true} follow={false} onToggleFollow={noop}
+      />
+    );
+    expect(screen.getByTestId('follow-toggle').getAttribute('aria-pressed')).toBe('false');
+    rerender(
+      <CanvasToolbar
+        showLive={false} liveEngaged={false} onToggleLive={noop}
+        showFit={false} onFit={noop}
+        showFollow={true} follow={true} onToggleFollow={noop}
+      />
+    );
+    expect(screen.getByTestId('follow-toggle').getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('reflects liveEngaged via aria-pressed on the LIVE button', () => {
     const { rerender } = render(
       <CanvasToolbar

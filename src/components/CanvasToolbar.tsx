@@ -92,6 +92,7 @@ export function CanvasToolbar({
       {showFollow && (
         <button
           data-testid="follow-toggle"
+          aria-pressed={follow}
           onClick={onToggleFollow}
           title="follow playhead (L)"
           style={followBtnStyle(follow)}
