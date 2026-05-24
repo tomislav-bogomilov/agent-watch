@@ -11,6 +11,11 @@ type Props = {
   freshness?: number;
 };
 
+export type EdgeFilterCohort = 'glow' | 'softglow';
+export function edgeFilterCohort(state: 'idle' | 'drawing' | 'done' | 'pruned'): EdgeFilterCohort {
+  return (state === 'pruned' || state === 'idle') ? 'softglow' : 'glow';
+}
+
 export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubagent, freshness = 1 }: Props) {
   const d = curvePath(edge);
   // Use the same cyan family for every state so all tracks read as
@@ -61,11 +66,6 @@ export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubage
     state === 'drawing' ? { animation: 'tg-edge-pulse 1.2s ease-in-out infinite' }
     : state === 'done' ? { animation: 'tg-edge-trail 3.2s ease-in-out infinite' }
     : undefined;
-  const filterUrl =
-    state === 'pruned' ? 'url(#tg-glow-soft)' :
-    state === 'idle' ? 'url(#tg-glow-soft)' :
-    'url(#tg-glow)';
-
   return (
     <path
       d={d}
@@ -76,7 +76,6 @@ export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubage
       strokeDasharray={dasharray}
       strokeDashoffset={dashOffset}
       opacity={opacity}
-      filter={filterUrl}
       style={animatedStyle}
     />
   );

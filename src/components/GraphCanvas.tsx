@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { layoutTree, type LaidOutNode } from '../graph/layout';
 import { GraphDefs } from '../theme/Filters';
-import { NodeShape } from './NodeShape';
-import { EdgePath } from './EdgePath';
+import { NodeShape, nodeFilterCohort } from './NodeShape';
+import { EdgePath, edgeFilterCohort } from './EdgePath';
 import { NodeTooltip } from './NodeTooltip';
 import { Minimap } from './Minimap';
 import { collectTaintedIds } from '../parse/failure';
@@ -204,6 +204,74 @@ export function GraphCanvas({
     return false;
   }
 
+  const renderedEdgesGlow: JSX.Element[] = [];
+  const renderedEdgesSoft: JSX.Element[] = [];
+  for (const e of visibleEdges) {
+    const key = `${e.sourceId}->${e.targetId}`;
+    const isTraversed = traversedIds.has(e.targetId);
+    const isCurrent = key === traversedEdgeKey;
+    const inSub = subagentIds.has(e.targetId);
+    const pruned = taintedIds.has(e.targetId) && !traversedIds.has(e.targetId);
+    const state: 'idle' | 'drawing' | 'done' | 'pruned' =
+      pruned ? 'pruned'
+      : isCurrent && pausedAtNode ? 'done'
+      : isCurrent ? 'drawing'
+      : isTraversed ? 'done'
+      : 'idle';
+    const sourcePruned = taintedIds.has(e.sourceId) && !traversedIds.has(e.sourceId);
+    const sourceState = sourcePruned ? 'pruned' : 'idle';
+    if (isHidden(e.sourceId, sourceState) || isHidden(e.targetId, state)) continue;
+    const targetIdx = orderIndex.get(e.targetId) ?? playback.index;
+    const hopsBack = Math.max(0, playback.index - targetIdx);
+    const freshness = state === 'done' ? Math.max(0.55, 1 - hopsBack * 0.07) : 1;
+    const elem = (
+      <EdgePath
+        key={key}
+        edge={e}
+        state={state}
+        progress={isCurrent ? playback.edgeProgress : isTraversed ? 1 : 0}
+        inSubagent={inSub}
+        freshness={freshness}
+      />
+    );
+    (edgeFilterCohort(state) === 'glow' ? renderedEdgesGlow : renderedEdgesSoft).push(elem);
+  }
+
+  const renderedNodesGlow: JSX.Element[] = [];
+  const renderedNodesPlain: JSX.Element[] = [];
+  for (const n of visibleNodes) {
+    const inSub = subagentIds.has(n.id);
+    let state: 'idle' | 'active' | 'success' | 'failed' | 'pruned';
+    if (n.id === currentId && !playback.finished) state = 'active';
+    else if (n.milestone.failed) state = 'failed';
+    else if (taintedIds.has(n.id)) state = 'pruned';
+    else if (playback.finished && successIds.has(n.id)) state = 'success';
+    else if (playback.finished && traversedIds.has(n.id)) state = 'success';
+    else if (traversedIds.has(n.id)) state = 'success';
+    else state = 'idle';
+    if (isHidden(n.id, state)) continue;
+    const isPinned = n.id === pinnedId;
+    const isTraversed = traversedIds.has(n.id) || n.id === currentId;
+    const showContextBadge = filters.showAllContext || isTraversed;
+    const elem = (
+      <g
+        key={n.id}
+        onMouseEnter={(ev) => handleNodeEnter(n.milestone, ev)}
+        onMouseLeave={() => setHover(null)}
+        onClick={(ev) => {
+          ev.stopPropagation();
+          const idx = orderIndex.get(n.id);
+          if (idx != null) onScrubTo(idx);
+          onPin(isPinned ? null : n.id);
+        }}
+        style={{ cursor: 'pointer' }}
+      >
+        <NodeShape node={n} state={state} inSubagent={inSub} pinned={isPinned} showContextBadge={showContextBadge} />
+      </g>
+    );
+    (nodeFilterCohort(state) === 'glow' ? renderedNodesGlow : renderedNodesPlain).push(elem);
+  }
+
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} onMouseLeave={() => setHover(null)}>
       <svg
@@ -224,75 +292,10 @@ export function GraphCanvas({
               data-testid="subagent-region"
             />
           ))}
-          {visibleEdges.map((e) => {
-            const key = `${e.sourceId}->${e.targetId}`;
-            const isTraversed = traversedIds.has(e.targetId);
-            const isCurrent = key === traversedEdgeKey;
-            const inSub = subagentIds.has(e.targetId);
-            const pruned = taintedIds.has(e.targetId) && !traversedIds.has(e.targetId);
-            const state = pruned
-              ? 'pruned'
-              : isCurrent && pausedAtNode
-              ? 'done'
-              : isCurrent
-              ? 'drawing'
-              : isTraversed
-              ? 'done'
-              : 'idle';
-            const sourcePruned = taintedIds.has(e.sourceId) && !traversedIds.has(e.sourceId);
-            const sourceState = sourcePruned ? 'pruned' : 'idle';
-            if (isHidden(e.sourceId, sourceState) || isHidden(e.targetId, state)) return null;
-            // Done edges fade gracefully with age. Distance is measured in
-            // hops from the playhead (0 = inbound to current node).
-            const targetIdx = orderIndex.get(e.targetId) ?? playback.index;
-            const hopsBack = Math.max(0, playback.index - targetIdx);
-            const freshness = state === 'done' ? Math.max(0.55, 1 - hopsBack * 0.07) : 1;
-            return (
-              <EdgePath
-                key={key}
-                edge={e}
-                state={state}
-                progress={isCurrent ? playback.edgeProgress : isTraversed ? 1 : 0}
-                inSubagent={inSub}
-                freshness={freshness}
-              />
-            );
-          })}
-          {visibleNodes.map((n) => {
-            const inSub = subagentIds.has(n.id);
-            let state: 'idle' | 'active' | 'success' | 'failed' | 'pruned';
-            // While playback is in motion, the playhead always wins so the
-            // user can see which node is currently active even when that
-            // node lives in a failed or pruned subtree. Once playback is
-            // finished, the cursor releases and final states show through.
-            if (n.id === currentId && !playback.finished) state = 'active';
-            else if (n.milestone.failed) state = 'failed';
-            else if (taintedIds.has(n.id)) state = 'pruned';
-            else if (playback.finished && successIds.has(n.id)) state = 'success';
-            else if (playback.finished && traversedIds.has(n.id)) state = 'success';
-            else if (traversedIds.has(n.id)) state = 'success';
-            else state = 'idle';
-            if (isHidden(n.id, state)) return null;
-            const isPinned = n.id === pinnedId;
-            const isTraversed = traversedIds.has(n.id) || n.id === currentId;
-            const showContextBadge = filters.showAllContext || isTraversed;
-            return (
-              <g
-                key={n.id}
-                onMouseEnter={(e) => handleNodeEnter(n.milestone, e)}
-                onMouseLeave={() => setHover(null)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const idx = orderIndex.get(n.id);
-                  if (idx != null) onScrubTo(idx);
-                  onPin(isPinned ? null : n.id);
-                }}
-                style={{ cursor: 'pointer' }}
-              >
-                <NodeShape node={n} state={state} inSubagent={inSub} pinned={isPinned} showContextBadge={showContextBadge} />
-              </g>
-            );
-          })}
+          <g data-cohort="edges-soft" filter="url(#tg-glow-soft)">{renderedEdgesSoft}</g>
+          <g data-cohort="edges-glow" filter="url(#tg-glow)">{renderedEdgesGlow}</g>
+          <g data-cohort="nodes-plain">{renderedNodesPlain}</g>
+          <g data-cohort="nodes-glow" filter="url(#tg-glow)">{renderedNodesGlow}</g>
         </g>
       </svg>
       {!compact && (

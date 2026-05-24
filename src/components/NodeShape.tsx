@@ -13,6 +13,10 @@ type Props = {
   showContextBadge?: boolean;
 };
 
+export function nodeFilterCohort(state: 'idle' | 'active' | 'success' | 'failed' | 'pruned'): 'glow' | 'none' {
+  return (state === 'active' || state === 'success') ? 'glow' : 'none';
+}
+
 function glyphFor(kind: MilestoneKind): string {
   switch (kind) {
     case 'root_prompt': return '>';
@@ -70,7 +74,6 @@ function shapeFor(kind: MilestoneKind): { d: string; labelX: number } {
 
 export const NodeShape = memo(function NodeShape({ node, state, inSubagent, pinned, showContextBadge }: Props) {
   const colors = colorsFor(state, inSubagent, node.milestone.kind);
-  const useGlow = state === 'active' || state === 'success';
   const { d, labelX } = shapeFor(node.milestone.kind);
 
   const fullLabel = `${glyphFor(node.milestone.kind)}  ${node.milestone.label}`;
@@ -86,7 +89,6 @@ export const NodeShape = memo(function NodeShape({ node, state, inSubagent, pinn
         fill={colors.fill}
         stroke={colors.stroke}
         strokeWidth={state === 'active' ? 2 : state === 'success' ? 1.75 : 1.25}
-        filter={useGlow ? 'url(#tg-glow)' : undefined}
         opacity={state === 'pruned' ? 0.35 : 0.97}
         style={state === 'success' ? { animation: 'tg-shimmer 2.4s ease-in-out infinite' } : undefined}
       />
@@ -110,7 +112,6 @@ export const NodeShape = memo(function NodeShape({ node, state, inSubagent, pinn
           fill="none"
           stroke="var(--edge-trail)"
           strokeWidth={1.5}
-          style={{ filter: 'url(#tg-glow)' }}
         />
       )}
       {showContextBadge && node.milestone.contextSize != null && (
