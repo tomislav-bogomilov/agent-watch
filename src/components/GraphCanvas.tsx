@@ -10,6 +10,7 @@ import { useCamera, type CameraApi } from '../graph/useCamera';
 import type { Filters } from './FilterToggles';
 import type { Milestone, Session } from '../parse/types';
 import type { PlaybackState } from '../playback/usePlayback';
+import { LiveButton } from './live/LiveButton';
 
 type Props = {
   session: Session;
@@ -20,6 +21,9 @@ type Props = {
   onScrubTo: (index: number) => void;
   filters: Filters;
   onCameraReady?: (api: CameraApi) => void;
+  liveEngaged: boolean;
+  sessionIsLive: boolean;
+  onToggleLive: () => void;
 };
 
 type SubagentRegion = { x: number; y: number; width: number; height: number };
@@ -56,7 +60,10 @@ function computeSubagentRegions(root: Milestone, nodes: LaidOutNode[]): Subagent
   return regions;
 }
 
-export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, onScrubTo, filters, onCameraReady }: Props) {
+export function GraphCanvas({
+  session, playback, subagentIds, pinnedId, onPin, onScrubTo, filters, onCameraReady,
+  liveEngaged, sessionIsLive, onToggleLive,
+}: Props) {
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
     () => computeSubagentRegions(session.root, layout.nodes),
@@ -259,20 +266,27 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
         }}
         title="fit (F)"
       >FIT</button>
-      <button
-        data-testid="follow-toggle"
-        onClick={() => setFollow(!follow)}
-        style={{
-          position: 'absolute', top: 12, right: 50, zIndex: 6,
-          background: 'rgba(5,8,13,0.85)',
-          border: `1px solid ${follow ? 'var(--edge-trail)' : 'var(--edge-idle)'}`,
-          color: follow ? 'var(--edge-trail)' : 'var(--text)',
-          padding: '2px 8px', cursor: 'pointer',
-          fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: 2,
-          height: 20, boxSizing: 'border-box',
-        }}
-        title="follow playhead (L)"
-      >FOLLOW</button>
+      {!liveEngaged && (
+        <button
+          data-testid="follow-toggle"
+          onClick={() => setFollow(!follow)}
+          style={{
+            position: 'absolute', top: 12, right: 50, zIndex: 6,
+            background: 'rgba(5,8,13,0.85)',
+            border: `1px solid ${follow ? 'var(--edge-trail)' : 'var(--edge-idle)'}`,
+            color: follow ? 'var(--edge-trail)' : 'var(--text)',
+            padding: '2px 8px', cursor: 'pointer',
+            fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: 2,
+            height: 20, boxSizing: 'border-box',
+          }}
+          title="follow playhead (L)"
+        >FOLLOW</button>
+      )}
+      {sessionIsLive && (
+        <div style={{ position: 'absolute', top: 12, right: liveEngaged ? 50 : 88, zIndex: 6 }}>
+          <LiveButton engaged={liveEngaged} onToggle={onToggleLive} />
+        </div>
+      )}
       <Minimap
         layout={layout}
         transform={transform}

@@ -219,6 +219,9 @@ export default function App() {
                 onScrubTo={followingControls.scrubTo}
                 filters={filters}
                 onCameraReady={(api) => { cameraRef.current = api; }}
+                liveEngaged={liveEngaged}
+                sessionIsLive={sessionIsLive}
+                onToggleLive={() => setLiveEngaged((v) => !v)}
               />
               <FilterToggles value={filters} onChange={setFilters} />
               <Legend />
