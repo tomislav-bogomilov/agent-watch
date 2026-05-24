@@ -218,6 +218,16 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   // N≥2: cut-corner pane grid.
   return (
     <div style={outerStyle}>
+      <CanvasToolbar
+        showLive={true}
+        liveEngaged={true}
+        onToggleLive={onToggleLive}
+        showFit={false}
+        onFit={() => {}}
+        showFollow={false}
+        follow={false}
+        onToggleFollow={() => {}}
+      />
       <div data-testid="live-panes-grid" data-n={total} style={gridStyle(total)}>
         <LivePane kind="main" label="MAIN" root={mainRoot} cwd={session.cwd} paneId="main" />
         {displayable.map((e, idx) => {

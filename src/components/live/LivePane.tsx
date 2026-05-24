@@ -1,9 +1,10 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { GraphCanvas } from '../GraphCanvas';
 import { CountdownChip } from './CountdownChip';
 import { makeLivePlayback } from './livePlayback';
 import type { Session, Milestone } from '../../parse/types';
 import type { Filters } from '../FilterToggles';
+import type { CameraApi } from '../../graph/useCamera';
 
 type Props = {
   kind: 'main' | 'subagent';
@@ -94,6 +95,8 @@ function collectSubagentIds(root: Milestone): Set<string> {
 export function LivePane({ kind, label, root, cwd, paneId, closingSeconds, frozen, onToggleFreeze }: Props) {
   const accent = kind === 'main' ? '#00e5ff' : '#b894ff';
   const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const cameraRef = useRef<CameraApi | null>(null);
+  const fittedRef = useRef(false);
 
   const session: Session = useMemo(() => ({
     id: paneId,
@@ -107,6 +110,10 @@ export function LivePane({ kind, label, root, cwd, paneId, closingSeconds, froze
 
   const playback = useMemo(() => makeLivePlayback(root), [root]);
   const subagentIds = useMemo(() => collectSubagentIds(root), [root]);
+
+  useEffect(() => {
+    if (cameraRef.current) cameraRef.current.setFollow(true);
+  }, [playback.order.length]);
 
   const newest = playback.order[playback.index] ?? null;
   const selected = (pinnedId ? playback.order.find((m) => m.id === pinnedId) : null) ?? newest;
@@ -140,6 +147,14 @@ export function LivePane({ kind, label, root, cwd, paneId, closingSeconds, froze
           filters={ALL_FILTERS}
           liveEngaged={true}
           compact={true}
+          onCameraReady={(api) => {
+            cameraRef.current = api;
+            if (!fittedRef.current) {
+              fittedRef.current = true;
+              api.fit();
+              api.setFollow(true);
+            }
+          }}
         />
 
         {closingSeconds != null && onToggleFreeze && (
