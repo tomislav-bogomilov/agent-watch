@@ -21,7 +21,8 @@ type Props = {
 const ALL_FILTERS: Filters = { hidePruned: false, hideSubagents: false, successOnly: false, showAllContext: false };
 
 const outerStyle: CSSProperties = {
-  flex: 1,
+  width: '100%',
+  height: '100%',
   minHeight: 0,
   padding: '56px 12px 12px 12px',
   boxSizing: 'border-box',
