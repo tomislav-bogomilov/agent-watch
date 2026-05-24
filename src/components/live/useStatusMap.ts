@@ -14,15 +14,15 @@ function stateEqual(a: PaneState, b: PaneState): boolean {
   );
 }
 
-function mapsEqual(a: Record<string, PaneState>, b: Record<string, PaneState>): boolean {
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
-  if (aKeys.length !== bKeys.length) return false;
-  for (const k of aKeys) {
-    const av = a[k];
-    const bv = b[k];
-    if (!bv) return false;
-    if (!stateEqual(av, bv)) return false;
+function mapsEqual(prev: Record<string, PaneState>, next: Record<string, PaneState>): boolean {
+  const prevKeys = Object.keys(prev);
+  const nextKeys = Object.keys(next);
+  if (prevKeys.length !== nextKeys.length) return false;
+  for (const k of prevKeys) {
+    const prevState = prev[k];
+    const nextState = next[k];
+    if (!nextState) return false;
+    if (!stateEqual(prevState, nextState)) return false;
   }
   return true;
 }
@@ -50,6 +50,8 @@ export function useStatusMap(
       }
       const fileId = keyToFileId.get(e.key);
       const mtimeIso = fileId ? subagentMtimes[fileId] : undefined;
+      // Entries without a file mapping or recorded mtime stay 'active' indefinitely —
+      // we have no signal that they've gone quiet, so we default to "just updated".
       const lastUpdatedMs = mtimeIso ? new Date(mtimeIso).getTime() : nowMs;
       const staleAtOpen = (nowMs - lastUpdatedMs) >= SUBAGENT_STABLE_MS;
       const prevState: PaneState =
