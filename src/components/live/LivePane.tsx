@@ -71,19 +71,25 @@ function notchStyle(corner: 'tl'|'tr'|'bl'|'br', color: string): CSSProperties {
 }
 
 const headerStyle = (color: string): CSSProperties => ({
-  position: 'absolute', top: 0, left: 0, right: 0, height: 22,
+  position: 'absolute',
+  top: 8,
+  left: 8,
+  right: 8,
+  height: 20,
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: '0 14px', gap: 12,
-  background: 'linear-gradient(rgba(5,8,13,0.95), rgba(5,8,13,0.5))',
-  borderBottom: '1px solid rgba(110,224,238,0.08)',
+  padding: '0 10px', gap: 12,
+  background: 'rgba(5,8,13,0.85)',
+  border: `1px solid ${color}33`,
+  borderRadius: 2,
   fontSize: 9, letterSpacing: 2, color,
   fontFamily: 'ui-monospace, monospace',
   zIndex: 5, pointerEvents: 'none',
+  backdropFilter: 'blur(2px)',
 });
 
 const canvasHost = (withHeader: boolean): CSSProperties => ({
   flex: 1, minWidth: 0, position: 'relative',
-  paddingTop: withHeader ? 22 : 0,
+  paddingTop: withHeader ? 36 : 0,
 });
 
 type AccentRgb = readonly [number, number, number]; // r, g, b
@@ -98,7 +104,7 @@ function detailStyle(withHeader: boolean, accent: AccentRgb): CSSProperties {
   const topEdgeAlpha = accent === ACCENT_MAIN ? 0.22 : 0.28;
   return {
     width: '36%', minWidth: 160, flexShrink: 0,
-    margin: withHeader ? '24px 12px 12px 0' : '12px 12px 12px 0',
+    margin: withHeader ? '36px 12px 12px 0' : '12px 12px 12px 0',
     borderLeft: `1px solid rgba(${r}, ${g}, ${b}, 0.55)`,
     background: [
       `linear-gradient(180deg, rgba(${r},${g},${b},${topStopAlpha}), rgba(5,8,13,0.95) 60%, rgba(5,8,13,1))`,
