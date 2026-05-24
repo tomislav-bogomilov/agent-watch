@@ -70,11 +70,11 @@ function notchStyle(corner: 'tl'|'tr'|'bl'|'br', color: string): CSSProperties {
   };
 }
 
-const headerStyle = (color: string): CSSProperties => ({
+const headerStyle = (color: string, hasClose: boolean): CSSProperties => ({
   position: 'absolute',
   top: 8,
   left: 8,
-  right: 8,
+  right: hasClose ? 36 : 8,
   height: 20,
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   padding: '0 10px', gap: 12,
@@ -250,26 +250,26 @@ export function LivePane({
         </button>
       )}
 
-      <div style={canvasHost(showHeader)}>
-        {showHeader && (
-          <div style={headerStyle(accent)}>
-            <span style={{ flexShrink: 0 }}>{label}</span>
-            <span
-              style={{
-                color: '#6e95a5',
-                flex: '1 1 auto',
-                minWidth: 0,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                textAlign: 'right',
-              }}
-            >
-              {newest?.summary ?? ''}
-            </span>
-          </div>
-        )}
+      {showHeader && (
+        <div style={headerStyle(accent, !!onClose)}>
+          <span style={{ flexShrink: 0 }}>{label}</span>
+          <span
+            style={{
+              color: '#6e95a5',
+              flex: '1 1 auto',
+              minWidth: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              textAlign: 'right',
+            }}
+          >
+            {newest?.summary ?? ''}
+          </span>
+        </div>
+      )}
 
+      <div style={canvasHost(showHeader)}>
         <GraphCanvas
           session={session}
           playback={playback}
