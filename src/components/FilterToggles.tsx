@@ -134,6 +134,7 @@ const styles = {
   },
   icon: { color: 'var(--edge-trail)', fontSize: 12 },
   badge: {
+    display: 'inline-block' as const,
     background: 'var(--edge-trail)', color: '#05080d',
     fontSize: 9, fontWeight: 700,
     padding: '0 4px', minWidth: 13, height: 13,
