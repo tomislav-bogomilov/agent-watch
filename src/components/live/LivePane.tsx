@@ -42,6 +42,15 @@ const borderClip: CSSProperties = {
     + ' calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px)',
 };
 
+// Same border clip but with the top-right cut omitted — used on panes that
+// carry the close button, so the magenta triangle can land its right angle
+// exactly on the pane's top-right corner instead of fighting the cut diagonal.
+const borderClipSharpTR: CSSProperties = {
+  clipPath:
+    'polygon(12px 0, 100% 0, 100% calc(100% - 12px),'
+    + ' calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px)',
+};
+
 function notchStyle(corner: 'tl'|'tr'|'bl'|'br', color: string): CSSProperties {
   const polygons = {
     tl: 'polygon(0 0, 100% 0, 0 100%)',
@@ -152,7 +161,7 @@ export function LivePane({
       data-testid="live-pane"
       style={{
         ...wrapper,
-        ...(borderless ? {} : borderClip),
+        ...(borderless ? {} : (onClose ? borderClipSharpTR : borderClip)),
         ...(showAnimation
           ? { animation: `${kind === 'main' ? 'paneBreathe' : 'subBreathe'} 3.5s ease-in-out infinite` }
           : {}),
@@ -160,7 +169,8 @@ export function LivePane({
     >
       {showNotches && <>
         <span style={notchStyle('tl', accent)} />
-        <span style={notchStyle('tr', accent)} />
+        {/* The TR notch is omitted when the magenta close triangle occupies that corner instead. */}
+        {!onClose && <span style={notchStyle('tr', accent)} />}
         <span style={notchStyle('bl', accent)} />
         <span style={notchStyle('br', accent)} />
       </>}
@@ -172,11 +182,10 @@ export function LivePane({
           onClick={(e) => { e.stopPropagation(); onClose(); }}
           style={{
             // 28x28 box anchored at the top-right. clip-path leaves the
-            // *lower-left* right-triangle (TL, BR, BL) — the right-angle
-            // sits at the bottom-left, the hypotenuse runs parallel to the
-            // pane's cut diagonal. The whole triangle lives inside the
-            // pane polygon (no slivers eaten by the parent clip), so it
-            // reads as a complete shape and the X glyph stays visible.
+            // upper-right triangle (TL, TR, BR) — the right-angle sits at
+            // the pane's top-right corner. The host pane drops its TR cut
+            // when this button is present (borderClipSharpTR) so the full
+            // triangle is visible without fighting the cut diagonal.
             position: 'absolute',
             top: 0,
             right: 0,
@@ -185,7 +194,7 @@ export function LivePane({
             padding: 0,
             background: '#b537ff',
             border: 'none',
-            clipPath: 'polygon(0 0, 100% 100%, 0 100%)',
+            clipPath: 'polygon(0 0, 100% 0, 100% 100%)',
             cursor: 'pointer',
             boxShadow: '0 0 14px rgba(181, 55, 255, 0.75)',
             zIndex: 7,
@@ -196,13 +205,12 @@ export function LivePane({
             aria-hidden="true"
             style={{
               position: 'absolute',
-              left: 4,
-              bottom: 2,
+              top: 1,
+              right: 4,
               fontFamily: 'ui-monospace, monospace',
               fontSize: 14,
               lineHeight: 1,
-              color: '#05080d',
-              textShadow: '0 0 3px rgba(5, 8, 13, 0.85)',
+              color: '#fff',
               pointerEvents: 'none',
               userSelect: 'none',
             }}
