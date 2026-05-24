@@ -27,8 +27,36 @@ export type LayoutResult = {
 
 const NODE_X_SPACING = 140;
 const NODE_Y_SPACING = 110;
+const LRU_CAP = 16;
 
-export function layoutTree(root: Milestone): LayoutResult {
+// Reference cache: same root identity always hits.
+const refCache = new WeakMap<Milestone, { fingerprint: string; result: LayoutResult }>();
+
+// Fingerprint cache: bounded LRU keyed by structural hash. Map iteration order
+// is insertion order; deleting and re-inserting moves an entry to the tail.
+const fpCache = new Map<string, LayoutResult>();
+
+function fingerprint(root: Milestone): string {
+  const parts: string[] = [];
+  function walk(n: Milestone, parentId: string): void {
+    parts.push(`${n.id}|${n.kind}|${parentId}|${n.children.length}`);
+    for (const c of n.children) walk(c, n.id);
+  }
+  walk(root, '');
+  return parts.join(';');
+}
+
+function rememberFp(fp: string, result: LayoutResult): void {
+  if (fpCache.has(fp)) fpCache.delete(fp); // move to tail
+  fpCache.set(fp, result);
+  while (fpCache.size > LRU_CAP) {
+    const oldestKey = fpCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    fpCache.delete(oldestKey);
+  }
+}
+
+function computeLayout(root: Milestone): LayoutResult {
   const h = hierarchy<Milestone>(root, (d) => d.children);
   const layout = d3tree<Milestone>().nodeSize([NODE_X_SPACING, NODE_Y_SPACING]);
   const laid = layout(h);
@@ -56,8 +84,7 @@ export function layoutTree(root: Milestone): LayoutResult {
     });
   });
 
-  // Normalize x so minX = 0
-  const xShift = -minX + 60; // 60px left padding
+  const xShift = -minX + 60;
   for (const n of nodes) n.x += xShift;
   for (const e of edges) {
     e.sourceX += xShift;
@@ -70,4 +97,31 @@ export function layoutTree(root: Milestone): LayoutResult {
     width: (maxX - minX) + 120,
     height: maxY + 120,
   };
+}
+
+export function layoutTree(root: Milestone): LayoutResult {
+  // 1. Reference cache hit?
+  const ref = refCache.get(root);
+  if (ref) return ref.result;
+
+  // 2. Fingerprint match?
+  const fp = fingerprint(root);
+  const cached = fpCache.get(fp);
+  if (cached) {
+    refCache.set(root, { fingerprint: fp, result: cached });
+    rememberFp(fp, cached); // bump to tail
+    return cached;
+  }
+
+  // 3. Miss — compute, cache, return.
+  const result = computeLayout(root);
+  refCache.set(root, { fingerprint: fp, result });
+  rememberFp(fp, result);
+  return result;
+}
+
+/** Test-only escape hatch. Do not call from production code. */
+export function _resetLayoutCacheForTests(): void {
+  fpCache.clear();
+  // WeakMap can't be iterated; rely on tests building fresh roots.
 }
