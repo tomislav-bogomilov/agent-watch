@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Session, Milestone } from '../../parse/types';
 import { LivePane } from './LivePane';
-import { extractMainTrail } from './extractMainTrail';
+import { extractSubagentPaneRoot } from './extractSubagentPaneRoot';
 import { subagentLabel } from './subagentLabel';
 import { nextPaneStatus, remainingSeconds, type PaneState } from './paneStatus';
 import { TICK_MS, CLOSING_MS } from './liveness';
+import { GraphCanvas } from '../GraphCanvas';
+import { makeLivePlayback } from './livePlayback';
+import type { Filters } from '../FilterToggles';
 
 type Props = {
   session: Session;
-  /** Map of subagent file id → lastUpdatedAt ISO. The caller (App) feeds this from the SessionPayload subagents array. */
   subagentMtimes: Record<string, string>;
 };
 
-const containerStyle = (n: number): CSSProperties => ({
+const ALL_FILTERS: Filters = { hidePruned: false, hideSubagents: false, successOnly: false, showAllContext: false };
+
+const gridStyle = (n: number): CSSProperties => ({
   flex: 1,
   display: 'grid',
   gridTemplateColumns: n === 1 ? '1fr' : '1fr 1fr',
@@ -21,51 +25,72 @@ const containerStyle = (n: number): CSSProperties => ({
   minHeight: 0,
 });
 
+const fullscreenStyle: CSSProperties = {
+  flex: 1, minHeight: 0, position: 'relative',
+};
+
 const lastSpanStyle: CSSProperties = { gridColumn: 'span 2' };
 
-function collectSubagentTrails(root: Milestone): Map<string, Milestone[]> {
-  // Each subagent_spawn's children[0] is the sub-agent's inner root.
-  // The "id" we key by is matched to the subagent file id elsewhere; for now,
-  // use the spawn node's id since attachSubagents already paired them.
-  // We return id (spawn-node-derived) → trail (DFS of the inner subtree).
-  const out = new Map<string, Milestone[]>();
-  function walk(node: Milestone): void {
-    if (node.kind === 'subagent_spawn' && node.children[0]) {
-      const trail: Milestone[] = [];
-      function inner(n: Milestone): void {
-        trail.push(n);
-        for (const c of n.children) inner(c);
-      }
-      inner(node.children[0]);
-      // The id we use to look up mtime is the spawn's raw toolResult content's agentId.
-      // attachSubagents has already attached by that match; here we just key by spawn id
-      // and let the parent map the spawn id to a file id via session payload data.
-      // For the v1 cut, we approximate: key by the first child id since spawn nodes are unique.
-      const key = `spawn:${node.id}`;
-      out.set(key, trail);
-    }
-    for (const c of node.children) walk(c);
+/** Returns each subagent_spawn node in the tree (DFS order). */
+function collectSpawnNodes(root: Milestone): Milestone[] {
+  const out: Milestone[] = [];
+  function walk(n: Milestone): void {
+    if (n.kind === 'subagent_spawn') out.push(n);
+    for (const c of n.children) walk(c);
   }
   walk(root);
   return out;
 }
 
-export function LivePanes({ session, subagentMtimes }: Props) {
-  const mainTrail = useMemo(() => extractMainTrail(session.root), [session]);
-  const subagentTrails = useMemo(() => collectSubagentTrails(session.root), [session]);
-  const subagentKeys = useMemo(() => Array.from(subagentTrails.keys()), [subagentTrails]);
+/** Build a synthetic Milestone tree for the MAIN pane: the original root with sub-agent inner subtrees stripped (each subagent_spawn becomes a leaf — no children). */
+function buildMainRoot(root: Milestone): Milestone {
+  function rebuild(node: Milestone): Milestone {
+    if (node.kind === 'subagent_spawn') {
+      // Drop the inner subtree (children[0]). Keep children[1+] (main continuation).
+      return { ...node, children: node.children.slice(1).map(rebuild) };
+    }
+    return { ...node, children: node.children.map(rebuild) };
+  }
+  return rebuild(root);
+}
 
-  // subagentMtimes is keyed by the on-disk file id (`agent-xxxx`). Since we
-  // don't have a direct mapping from spawn-node → file id here in v1, we fall
-  // back to alphabetical pairing of spawn keys with file ids. This works for
-  // the common case (1 sub-agent at a time) and is correct enough until the
-  // parser exposes a stable spawn→file linkage.
+function collectSubagentIds(root: Milestone): Set<string> {
+  const ids = new Set<string>();
+  function walk(node: Milestone, inSub: boolean): void {
+    if (inSub) ids.add(node.id);
+    if (node.kind === 'subagent_spawn' && node.children.length >= 1) {
+      walk(node.children[0], true);
+      if (node.children[1]) walk(node.children[1], inSub);
+      return;
+    }
+    for (const c of node.children) walk(c, inSub);
+  }
+  walk(root, false);
+  return ids;
+}
+
+export function LivePanes({ session, subagentMtimes }: Props) {
+  // MAIN trail without sub-agent inner content
+  const mainRoot = useMemo(() => buildMainRoot(session.root), [session]);
+
+  // Sub-agent panes: one per spawn node, keyed by spawn id
+  const spawnNodes = useMemo(() => collectSpawnNodes(session.root), [session]);
+  const subagentEntries = useMemo(() => {
+    return spawnNodes
+      .map((spawn) => {
+        const root = extractSubagentPaneRoot(spawn);
+        return root ? { key: `spawn:${spawn.id}`, spawnId: spawn.id, root } : null;
+      })
+      .filter((x): x is { key: string; spawnId: string; root: Milestone } => x !== null);
+  }, [spawnNodes]);
+
+  // Alphabetical pairing v1 (per the spec follow-up note).
   const fileIds = useMemo(() => Object.keys(subagentMtimes).sort(), [subagentMtimes]);
   const keyToFileId = useMemo(() => {
     const map = new Map<string, string>();
-    subagentKeys.forEach((k, i) => { if (fileIds[i]) map.set(k, fileIds[i]); });
+    subagentEntries.forEach((e, i) => { if (fileIds[i]) map.set(e.key, fileIds[i]); });
     return map;
-  }, [subagentKeys, fileIds]);
+  }, [subagentEntries, fileIds]);
 
   const [statusMap, setStatusMap] = useState<Record<string, PaneState>>({});
   const [nowMs, setNowMs] = useState(Date.now());
@@ -76,33 +101,30 @@ export function LivePanes({ session, subagentMtimes }: Props) {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
-  // Tick the status map whenever nowMs or subagentMtimes change.
   useEffect(() => {
     setStatusMap((prev) => {
       const next: Record<string, PaneState> = {};
-      for (const key of subagentKeys) {
-        const fileId = keyToFileId.get(key);
+      for (const e of subagentEntries) {
+        const fileId = keyToFileId.get(e.key);
         const mtimeIso = fileId ? subagentMtimes[fileId] : undefined;
         const lastUpdatedMs = mtimeIso ? new Date(mtimeIso).getTime() : nowMs;
-        const prevState: PaneState = prev[key] ?? {
+        const prevState: PaneState = prev[e.key] ?? {
           status: 'active', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null,
         };
-        next[key] = nextPaneStatus(prevState, lastUpdatedMs, nowMs);
+        next[e.key] = nextPaneStatus(prevState, lastUpdatedMs, nowMs);
       }
       return next;
     });
-  }, [nowMs, subagentKeys, keyToFileId, subagentMtimes]);
+  }, [nowMs, subagentEntries, keyToFileId, subagentMtimes]);
 
-  // Build the displayable pane list: MAIN always; sub-agents whose status is not 'closed'.
-  const displayableKeys = subagentKeys.filter((k) => statusMap[k]?.status !== 'closed');
-  const total = 1 + displayableKeys.length;
+  const displayable = subagentEntries.filter((e) => statusMap[e.key]?.status !== 'closed');
+  const total = 1 + displayable.length;
 
   function freezeToggle(key: string): void {
     setStatusMap((prev) => {
       const s = prev[key];
       if (!s) return prev;
       if (s.status === 'frozen') {
-        // resume: convert frozenRemainingMs back into a new closingStartedAt anchored at now.
         const newClosingStartedAt = nowMs - (CLOSING_MS - (s.frozenRemainingMs ?? CLOSING_MS));
         return { ...prev, [key]: { ...s, status: 'closing', frozenAt: null, frozenRemainingMs: null, closingStartedAt: newClosingStartedAt } };
       }
@@ -115,25 +137,50 @@ export function LivePanes({ session, subagentMtimes }: Props) {
     });
   }
 
+  // N=1 fullscreen short-circuit — render GraphCanvas directly with no cut-corner border.
+  if (total === 1) {
+    const mainPlayback = makeLivePlayback(mainRoot);
+    const mainSession: Session = { ...session, root: mainRoot, totalMilestones: mainPlayback.order.length };
+    const subagentIds = collectSubagentIds(mainRoot);
+    return (
+      <div data-testid="live-panes-grid" data-n={1} data-fullscreen="true" style={fullscreenStyle}>
+        <GraphCanvas
+          session={mainSession}
+          playback={mainPlayback}
+          subagentIds={subagentIds}
+          pinnedId={null}
+          onPin={() => { /* App-level detail panel takes over at N=1 */ }}
+          onScrubTo={() => { /* no playback in LIVE */ }}
+          filters={ALL_FILTERS}
+          liveEngaged={true}
+          compact={false}
+        />
+      </div>
+    );
+  }
+
+  // N≥2: cut-corner pane grid.
   return (
-    <div data-testid="live-panes-grid" data-n={total} style={containerStyle(total)}>
-      <LivePane kind="main" label="MAIN" milestones={mainTrail} />
-      {displayableKeys.map((key, idx) => {
-        const isLastOdd = total % 2 === 1 && idx === displayableKeys.length - 1;
-        const trail = subagentTrails.get(key) ?? [];
-        const fileId = keyToFileId.get(key) ?? key;
-        const status = statusMap[key];
+    <div data-testid="live-panes-grid" data-n={total} style={gridStyle(total)}>
+      <LivePane kind="main" label="MAIN" root={mainRoot} cwd={session.cwd} paneId="main" />
+      {displayable.map((e, idx) => {
+        const isLastOdd = total % 2 === 1 && idx === displayable.length - 1;
+        const fileId = keyToFileId.get(e.key) ?? e.key;
+        const status = statusMap[e.key];
         const closingSeconds = status ? remainingSeconds(status, nowMs) : null;
         const frozen = status?.status === 'frozen';
+        const showCountdown = status && (status.status === 'closing' || status.status === 'frozen');
         return (
-          <div key={key} style={isLastOdd ? lastSpanStyle : undefined}>
+          <div key={e.key} style={isLastOdd ? lastSpanStyle : undefined}>
             <LivePane
               kind="subagent"
               label={subagentLabel(fileId)}
-              milestones={trail}
-              closingSeconds={status && (status.status === 'closing' || status.status === 'frozen') ? closingSeconds : null}
+              root={e.root}
+              cwd={session.cwd}
+              paneId={e.key}
+              closingSeconds={showCountdown ? closingSeconds : null}
               frozen={frozen}
-              onToggleFreeze={() => freezeToggle(key)}
+              onToggleFreeze={() => freezeToggle(e.key)}
             />
           </div>
         );

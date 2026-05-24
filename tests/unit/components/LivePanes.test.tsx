@@ -42,11 +42,14 @@ describe('LivePanes', () => {
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-05-24T12:00:00Z')); });
   afterEach(() => { vi.useRealTimers(); });
 
-  it('renders just MAIN when there are no sub-agents (N=1)', () => {
+  it('renders just MAIN fullscreen when there are no sub-agents (N=1)', () => {
     const session = makeSession([m('a')], []);
     render(<LivePanes session={session} subagentMtimes={{}} />);
-    const panes = screen.getAllByTestId('live-pane');
-    expect(panes).toHaveLength(1);
+    // At N=1, no LivePane wrapper — directly a fullscreen grid container.
+    expect(screen.queryByTestId('live-pane')).toBeNull();
+    const grid = screen.getByTestId('live-panes-grid');
+    expect(grid.getAttribute('data-n')).toBe('1');
+    expect(grid.getAttribute('data-fullscreen')).toBe('true');
   });
 
   it('renders MAIN + 2 subagents in 2-col grid (N=3, last spans)', () => {
@@ -77,9 +80,10 @@ describe('LivePanes', () => {
     rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} />);
     expect(screen.getByTestId('countdown-chip')).toBeTruthy();
 
-    // Advance another 31s — pane should be gone (only MAIN left)
+    // Advance another 31s — pane should be gone (now fullscreen MAIN, no LivePane wrapper)
     act(() => { vi.advanceTimersByTime(31_000); });
     rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} />);
-    expect(screen.getAllByTestId('live-pane')).toHaveLength(1);
+    expect(screen.queryByTestId('live-pane')).toBeNull();
+    expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('1');
   });
 });
