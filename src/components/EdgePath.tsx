@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { LaidOutEdge } from '../graph/layout';
 
 type Props = {
@@ -10,7 +11,7 @@ type Props = {
   freshness?: number;
 };
 
-export function EdgePath({ edge, state, progress, inSubagent, freshness = 1 }: Props) {
+export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubagent, freshness = 1 }: Props) {
   const d = curvePath(edge);
   // Use the same cyan family for every state so all tracks read as
   // wired-up paths. Differences come from stroke width, opacity, and
@@ -79,7 +80,7 @@ export function EdgePath({ edge, state, progress, inSubagent, freshness = 1 }: P
       style={animatedStyle}
     />
   );
-}
+});
 
 function curvePath(edge: LaidOutEdge): string {
   const mid = (edge.sourceY + edge.targetY) / 2;
