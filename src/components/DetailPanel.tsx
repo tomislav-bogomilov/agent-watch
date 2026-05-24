@@ -64,9 +64,16 @@ const styles = {
   panel: {
     position: 'absolute' as const,
     top: 0, right: 0, bottom: 0,
-    background: 'rgba(5,8,13,0.95)',
-    borderLeft: '1px solid var(--edge-idle)',
-    boxShadow: '-12px 0 24px rgba(0,0,0,0.4)',
+    background: [
+      'linear-gradient(180deg, rgba(0,229,255,0.08), rgba(5,8,13,0.95) 60%, rgba(5,8,13,1))',
+      '#050810',
+    ].join(', '),
+    borderLeft: '1px solid rgba(0, 229, 255, 0.55)',
+    boxShadow: [
+      'inset 1px 0 0 rgba(0, 229, 255, 0.22)',
+      'inset 6px 0 18px rgba(0, 229, 255, 0.06)',
+      '-12px 0 24px rgba(0, 0, 0, 0.4)',
+    ].join(', '),
     padding: '16px 18px',
     fontFamily: 'ui-monospace, monospace',
     color: 'var(--text)',
