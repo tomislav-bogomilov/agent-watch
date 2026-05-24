@@ -65,10 +65,11 @@ describe('useStatusMap', () => {
     expect(result.current.a.status).toBe('closed');
   });
 
-  it('honors explicit overrides over derived state', () => {
+  it('seeds nextPaneStatus from a frozen override and stays frozen when the file is stale', () => {
     const entries: Entry[] = [{ key: 'a' }];
     const keyToFileId = new Map([['a', 'fa']]);
-    const mtimes = { fa: '2026-05-24T12:00:00Z' };
+    // Stale mtime so the activity-resumed branch doesn't override the seed.
+    const mtimes = { fa: '2026-05-24T11:55:00Z' };
     const userClosed = new Set<string>();
     const overrides = {
       a: { status: 'frozen' as const, closingStartedAt: null, frozenAt: 0, frozenRemainingMs: 5000 },
@@ -77,5 +78,40 @@ describe('useStatusMap', () => {
       useStatusMap(entries, keyToFileId, mtimes, userClosed, overrides, TICK)
     );
     expect(result.current.a.status).toBe('frozen');
+  });
+
+  it('lets a closing override evolve toward closed via nextPaneStatus', () => {
+    const entries: Entry[] = [{ key: 'a' }];
+    const keyToFileId = new Map([['a', 'fa']]);
+    const mtimes = { fa: '2026-05-24T11:55:00Z' };  // stale
+    const userClosed = new Set<string>();
+    const closingStartedAt = Date.now();
+    const overrides = {
+      a: { status: 'closing' as const, closingStartedAt, frozenAt: null, frozenRemainingMs: null },
+    };
+    const { result, rerender } = renderHook(
+      ({ ovr }: { ovr: typeof overrides }) =>
+        useStatusMap(entries, keyToFileId, mtimes, userClosed, ovr, TICK),
+      { initialProps: { ovr: overrides } }
+    );
+    expect(result.current.a.status).toBe('closing');
+    // Advance past CLOSING_MS (30s) and re-render with the same override.
+    act(() => { vi.advanceTimersByTime(31_000); });
+    rerender({ ovr: overrides });
+    expect(result.current.a.status).toBe('closed');
+  });
+
+  it('userClosedKeys wins over a frozen override', () => {
+    const entries: Entry[] = [{ key: 'a' }];
+    const keyToFileId = new Map([['a', 'fa']]);
+    const mtimes = { fa: '2026-05-24T11:55:00Z' };
+    const userClosed = new Set(['a']);
+    const overrides = {
+      a: { status: 'frozen' as const, closingStartedAt: null, frozenAt: 0, frozenRemainingMs: 5000 },
+    };
+    const { result } = renderHook(() =>
+      useStatusMap(entries, keyToFileId, mtimes, userClosed, overrides, TICK)
+    );
+    expect(result.current.a.status).toBe('closed');
   });
 });

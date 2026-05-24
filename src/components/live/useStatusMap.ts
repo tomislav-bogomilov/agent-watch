@@ -54,14 +54,16 @@ export function useStatusMap(
       // we have no signal that they've gone quiet, so we default to "just updated".
       const lastUpdatedMs = mtimeIso ? new Date(mtimeIso).getTime() : nowMs;
       const staleAtOpen = (nowMs - lastUpdatedMs) >= SUBAGENT_STABLE_MS;
+      // An override seeds the prevState fed into nextPaneStatus, so a 'closing'
+      // override evolves toward 'closed' and a 'frozen' override stays frozen
+      // until file activity resumes. userClosedKeys still wins below regardless.
       const prevState: PaneState =
-        prev[e.key] ?? (staleAtOpen
+        overrides[e.key] ?? prev[e.key] ?? (staleAtOpen
           ? { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
           : { status: 'active', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null });
-      const computed = userClosedKeys.has(e.key)
+      next[e.key] = userClosedKeys.has(e.key)
         ? ({ status: 'closed' as const, closingStartedAt: null, frozenAt: null, frozenRemainingMs: null })
         : nextPaneStatus(prevState, lastUpdatedMs, nowMs);
-      next[e.key] = overrides[e.key] ?? computed;
     }
     if (mapsEqual(prev, next)) return prev;
     prevRef.current = next;
