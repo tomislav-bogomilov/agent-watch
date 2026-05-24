@@ -29,7 +29,7 @@ const ALL_FILTERS: Filters = { hidePruned: false, hideSubagents: false, successO
 
 const wrapper: CSSProperties = {
   position: 'relative',
-  background: '#050810',
+  background: 'transparent', // was '#050810' — let the body grid show through
   overflow: 'hidden',
   display: 'flex',
   width: '100%',
@@ -73,7 +73,7 @@ function notchStyle(corner: 'tl'|'tr'|'bl'|'br', color: string): CSSProperties {
 const headerStyle = (color: string): CSSProperties => ({
   position: 'absolute', top: 0, left: 0, right: 0, height: 22,
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: '0 14px',
+  padding: '0 14px', gap: 12,
   background: 'linear-gradient(rgba(5,8,13,0.95), rgba(5,8,13,0.5))',
   borderBottom: '1px solid rgba(110,224,238,0.08)',
   fontSize: 9, letterSpacing: 2, color,
@@ -86,11 +86,39 @@ const canvasHost = (withHeader: boolean): CSSProperties => ({
   paddingTop: withHeader ? 22 : 0,
 });
 
-const detailStyle = (withHeader: boolean): CSSProperties => ({
+const detailStyleMain = (withHeader: boolean): CSSProperties => ({
   width: '36%', minWidth: 160, flexShrink: 0,
-  borderLeft: '1px solid rgba(110,224,238,0.18)',
-  background: 'rgba(5,8,13,0.92)',
-  padding: withHeader ? '24px 12px 12px' : '12px 12px 12px',
+  // inset from clip-path corners + BR notch
+  margin: withHeader ? '24px 12px 12px 0' : '12px 12px 12px 0',
+  borderLeft: '1px solid rgba(0, 229, 255, 0.55)',
+  background: [
+    'linear-gradient(180deg, rgba(0,229,255,0.08), rgba(5,8,13,0.95) 60%, rgba(5,8,13,1))',
+    '#050810',
+  ].join(', '),
+  boxShadow: [
+    'inset 1px 0 0 rgba(0, 229, 255, 0.22)',
+    'inset 6px 0 18px rgba(0, 229, 255, 0.06)',
+  ].join(', '),
+  padding: '12px 12px 12px',
+  fontFamily: 'ui-monospace, monospace',
+  fontSize: 11, color: '#d4e9f0',
+  overflow: 'auto',
+  position: 'relative', zIndex: 4,
+});
+
+const detailStyleSub = (withHeader: boolean): CSSProperties => ({
+  width: '36%', minWidth: 160, flexShrink: 0,
+  margin: withHeader ? '24px 12px 12px 0' : '12px 12px 12px 0',
+  borderLeft: '1px solid rgba(184, 148, 255, 0.55)',
+  background: [
+    'linear-gradient(180deg, rgba(184,148,255,0.10), rgba(5,8,13,0.95) 60%, rgba(5,8,13,1))',
+    '#050810',
+  ].join(', '),
+  boxShadow: [
+    'inset 1px 0 0 rgba(184, 148, 255, 0.28)',
+    'inset 6px 0 18px rgba(184, 148, 255, 0.06)',
+  ].join(', '),
+  padding: '12px 12px 12px',
   fontFamily: 'ui-monospace, monospace',
   fontSize: 11, color: '#d4e9f0',
   overflow: 'auto',
@@ -228,8 +256,20 @@ export function LivePane({
       <div style={canvasHost(showHeader)}>
         {showHeader && (
           <div style={headerStyle(accent)}>
-            <span>{label}</span>
-            <span style={{ color: '#6e95a5' }}>{newest?.summary ?? ''}</span>
+            <span style={{ flexShrink: 0 }}>{label}</span>
+            <span
+              style={{
+                color: '#6e95a5',
+                flex: '1 1 auto',
+                minWidth: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                textAlign: 'right',
+              }}
+            >
+              {newest?.summary ?? ''}
+            </span>
           </div>
         )}
 
@@ -263,7 +303,7 @@ export function LivePane({
         )}
       </div>
 
-      <aside data-testid="live-pane-detail" style={detailStyle(showHeader)}>
+      <aside data-testid="live-pane-detail" style={kind === 'main' ? detailStyleMain(showHeader) : detailStyleSub(showHeader)}>
         <div style={{ fontSize: 9, letterSpacing: 3, color: accent, marginBottom: 6 }}>
           {kind === 'main' ? 'MAIN · NODE' : 'SUBAGENT · NODE'}
         </div>

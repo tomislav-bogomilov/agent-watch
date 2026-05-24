@@ -32,4 +32,30 @@ describe('LivePane', () => {
     );
     expect(screen.getByTestId('countdown-chip')).toBeTruthy();
   });
+
+  it('truncates a long summary string in the header with ellipsis styles', () => {
+    const longSummary = 'A'.repeat(65); // 65 chars — well over the threshold
+    const root = m('root', 'Some Tool', longSummary);
+    render(
+      <LivePane
+        kind="main"
+        label="MAIN"
+        root={root}
+        cwd="/c"
+        paneId="p-trunc"
+        borderless={false}
+      />
+    );
+    // The pane header is inside data-testid="live-pane"
+    const pane = screen.getByTestId('live-pane');
+    // Find the span whose textContent matches the long summary
+    const summarySpan = Array.from(pane.querySelectorAll<HTMLElement>('span')).find(
+      (s) => s.textContent === longSummary
+    );
+    expect(summarySpan).toBeTruthy();
+    expect(summarySpan!.style.whiteSpace).toBe('nowrap');
+    expect(summarySpan!.style.overflow).toBe('hidden');
+    expect(summarySpan!.style.textOverflow).toBe('ellipsis');
+    expect(summarySpan!.style.minWidth).toBe('0');
+  });
 });
