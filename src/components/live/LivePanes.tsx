@@ -162,6 +162,7 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
           gap: isSolo ? 0 : 12,
           background: isSolo ? 'transparent' : 'rgba(0,229,255,0.05)',
           minHeight: 0,
+          position: 'relative' as const,
         }}
       >
         <LivePane
