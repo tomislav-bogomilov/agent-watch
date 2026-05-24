@@ -30,6 +30,9 @@ test.describe('context badge', () => {
   test('show-all-context toggle reveals badges on every milestone with usage', async ({ page }) => {
     await loadDemoHappy(page);
     const before = await page.getByTestId('context-badge').count();
+    // FilterToggles is now a collapsible chip — open it before interacting.
+    const collapsed = page.getByTestId('filter-toggle-collapsed');
+    if (await collapsed.isVisible()) await collapsed.click();
     await page.getByTestId('filter-show-all-context').check();
     // Allow React state to flush.
     await page.waitForTimeout(50);
