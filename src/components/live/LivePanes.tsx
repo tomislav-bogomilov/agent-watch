@@ -17,12 +17,22 @@ type Props = {
 
 const ALL_FILTERS: Filters = { hidePruned: false, hideSubagents: false, successOnly: false, showAllContext: false };
 
+const outerStyle: CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  padding: '56px 12px 12px 12px',
+  boxSizing: 'border-box',
+  display: 'flex',
+  flexDirection: 'column',
+  position: 'relative',
+};
+
 const gridStyle = (n: number): CSSProperties => ({
   flex: 1,
   display: 'grid',
   gridTemplateColumns: n === 1 ? '1fr' : '1fr 1fr',
-  gap: 1,
-  background: 'rgba(110,224,238,0.10)',
+  gap: 12,
+  background: 'rgba(0,229,255,0.05)',
   minHeight: 0,
 });
 
@@ -146,48 +156,52 @@ export function LivePanes({ session, subagentMtimes }: Props) {
     const mainSession: Session = { ...session, root: mainRoot, totalMilestones: mainPlayback.order.length };
     const subagentIds = collectSubagentIds(mainRoot);
     return (
-      <div data-testid="live-panes-grid" data-n={1} data-fullscreen="true" style={fullscreenStyle}>
-        <GraphCanvas
-          session={mainSession}
-          playback={mainPlayback}
-          subagentIds={subagentIds}
-          pinnedId={null}
-          onPin={() => { /* App-level detail panel takes over at N=1 */ }}
-          onScrubTo={() => { /* no playback in LIVE */ }}
-          filters={ALL_FILTERS}
-          liveEngaged={true}
-          compact={false}
-        />
+      <div style={outerStyle}>
+        <div data-testid="live-panes-grid" data-n={1} data-fullscreen="true" style={fullscreenStyle}>
+          <GraphCanvas
+            session={mainSession}
+            playback={mainPlayback}
+            subagentIds={subagentIds}
+            pinnedId={null}
+            onPin={() => { /* App-level detail panel takes over at N=1 */ }}
+            onScrubTo={() => { /* no playback in LIVE */ }}
+            filters={ALL_FILTERS}
+            liveEngaged={true}
+            compact={false}
+          />
+        </div>
       </div>
     );
   }
 
   // N≥2: cut-corner pane grid.
   return (
-    <div data-testid="live-panes-grid" data-n={total} style={gridStyle(total)}>
-      <LivePane kind="main" label="MAIN" root={mainRoot} cwd={session.cwd} paneId="main" />
-      {displayable.map((e, idx) => {
-        const isLastOdd = total % 2 === 1 && idx === displayable.length - 1;
-        const fileId = keyToFileId.get(e.key) ?? e.key;
-        const status = statusMap[e.key];
-        const closingSeconds = status ? remainingSeconds(status, nowMs) : null;
-        const frozen = status?.status === 'frozen';
-        const showCountdown = status && (status.status === 'closing' || status.status === 'frozen');
-        return (
-          <div key={e.key} style={isLastOdd ? lastSpanStyle : undefined}>
-            <LivePane
-              kind="subagent"
-              label={subagentLabel(fileId)}
-              root={e.root}
-              cwd={session.cwd}
-              paneId={e.key}
-              closingSeconds={showCountdown ? closingSeconds : null}
-              frozen={frozen}
-              onToggleFreeze={() => freezeToggle(e.key)}
-            />
-          </div>
-        );
-      })}
+    <div style={outerStyle}>
+      <div data-testid="live-panes-grid" data-n={total} style={gridStyle(total)}>
+        <LivePane kind="main" label="MAIN" root={mainRoot} cwd={session.cwd} paneId="main" />
+        {displayable.map((e, idx) => {
+          const isLastOdd = total % 2 === 1 && idx === displayable.length - 1;
+          const fileId = keyToFileId.get(e.key) ?? e.key;
+          const status = statusMap[e.key];
+          const closingSeconds = status ? remainingSeconds(status, nowMs) : null;
+          const frozen = status?.status === 'frozen';
+          const showCountdown = status && (status.status === 'closing' || status.status === 'frozen');
+          return (
+            <div key={e.key} style={isLastOdd ? lastSpanStyle : undefined}>
+              <LivePane
+                kind="subagent"
+                label={subagentLabel(fileId)}
+                root={e.root}
+                cwd={session.cwd}
+                paneId={e.key}
+                closingSeconds={showCountdown ? closingSeconds : null}
+                frozen={frozen}
+                onToggleFreeze={() => freezeToggle(e.key)}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
