@@ -117,6 +117,13 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
+  // Switching to a different live session must re-fit on first ready, so reset
+  // both refs whenever session.id changes.
+  useEffect(() => {
+    mainFittedRef.current = false;
+    mainCameraRef.current = null;
+  }, [session.id]);
+
   useEffect(() => {
     setStatusMap((prev) => {
       const next: Record<string, PaneState> = {};
@@ -138,10 +145,10 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   const displayable = pickVisibleSubagentEntries(subagentEntries, keyToFileId, subagentMtimes, statusMap, nowMs);
   const total = 1 + displayable.length;
 
-  const mainOrderLength = useMemo(
-    () => (total === 1 ? makeLivePlayback(mainRoot).order.length : 0),
-    [total, mainRoot],
-  );
+  // Memoize playback once per mainRoot so both the follow effect and the N=1
+  // render path share the same flattenDFS result.
+  const mainPlayback = useMemo(() => makeLivePlayback(mainRoot), [mainRoot]);
+  const mainOrderLength = total === 1 ? mainPlayback.order.length : 0;
 
   useEffect(() => {
     if (total !== 1) return;
@@ -169,7 +176,6 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
 
   // N=1 fullscreen short-circuit — render GraphCanvas directly with no cut-corner border.
   if (total === 1) {
-    const mainPlayback = makeLivePlayback(mainRoot);
     const mainSession: Session = { ...session, root: mainRoot, totalMilestones: mainPlayback.order.length };
     const subagentIds = collectSubagentIds(mainRoot);
     return (
