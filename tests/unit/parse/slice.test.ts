@@ -28,6 +28,7 @@ function makeSession(root: Milestone, ids: string[]): Session {
     root,
     successPath: new Set(ids),
     totalMilestones: ids.length,
+    subagentMtimes: {},
   };
 }
 

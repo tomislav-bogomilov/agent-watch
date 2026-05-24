@@ -36,6 +36,7 @@ export type Session = {
   root: Milestone;
   successPath: Set<string>;
   totalMilestones: number;
+  subagentMtimes: Record<string, string>;
 };
 
 export type RawEvent = {

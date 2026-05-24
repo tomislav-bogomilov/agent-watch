@@ -34,6 +34,7 @@ function makeSession(mainTrail: Milestone[], subagentTrails: { id: string; lastU
     root: main,
     successPath: new Set(),
     totalMilestones: 0,
+    subagentMtimes: {},
   };
 }
 

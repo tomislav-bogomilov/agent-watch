@@ -26,6 +26,10 @@ export function parseSession(payload: SessionPayload): Session {
   const root = buildMilestones(chain);
   attachSubagents(root, payload.subagents);
   const successPath = computeSuccessPath(root);
+  const subagentMtimes: Record<string, string> = {};
+  for (const sa of payload.subagents) {
+    subagentMtimes[sa.id] = sa.lastUpdatedAt;
+  }
   return {
     id: payload.sessionId,
     cwd: payload.cwd,
@@ -33,6 +37,7 @@ export function parseSession(payload: SessionPayload): Session {
     root,
     successPath,
     totalMilestones: countMilestones(root),
+    subagentMtimes,
   };
 }
 

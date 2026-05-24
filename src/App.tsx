@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LibraryPanel, type Selection } from './components/library/LibraryPanel';
 import { GraphCanvas } from './components/GraphCanvas';
+import { LivePanes } from './components/live/LivePanes';
 import { NowPlaying } from './components/NowPlaying';
 import { PlaybackControls } from './components/PlaybackControls';
 import { DetailPanel } from './components/DetailPanel';
@@ -210,24 +211,30 @@ export default function App() {
                   <CopyCwdButton value={effectiveSession.cwd} />
                 </div>
               </div>
-              <GraphCanvas
-                session={effectiveSession}
-                playback={playback}
-                subagentIds={subagentIds}
-                pinnedId={pinnedId}
-                onPin={setPinnedId}
-                onScrubTo={followingControls.scrubTo}
-                filters={filters}
-                onCameraReady={(api) => { cameraRef.current = api; }}
-                liveEngaged={liveEngaged}
-                sessionIsLive={sessionIsLive}
-                onToggleLive={() => setLiveEngaged((v) => !v)}
-              />
-              <FilterToggles value={filters} onChange={setFilters} />
-              <Legend />
+              {liveEngaged ? (
+                <LivePanes session={effectiveSession} subagentMtimes={effectiveSession.subagentMtimes} />
+              ) : (
+                <>
+                  <GraphCanvas
+                    session={effectiveSession}
+                    playback={playback}
+                    subagentIds={subagentIds}
+                    pinnedId={pinnedId}
+                    onPin={setPinnedId}
+                    onScrubTo={followingControls.scrubTo}
+                    filters={filters}
+                    onCameraReady={(api) => { cameraRef.current = api; }}
+                    liveEngaged={liveEngaged}
+                    sessionIsLive={sessionIsLive}
+                    onToggleLive={() => setLiveEngaged((v) => !v)}
+                  />
+                  <FilterToggles value={filters} onChange={setFilters} />
+                  <Legend />
+                </>
+              )}
             </div>
           )}
-          {effectiveSession && !needsConfirm && (
+          {effectiveSession && !needsConfirm && !liveEngaged && (
             <div data-testid="chrome-gutter" style={styles.gutter}>
               <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
               <PlaybackControls state={playback} controls={followingControls} />

@@ -60,5 +60,6 @@ export function sliceSession(session: Session, promptId: string): Session | null
     root: rebuilt[0],
     successPath,
     totalMilestones: allIds.size,
+    subagentMtimes: session.subagentMtimes,
   };
 }
