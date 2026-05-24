@@ -86,4 +86,18 @@ describe('LivePanes', () => {
     expect(screen.queryByTestId('live-pane')).toBeNull();
     expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('1');
   });
+
+  it('hides historical sub-agents whose file mtime is older than 30s at session open', () => {
+    const session = makeSession([m('a')], [
+      { id: 'agent-aaaa1111', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('s1') }, // fresh
+      { id: 'agent-bbbb2222', lastUpdatedAt: '2026-05-24T11:00:00Z', root: m('s2') }, // 1h old
+    ]);
+    render(<LivePanes session={session} subagentMtimes={{
+      'agent-aaaa1111': '2026-05-24T12:00:00Z',
+      'agent-bbbb2222': '2026-05-24T11:00:00Z',
+    }} />);
+    // MAIN + 1 fresh sub-agent = N=2
+    expect(screen.getAllByTestId('live-pane')).toHaveLength(2);
+    expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('2');
+  });
 });

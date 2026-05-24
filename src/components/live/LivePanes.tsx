@@ -4,7 +4,8 @@ import { LivePane } from './LivePane';
 import { extractSubagentPaneRoot } from './extractSubagentPaneRoot';
 import { subagentLabel } from './subagentLabel';
 import { nextPaneStatus, remainingSeconds, type PaneState } from './paneStatus';
-import { TICK_MS, CLOSING_MS } from './liveness';
+import { TICK_MS, CLOSING_MS, SUBAGENT_STABLE_MS } from './liveness';
+import { pickVisibleSubagentEntries } from './visibleSubagents';
 import { GraphCanvas } from '../GraphCanvas';
 import { makeLivePlayback } from './livePlayback';
 import type { Filters } from '../FilterToggles';
@@ -108,16 +109,18 @@ export function LivePanes({ session, subagentMtimes }: Props) {
         const fileId = keyToFileId.get(e.key);
         const mtimeIso = fileId ? subagentMtimes[fileId] : undefined;
         const lastUpdatedMs = mtimeIso ? new Date(mtimeIso).getTime() : nowMs;
-        const prevState: PaneState = prev[e.key] ?? {
-          status: 'active', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null,
-        };
+        const isHistorical = (nowMs - lastUpdatedMs) >= SUBAGENT_STABLE_MS + CLOSING_MS;
+        const prevState: PaneState = prev[e.key] ?? (isHistorical
+          ? { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
+          : { status: 'active', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
+        );
         next[e.key] = nextPaneStatus(prevState, lastUpdatedMs, nowMs);
       }
       return next;
     });
   }, [nowMs, subagentEntries, keyToFileId, subagentMtimes]);
 
-  const displayable = subagentEntries.filter((e) => statusMap[e.key]?.status !== 'closed');
+  const displayable = pickVisibleSubagentEntries(subagentEntries, keyToFileId, subagentMtimes, statusMap, nowMs);
   const total = 1 + displayable.length;
 
   function freezeToggle(key: string): void {
