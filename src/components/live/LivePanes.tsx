@@ -9,10 +9,13 @@ import { pickVisibleSubagentEntries } from './visibleSubagents';
 import { GraphCanvas } from '../GraphCanvas';
 import { makeLivePlayback } from './livePlayback';
 import type { Filters } from '../FilterToggles';
+import { CanvasToolbar } from '../CanvasToolbar';
+import type { CameraApi } from '../../graph/useCamera';
 
 type Props = {
   session: Session;
   subagentMtimes: Record<string, string>;
+  onToggleLive: () => void;
 };
 
 const ALL_FILTERS: Filters = { hidePruned: false, hideSubagents: false, successOnly: false, showAllContext: false };
@@ -80,7 +83,7 @@ function collectSubagentIds(root: Milestone): Set<string> {
   return ids;
 }
 
-export function LivePanes({ session, subagentMtimes }: Props) {
+export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   // MAIN trail without sub-agent inner content
   const mainRoot = useMemo(() => buildMainRoot(session.root), [session]);
 
@@ -106,6 +109,8 @@ export function LivePanes({ session, subagentMtimes }: Props) {
   const [statusMap, setStatusMap] = useState<Record<string, PaneState>>({});
   const [nowMs, setNowMs] = useState(Date.now());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mainCameraRef = useRef<CameraApi | null>(null);
+  const mainFittedRef = useRef(false);
 
   useEffect(() => {
     intervalRef.current = setInterval(() => setNowMs(Date.now()), TICK_MS);
@@ -133,6 +138,18 @@ export function LivePanes({ session, subagentMtimes }: Props) {
   const displayable = pickVisibleSubagentEntries(subagentEntries, keyToFileId, subagentMtimes, statusMap, nowMs);
   const total = 1 + displayable.length;
 
+  const mainOrderLength = useMemo(
+    () => (total === 1 ? makeLivePlayback(mainRoot).order.length : 0),
+    [total, mainRoot],
+  );
+
+  useEffect(() => {
+    if (total !== 1) return;
+    const cam = mainCameraRef.current;
+    if (!cam) return;
+    cam.setFollow(true);
+  }, [total, mainOrderLength]);
+
   function freezeToggle(key: string): void {
     setStatusMap((prev) => {
       const s = prev[key];
@@ -157,6 +174,16 @@ export function LivePanes({ session, subagentMtimes }: Props) {
     const subagentIds = collectSubagentIds(mainRoot);
     return (
       <div style={outerStyle}>
+        <CanvasToolbar
+          showLive={true}
+          liveEngaged={true}
+          onToggleLive={onToggleLive}
+          showFit={true}
+          onFit={() => mainCameraRef.current?.fit()}
+          showFollow={false}
+          follow={false}
+          onToggleFollow={() => {}}
+        />
         <div data-testid="live-panes-grid" data-n={1} data-fullscreen="true" style={fullscreenStyle}>
           <GraphCanvas
             session={mainSession}
@@ -168,6 +195,14 @@ export function LivePanes({ session, subagentMtimes }: Props) {
             filters={ALL_FILTERS}
             liveEngaged={true}
             compact={false}
+            onCameraReady={(api) => {
+              mainCameraRef.current = api;
+              if (!mainFittedRef.current) {
+                mainFittedRef.current = true;
+                api.fit();
+                api.setFollow(true);
+              }
+            }}
           />
         </div>
       </div>

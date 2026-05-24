@@ -44,7 +44,7 @@ describe('LivePanes', () => {
 
   it('renders just MAIN fullscreen when there are no sub-agents (N=1)', () => {
     const session = makeSession([m('a')], []);
-    render(<LivePanes session={session} subagentMtimes={{}} />);
+    render(<LivePanes session={session} subagentMtimes={{}} onToggleLive={() => {}} />);
     // At N=1, no LivePane wrapper — directly a fullscreen grid container.
     expect(screen.queryByTestId('live-pane')).toBeNull();
     const grid = screen.getByTestId('live-panes-grid');
@@ -60,7 +60,7 @@ describe('LivePanes', () => {
     render(<LivePanes session={session} subagentMtimes={{
       'agent-aaaa1111': '2026-05-24T12:00:00Z',
       'agent-bbbb2222': '2026-05-24T12:00:00Z',
-    }} />);
+    }} onToggleLive={() => {}} />);
     expect(screen.getAllByTestId('live-pane')).toHaveLength(3);
     const grid = screen.getByTestId('live-panes-grid');
     expect(grid.getAttribute('data-n')).toBe('3');
@@ -71,18 +71,18 @@ describe('LivePanes', () => {
       { id: 'agent-aaaa1111', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('s1') },
     ]);
     const { rerender } = render(
-      <LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} />
+      <LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />
     );
     expect(screen.queryByTestId('countdown-chip')).toBeNull();
 
     // Advance 31s — should enter closing
     act(() => { vi.advanceTimersByTime(31_000); });
-    rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} />);
+    rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />);
     expect(screen.getByTestId('countdown-chip')).toBeTruthy();
 
     // Advance another 31s — pane should be gone (now fullscreen MAIN, no LivePane wrapper)
     act(() => { vi.advanceTimersByTime(31_000); });
-    rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} />);
+    rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />);
     expect(screen.queryByTestId('live-pane')).toBeNull();
     expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('1');
   });
@@ -95,7 +95,7 @@ describe('LivePanes', () => {
     render(<LivePanes session={session} subagentMtimes={{
       'agent-aaaa1111': '2026-05-24T12:00:00Z',
       'agent-bbbb2222': '2026-05-24T11:00:00Z',
-    }} />);
+    }} onToggleLive={() => {}} />);
     // MAIN + 1 fresh sub-agent = N=2
     expect(screen.getAllByTestId('live-pane')).toHaveLength(2);
     expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('2');
@@ -107,7 +107,7 @@ describe('LivePanes', () => {
     ]);
     render(<LivePanes session={session} subagentMtimes={{
       'agent-aaaa1111': '2026-05-24T11:59:25Z',
-    }} />);
+    }} onToggleLive={() => {}} />);
     // Advance through one tick so the statusMap effect runs and any
     // transient 'closing' pane would appear if the guard were wrong.
     act(() => { vi.advanceTimersByTime(1_500); });

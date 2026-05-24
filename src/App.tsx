@@ -214,7 +214,11 @@ export default function App() {
               </div>
 
               {liveEngaged ? (
-                <LivePanes session={effectiveSession} subagentMtimes={effectiveSession.subagentMtimes} />
+                <LivePanes
+                  session={effectiveSession}
+                  subagentMtimes={effectiveSession.subagentMtimes}
+                  onToggleLive={() => setLiveEngaged((v) => !v)}
+                />
               ) : (
                 <>
                   <GraphCanvas
