@@ -29,19 +29,6 @@ const outerStyle: CSSProperties = {
   position: 'relative',
 };
 
-const gridStyle = (n: number): CSSProperties => ({
-  flex: 1,
-  display: 'grid',
-  gridTemplateColumns: n === 1 ? '1fr' : '1fr 1fr',
-  gap: 12,
-  background: 'rgba(0,229,255,0.05)',
-  minHeight: 0,
-});
-
-const fullscreenStyle: CSSProperties = {
-  flex: 1, minHeight: 0, position: 'relative',
-};
-
 const lastSpanStyle: CSSProperties = { gridColumn: 'span 2' };
 
 /** Returns each subagent_spawn node in the tree (DFS order). */
@@ -113,8 +100,7 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   const displayable = pickVisibleSubagentEntries(subagentEntries, keyToFileId, subagentMtimes, statusMap, nowMs);
   const total = 1 + displayable.length;
 
-  // Memoize playback once per mainRoot so both the follow effect and the N=1
-  // render path share the same flattenDFS result.
+  // Memoize playback once per mainRoot so the follow effect can read order.length.
   const mainPlayback = useMemo(() => makeLivePlayback(mainRoot), [mainRoot]);
   const mainOrderLength = total === 1 ? mainPlayback.order.length : 0;
 
@@ -150,52 +136,43 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     }
   }
 
-  // N=1 fullscreen short-circuit — borderless LivePane (no cut-corner, no
-  // pane header, no notches) so a single MAIN reads as a fullscreen canvas
-  // but retains the embedded detail panel + click-to-pin behavior.
-  if (total === 1) {
-    return (
-      <div style={outerStyle}>
-        <CanvasToolbar
-          showLive={true}
-          liveEngaged={true}
-          onToggleLive={onToggleLive}
-          showFit={true}
-          onFit={() => mainCameraRef.current?.fit()}
-          showFollow={false}
-          follow={false}
-          onToggleFollow={() => {}}
-        />
-        <div data-testid="live-panes-grid" data-n={1} data-fullscreen="true" style={fullscreenStyle}>
-          <LivePane
-            kind="main"
-            label="MAIN"
-            root={mainRoot}
-            cwd={session.cwd}
-            paneId="main"
-            borderless={true}
-            onCameraReady={(api) => { mainCameraRef.current = api; }}
-          />
-        </div>
-      </div>
-    );
-  }
+  const isSolo = total === 1;
+  const gridColumns = isSolo ? '1fr' : '1fr 1fr';
 
-  // N≥2: cut-corner pane grid.
   return (
     <div style={outerStyle}>
       <CanvasToolbar
         showLive={true}
         liveEngaged={true}
         onToggleLive={onToggleLive}
-        showFit={false}
-        onFit={() => {}}
+        showFit={isSolo}
+        onFit={() => mainCameraRef.current?.fit()}
         showFollow={false}
         follow={false}
         onToggleFollow={() => {}}
       />
-      <div data-testid="live-panes-grid" data-n={total} style={gridStyle(total)}>
-        <LivePane kind="main" label="MAIN" root={mainRoot} cwd={session.cwd} paneId="main" />
+      <div
+        data-testid="live-panes-grid"
+        data-n={total}
+        data-fullscreen={isSolo ? 'true' : 'false'}
+        style={{
+          flex: 1,
+          display: 'grid',
+          gridTemplateColumns: gridColumns,
+          gap: isSolo ? 0 : 12,
+          background: isSolo ? 'transparent' : 'rgba(0,229,255,0.05)',
+          minHeight: 0,
+        }}
+      >
+        <LivePane
+          kind="main"
+          label="MAIN"
+          root={mainRoot}
+          cwd={session.cwd}
+          paneId="main"
+          borderless={isSolo}
+          onCameraReady={(api) => { mainCameraRef.current = api; }}
+        />
         {displayable.map((e, idx) => {
           const isLastOdd = total % 2 === 1 && idx === displayable.length - 1;
           const fileId = keyToFileId.get(e.key) ?? e.key;

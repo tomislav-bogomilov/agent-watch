@@ -117,4 +117,35 @@ describe('LivePanes', () => {
     expect(screen.getAllByTestId('live-pane')).toHaveLength(1);
     expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('1');
   });
+
+  it('preserves the MAIN <svg> DOM identity when N flips between 1 and 2+', () => {
+    const session = makeSession([m('a')], [
+      { id: 'agent-aaaa1111', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('s1') },
+    ]);
+    const { rerender, container } = render(
+      <LivePanes
+        session={session}
+        subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }}
+        onToggleLive={() => {}}
+      />
+    );
+    // N=2: capture the MAIN pane's <svg>
+    const mainPaneN2 = container.querySelector('[data-testid="live-pane"]');
+    const svgN2 = mainPaneN2!.querySelector('svg');
+    expect(svgN2).not.toBeNull();
+
+    // Advance 61s so the lone subagent closes -> N=1
+    act(() => { vi.advanceTimersByTime(61_000); });
+    rerender(
+      <LivePanes
+        session={session}
+        subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }}
+        onToggleLive={() => {}}
+      />
+    );
+    const mainPaneN1 = container.querySelector('[data-testid="live-pane"]');
+    const svgN1 = mainPaneN1!.querySelector('svg');
+    // Same DOM node — no remount.
+    expect(svgN1).toBe(svgN2);
+  });
 });
