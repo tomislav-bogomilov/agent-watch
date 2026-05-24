@@ -68,9 +68,9 @@ export function GraphCanvas({
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
     () => hideSubagentRegions ? [] : computeSubagentRegions(session.root, layout.nodes),
-    [session, layout, hideSubagentRegions]
+    [session.root, layout, hideSubagentRegions]
   );
-  const taintedIds = useMemo(() => collectTaintedIds(session.root), [session]);
+  const taintedIds = useMemo(() => collectTaintedIds(session.root), [session.root]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
