@@ -59,7 +59,7 @@ function computeSubagentRegions(root: Milestone, nodes: LaidOutNode[]): Subagent
 
 export function GraphCanvas({
   session, playback, subagentIds, pinnedId, onPin, onScrubTo, filters, onCameraReady,
-  liveEngaged: _liveEngaged, compact = false,
+  compact = false,
 }: Props) {
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
