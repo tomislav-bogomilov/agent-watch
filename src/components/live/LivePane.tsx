@@ -183,11 +183,11 @@ export function LivePane({
             width: 28,
             height: 28,
             padding: 0,
-            background: '#ff2d95',
+            background: '#b537ff',
             border: 'none',
             clipPath: 'polygon(0 0, 100% 100%, 0 100%)',
             cursor: 'pointer',
-            boxShadow: '0 0 12px rgba(255, 45, 149, 0.7)',
+            boxShadow: '0 0 14px rgba(181, 55, 255, 0.75)',
             zIndex: 7,
           }}
           title="close pane"
