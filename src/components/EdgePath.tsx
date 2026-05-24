@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type CSSProperties } from 'react';
 import type { LaidOutEdge } from '../graph/layout';
 
 type Props = {
@@ -62,20 +62,21 @@ export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubage
     inSubagent && state !== 'drawing' ? '6 4'
     : state === 'pruned' ? '4 5'
     : dashArray;
-  const animatedStyle =
-    state === 'drawing' ? { animation: 'tg-edge-pulse 1.2s ease-in-out infinite' }
-    : state === 'done' ? { animation: 'tg-edge-trail 3.2s ease-in-out infinite' }
-    : undefined;
-  // Filter must live on the <path>, not on an ancestor <g>. When tg-glow is
-  // applied to a group whose bounding box has zero width (a stack of purely
-  // vertical edges, common for linear sessions), the percentage-based filter
-  // region collapses to zero area and clips the entire output — making the
-  // trail invisible. Per-element filter uses each path's own bbox and renders
-  // correctly even when the geometric width is 0.
-  const filterUrl =
-    state === 'pruned' ? 'url(#tg-glow-soft)' :
-    state === 'idle' ? 'url(#tg-glow-soft)' :
-    'url(#tg-glow)';
+  // Glow MUST come from a CSS drop-shadow on the element, not from an SVG
+  // <filter> referenced by the `filter=` attribute. SVG filters compute their
+  // region as a % of the element bbox; for a perfectly vertical path the bbox
+  // has width 0, so 200% × 0 = 0 and the filter output is clipped to nothing.
+  // CSS drop-shadow works on the rasterized geometry (stroke included) and is
+  // immune to that. Static drop-shadow + opacity keyframe = visible breathing
+  // glow with no per-frame paint-shader work.
+  const glowFilter =
+    state === 'drawing' ? `drop-shadow(0 0 6px var(--edge-trail))`
+    : state === 'done' ? `drop-shadow(0 0 4px var(--edge-trail))`
+    : state === 'idle' ? `drop-shadow(0 0 1.5px var(--edge-trail))`
+    : `drop-shadow(0 0 1px rgba(255,255,255,0.08))`;
+  const style: CSSProperties = { filter: glowFilter };
+  if (state === 'drawing') style.animation = 'tg-edge-pulse 1.2s ease-in-out infinite';
+  else if (state === 'done') style.animation = 'tg-edge-trail 3.2s ease-in-out infinite';
   return (
     <path
       d={d}
@@ -86,8 +87,7 @@ export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubage
       strokeDasharray={dasharray}
       strokeDashoffset={dashOffset}
       opacity={opacity}
-      filter={filterUrl}
-      style={animatedStyle}
+      style={style}
     />
   );
 });

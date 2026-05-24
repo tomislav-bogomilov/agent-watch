@@ -14,7 +14,8 @@ type SessionMeta = {
 };
 
 const TITLE_HEAD_BYTES = 64 * 1024;
-const TITLE_MAX_CHARS = 60;
+// ~3 lines worth at 10px monospace in a ~260px sidebar column
+const TITLE_MAX_CHARS = 110;
 
 function isMeaningfulUserText(raw: string): string | null {
   // Strip command tags and other XML-ish noise the CLI emits.
