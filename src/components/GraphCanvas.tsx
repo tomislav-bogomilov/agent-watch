@@ -318,8 +318,11 @@ export function GraphCanvas({
               data-testid="subagent-region"
             />
           ))}
-          <g data-cohort="edges-soft" filter="url(#tg-glow-soft)">{renderedEdgesSoft}</g>
-          <g data-cohort="edges-glow" filter="url(#tg-glow)">{renderedEdgesGlow}</g>
+          {/* Edges keep their filter per-element: group-level filter on a
+              <g> whose bbox has zero width (all-vertical edges in a linear
+              tree) collapses the filter region and clips the trail. */}
+          <g data-cohort="edges-soft">{renderedEdgesSoft}</g>
+          <g data-cohort="edges-glow">{renderedEdgesGlow}</g>
           <g data-cohort="nodes-plain">{renderedNodesPlain}</g>
           <g data-cohort="nodes-glow" filter="url(#tg-glow)">{renderedNodesGlow}</g>
         </g>

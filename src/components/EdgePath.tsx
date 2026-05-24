@@ -66,6 +66,16 @@ export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubage
     state === 'drawing' ? { animation: 'tg-edge-pulse 1.2s ease-in-out infinite' }
     : state === 'done' ? { animation: 'tg-edge-trail 3.2s ease-in-out infinite' }
     : undefined;
+  // Filter must live on the <path>, not on an ancestor <g>. When tg-glow is
+  // applied to a group whose bounding box has zero width (a stack of purely
+  // vertical edges, common for linear sessions), the percentage-based filter
+  // region collapses to zero area and clips the entire output — making the
+  // trail invisible. Per-element filter uses each path's own bbox and renders
+  // correctly even when the geometric width is 0.
+  const filterUrl =
+    state === 'pruned' ? 'url(#tg-glow-soft)' :
+    state === 'idle' ? 'url(#tg-glow-soft)' :
+    'url(#tg-glow)';
   return (
     <path
       d={d}
@@ -76,6 +86,7 @@ export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubage
       strokeDasharray={dasharray}
       strokeDashoffset={dashOffset}
       opacity={opacity}
+      filter={filterUrl}
       style={animatedStyle}
     />
   );
