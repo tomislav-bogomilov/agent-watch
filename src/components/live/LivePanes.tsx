@@ -69,21 +69,6 @@ function buildMainRoot(root: Milestone): Milestone {
   return rebuild(root);
 }
 
-function collectSubagentIds(root: Milestone): Set<string> {
-  const ids = new Set<string>();
-  function walk(node: Milestone, inSub: boolean): void {
-    if (inSub) ids.add(node.id);
-    if (node.kind === 'subagent_spawn' && node.children.length >= 1) {
-      walk(node.children[0], true);
-      if (node.children[1]) walk(node.children[1], inSub);
-      return;
-    }
-    for (const c of node.children) walk(c, inSub);
-  }
-  walk(root, false);
-  return ids;
-}
-
 export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   // MAIN trail without sub-agent inner content
   const mainRoot = useMemo(() => buildMainRoot(session.root), [session]);
@@ -178,7 +163,11 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   // N=1 fullscreen short-circuit — render GraphCanvas directly with no cut-corner border.
   if (total === 1) {
     const mainSession: Session = { ...session, root: mainRoot, totalMilestones: mainPlayback.order.length };
-    const subagentIds = collectSubagentIds(mainRoot);
+    // mainRoot has inner sub-agent subtrees stripped, so no nodes belong to a
+    // sub-agent. Pass an empty Set instead of running collectSubagentIds —
+    // that helper still walks each spawn.children[0] as "inner", which in a
+    // stripped tree is the main continuation and would be falsely highlighted.
+    const subagentIds = new Set<string>();
     return (
       <div style={outerStyle}>
         <CanvasToolbar
@@ -202,11 +191,14 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
             filters={ALL_FILTERS}
             liveEngaged={true}
             compact={false}
+            hideSubagentRegions={true}
             onCameraReady={(api) => {
               mainCameraRef.current = api;
               if (!mainFittedRef.current) {
                 mainFittedRef.current = true;
-                api.fit();
+                // No fit() — for huge sessions fit-to-all scales nodes to dots.
+                // setFollow(true) keeps the camera centered on the latest node
+                // at the existing 1:1 zoom; user FIT or panning still works.
                 api.setFollow(true);
               }
             }}

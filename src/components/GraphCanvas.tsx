@@ -21,6 +21,10 @@ type Props = {
   onCameraReady?: (api: CameraApi) => void;
   liveEngaged: boolean;
   compact?: boolean;
+  /** When true, skip computing/rendering subagent-region rectangles. Used by
+   *  LIVE N=1 mode where the tree has been stripped via buildMainRoot and the
+   *  default walk produces enormous overlapping false-positive regions. */
+  hideSubagentRegions?: boolean;
 };
 
 type SubagentRegion = { x: number; y: number; width: number; height: number };
@@ -59,12 +63,12 @@ function computeSubagentRegions(root: Milestone, nodes: LaidOutNode[]): Subagent
 
 export function GraphCanvas({
   session, playback, subagentIds, pinnedId, onPin, onScrubTo, filters, onCameraReady,
-  compact = false,
+  liveEngaged, compact = false, hideSubagentRegions = false,
 }: Props) {
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
-    () => computeSubagentRegions(session.root, layout.nodes),
-    [session, layout]
+    () => hideSubagentRegions ? [] : computeSubagentRegions(session.root, layout.nodes),
+    [session, layout, hideSubagentRegions]
   );
   const taintedIds = useMemo(() => collectTaintedIds(session.root), [session]);
 
@@ -97,8 +101,13 @@ export function GraphCanvas({
   // large the session is. Tracks which session id was last framed so a mere
   // viewport change (e.g., right panel opening, sidebar resize) does not
   // re-frame and disrupt the user's current zoom.
+  //
+  // Skipped entirely when `liveEngaged` is true — the LIVE caller drives its
+  // own initial framing via `onCameraReady` (fit + setFollow), and we don't
+  // want `frameInitial(root)` to override it.
   const fittedSessionRef = useRef<string | null>(null);
   useEffect(() => {
+    if (liveEngaged) return;
     if (viewport.width <= 1 || viewport.height <= 1) return;
     if (fittedSessionRef.current === session.id) return;
     fittedSessionRef.current = session.id;
