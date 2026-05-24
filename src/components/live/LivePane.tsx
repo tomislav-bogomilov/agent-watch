@@ -86,44 +86,35 @@ const canvasHost = (withHeader: boolean): CSSProperties => ({
   paddingTop: withHeader ? 22 : 0,
 });
 
-const detailStyleMain = (withHeader: boolean): CSSProperties => ({
-  width: '36%', minWidth: 160, flexShrink: 0,
-  // inset from clip-path corners + BR notch
-  margin: withHeader ? '24px 12px 12px 0' : '12px 12px 12px 0',
-  borderLeft: '1px solid rgba(0, 229, 255, 0.55)',
-  background: [
-    'linear-gradient(180deg, rgba(0,229,255,0.08), rgba(5,8,13,0.95) 60%, rgba(5,8,13,1))',
-    '#050810',
-  ].join(', '),
-  boxShadow: [
-    'inset 1px 0 0 rgba(0, 229, 255, 0.22)',
-    'inset 6px 0 18px rgba(0, 229, 255, 0.06)',
-  ].join(', '),
-  padding: '12px 12px 12px',
-  fontFamily: 'ui-monospace, monospace',
-  fontSize: 11, color: '#d4e9f0',
-  overflow: 'auto',
-  position: 'relative', zIndex: 4,
-});
+type AccentRgb = readonly [number, number, number]; // r, g, b
 
-const detailStyleSub = (withHeader: boolean): CSSProperties => ({
-  width: '36%', minWidth: 160, flexShrink: 0,
-  margin: withHeader ? '24px 12px 12px 0' : '12px 12px 12px 0',
-  borderLeft: '1px solid rgba(184, 148, 255, 0.55)',
-  background: [
-    'linear-gradient(180deg, rgba(184,148,255,0.10), rgba(5,8,13,0.95) 60%, rgba(5,8,13,1))',
-    '#050810',
-  ].join(', '),
-  boxShadow: [
-    'inset 1px 0 0 rgba(184, 148, 255, 0.28)',
-    'inset 6px 0 18px rgba(184, 148, 255, 0.06)',
-  ].join(', '),
-  padding: '12px 12px 12px',
-  fontFamily: 'ui-monospace, monospace',
-  fontSize: 11, color: '#d4e9f0',
-  overflow: 'auto',
-  position: 'relative', zIndex: 4,
-});
+const ACCENT_MAIN: AccentRgb = [0, 229, 255];        // cyan
+const ACCENT_SUB:  AccentRgb = [184, 148, 255];      // purple
+
+// inset from clip-path corners + BR notch (margin top tracks header band)
+function detailStyle(withHeader: boolean, accent: AccentRgb): CSSProperties {
+  const [r, g, b] = accent;
+  const topStopAlpha = accent === ACCENT_MAIN ? 0.08 : 0.10;
+  const topEdgeAlpha = accent === ACCENT_MAIN ? 0.22 : 0.28;
+  return {
+    width: '36%', minWidth: 160, flexShrink: 0,
+    margin: withHeader ? '24px 12px 12px 0' : '12px 12px 12px 0',
+    borderLeft: `1px solid rgba(${r}, ${g}, ${b}, 0.55)`,
+    background: [
+      `linear-gradient(180deg, rgba(${r},${g},${b},${topStopAlpha}), rgba(5,8,13,0.95) 60%, rgba(5,8,13,1))`,
+      '#050810',
+    ].join(', '),
+    boxShadow: [
+      `inset 1px 0 0 rgba(${r}, ${g}, ${b}, ${topEdgeAlpha})`,
+      `inset 6px 0 18px rgba(${r}, ${g}, ${b}, 0.06)`,
+    ].join(', '),
+    padding: 12,
+    fontFamily: 'ui-monospace, monospace',
+    fontSize: 11, color: '#d4e9f0',
+    overflow: 'auto',
+    position: 'relative', zIndex: 4,
+  };
+}
 
 function collectInnerSubagentIds(root: Milestone): Set<string> {
   // Only marks descendants of a spawn's children[0] (the inner subtree). Walks
@@ -303,7 +294,7 @@ export function LivePane({
         )}
       </div>
 
-      <aside data-testid="live-pane-detail" style={kind === 'main' ? detailStyleMain(showHeader) : detailStyleSub(showHeader)}>
+      <aside data-testid="live-pane-detail" style={detailStyle(showHeader, kind === 'main' ? ACCENT_MAIN : ACCENT_SUB)}>
         <div style={{ fontSize: 9, letterSpacing: 3, color: accent, marginBottom: 6 }}>
           {kind === 'main' ? 'MAIN · NODE' : 'SUBAGENT · NODE'}
         </div>

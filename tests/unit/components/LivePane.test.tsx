@@ -52,6 +52,8 @@ describe('LivePane', () => {
     const summarySpan = Array.from(pane.querySelectorAll<HTMLElement>('span')).find(
       (s) => s.textContent === longSummary
     );
+    // jsdom has no layout engine — we can only verify the style properties are
+    // present. Visual truncation should be confirmed in a browser / Playwright test.
     expect(summarySpan).toBeTruthy();
     expect(summarySpan!.style.whiteSpace).toBe('nowrap');
     expect(summarySpan!.style.overflow).toBe('hidden');
