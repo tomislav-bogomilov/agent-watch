@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Session, Milestone } from '../../parse/types';
 import { LivePane } from './LivePane';
 import { extractSubagentPaneRoot } from './extractSubagentPaneRoot';
@@ -86,6 +86,8 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   const statusMap = useStatusMap(
     subagentEntries, keyToFileId, subagentMtimes, userClosedKeys, statusOverrides
   );
+  const statusMapRef = useRef(statusMap);
+  useEffect(() => { statusMapRef.current = statusMap; }, [statusMap]);
 
   // Switching to a different live session must re-fit on first ready, so reset
   // both refs whenever session.id changes. Also drop any user-closed flags
@@ -111,30 +113,37 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     cam.setFollow(true);
   }, [total, mainOrderLength]);
 
-  function closePane(key: string): void {
+  const closePaneByKey = useCallback((key: string) => {
     setUserClosedKeys((prev) => { const next = new Set(prev); next.add(key); return next; });
-    // userClosedKeys path in useStatusMap will produce the closed state automatically;
-    // no override needed here.
-  }
+    setStatusOverrides((prev) => { const { [key]: _removed, ...rest } = prev; return rest; });
+  }, []);
 
-  function freezeToggle(key: string): void {
-    const current = statusMap[key];
-    if (!current) return;
-    if (current.status === 'frozen') {
-      const newClosingStartedAt = nowMs - (CLOSING_MS - (current.frozenRemainingMs ?? CLOSING_MS));
-      setStatusOverrides((prev) => ({
-        ...prev,
-        [key]: { ...current, status: 'closing', frozenAt: null, frozenRemainingMs: null, closingStartedAt: newClosingStartedAt },
-      }));
-    } else if (current.status === 'closing') {
-      const elapsed = nowMs - (current.closingStartedAt ?? nowMs);
-      const remaining = Math.max(0, CLOSING_MS - elapsed);
-      setStatusOverrides((prev) => ({
-        ...prev,
-        [key]: { ...current, status: 'frozen', frozenAt: nowMs, frozenRemainingMs: remaining },
-      }));
-    }
-  }
+  const freezeToggleByKey = useCallback((key: string) => {
+    setStatusOverrides((prev) => {
+      const current = statusMapRef.current[key];
+      if (!current) return prev;
+      if (current.status === 'frozen') {
+        const newClosingStartedAt = Date.now() - (CLOSING_MS - (current.frozenRemainingMs ?? CLOSING_MS));
+        return {
+          ...prev,
+          [key]: { ...current, status: 'closing', frozenAt: null, frozenRemainingMs: null, closingStartedAt: newClosingStartedAt },
+        };
+      }
+      if (current.status === 'closing') {
+        const elapsed = Date.now() - (current.closingStartedAt ?? Date.now());
+        const remaining = Math.max(0, CLOSING_MS - elapsed);
+        return {
+          ...prev,
+          [key]: { ...current, status: 'frozen', frozenAt: Date.now(), frozenRemainingMs: remaining },
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleMainCameraReady = useCallback((api: CameraApi) => {
+    mainCameraRef.current = api;
+  }, []);
 
   const isSolo = total === 1;
   const gridColumns = isSolo ? '1fr' : '1fr 1fr';
@@ -172,7 +181,7 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
           cwd={session.cwd}
           paneId="main"
           borderless={isSolo}
-          onCameraReady={(api) => { mainCameraRef.current = api; }}
+          onCameraReady={handleMainCameraReady}
         />
         {displayable.map((e, idx) => {
           const isLastOdd = total % 2 === 1 && idx === displayable.length - 1;
@@ -191,8 +200,8 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
                 paneId={e.key}
                 closingSeconds={showCountdown ? closingSeconds : null}
                 frozen={frozen}
-                onToggleFreeze={() => freezeToggle(e.key)}
-                onClose={() => closePane(e.key)}
+                onToggleFreeze={() => freezeToggleByKey(e.key)}
+                onClose={() => closePaneByKey(e.key)}
               />
             </div>
           );
