@@ -64,7 +64,7 @@ export type SessionPayload = {
   sessionId: string;
   cwd: string;
   jsonl: string;
-  subagents: { id: string; jsonl: string }[];
+  subagents: { id: string; jsonl: string; lastUpdatedAt: string }[];
 };
 
 export type SessionMeta = {
@@ -72,6 +72,7 @@ export type SessionMeta = {
   sessionId: string;
   cwd: string;
   startedAt: string;
+  lastUpdatedAt: string;
   sizeBytes: number;
   title?: string;
 };
