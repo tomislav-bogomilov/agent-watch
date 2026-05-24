@@ -89,6 +89,7 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   }, [subagentEntries, fileIds]);
 
   const [statusMap, setStatusMap] = useState<Record<string, PaneState>>({});
+  const [userClosedKeys, setUserClosedKeys] = useState<Set<string>>(new Set());
   const [nowMs, setNowMs] = useState(Date.now());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mainCameraRef = useRef<CameraApi | null>(null);
@@ -100,16 +101,25 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   }, []);
 
   // Switching to a different live session must re-fit on first ready, so reset
-  // both refs whenever session.id changes.
+  // both refs whenever session.id changes. Also drop any user-closed flags
+  // because a fresh session has no notion of "I closed that one before".
   useEffect(() => {
     mainFittedRef.current = false;
     mainCameraRef.current = null;
+    setUserClosedKeys(new Set());
   }, [session.id]);
 
   useEffect(() => {
     setStatusMap((prev) => {
       const next: Record<string, PaneState> = {};
       for (const e of subagentEntries) {
+        // User-closed panes are sticky: don't re-evaluate them even if the
+        // sub-agent's file keeps getting touched (which would otherwise hit
+        // nextPaneStatus's "activity resumed → active" branch and re-open it).
+        if (userClosedKeys.has(e.key)) {
+          next[e.key] = { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null };
+          continue;
+        }
         const fileId = keyToFileId.get(e.key);
         const mtimeIso = fileId ? subagentMtimes[fileId] : undefined;
         const lastUpdatedMs = mtimeIso ? new Date(mtimeIso).getTime() : nowMs;
@@ -122,7 +132,7 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
       }
       return next;
     });
-  }, [nowMs, subagentEntries, keyToFileId, subagentMtimes]);
+  }, [nowMs, subagentEntries, keyToFileId, subagentMtimes, userClosedKeys]);
 
   const displayable = pickVisibleSubagentEntries(subagentEntries, keyToFileId, subagentMtimes, statusMap, nowMs);
   const total = 1 + displayable.length;
@@ -140,6 +150,11 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
   }, [total, mainOrderLength]);
 
   function closePane(key: string): void {
+    setUserClosedKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
     setStatusMap((prev) => ({
       ...prev,
       [key]: { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null },

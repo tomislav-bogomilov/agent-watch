@@ -160,10 +160,39 @@ export function LivePane({
     >
       {showNotches && <>
         <span style={notchStyle('tl', accent)} />
-        <span style={notchStyle('tr', accent)} />
+        {/* Skip the top-right notch when the close button is shown there — they'd overlap. */}
+        {!onClose && <span style={notchStyle('tr', accent)} />}
         <span style={notchStyle('bl', accent)} />
         <span style={notchStyle('br', accent)} />
       </>}
+
+      {onClose && (
+        <button
+          data-testid="live-pane-close"
+          aria-label={`close pane ${label}`}
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          style={{
+            // Red right-triangle filling the pane's top-right cut-corner —
+            // same geometry as the cyan tr notch it replaces. Anchored at
+            // (top:0, right:0), clip-path keeps only the upper-right
+            // triangle so the click target sits flush against the cut
+            // corner shape and not the rectangular bounding box.
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: 18,
+            height: 18,
+            padding: 0,
+            background: '#ff5050',
+            border: 'none',
+            clipPath: 'polygon(0 0, 100% 0, 100% 100%)',
+            cursor: 'pointer',
+            boxShadow: '0 0 8px #ff5050',
+            zIndex: 7,
+          }}
+          title="close pane"
+        />
+      )}
 
       <div style={canvasHost(showHeader)}>
         {showHeader && (
@@ -200,33 +229,6 @@ export function LivePane({
             frozen={frozen ?? false}
             onToggleFreeze={onToggleFreeze}
           />
-        )}
-
-        {onClose && (
-          <button
-            data-testid="live-pane-close"
-            aria-label={`close pane ${label}`}
-            onClick={(e) => { e.stopPropagation(); onClose(); }}
-            style={{
-              position: 'absolute',
-              top: 6,
-              right: 6,
-              width: 18,
-              height: 14,
-              padding: 0,
-              background: 'rgba(255,80,80,0.18)',
-              border: '1px solid #ff5050',
-              color: '#ff7c7c',
-              fontFamily: 'ui-monospace, monospace',
-              fontSize: 9,
-              lineHeight: 1,
-              letterSpacing: 1,
-              cursor: 'pointer',
-              boxShadow: '0 0 6px rgba(255,80,80,0.45)',
-              zIndex: 6,
-            }}
-            title="close pane"
-          >×</button>
         )}
       </div>
 
