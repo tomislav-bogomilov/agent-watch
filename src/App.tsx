@@ -14,6 +14,7 @@ import { sliceSession } from './parse/slice';
 import { usePlayback } from './playback/usePlayback';
 import { useKeyboard } from './playback/useKeyboard';
 import { usePersistentWidth } from './util/usePersistentWidth';
+import { formatPath } from './util/formatPath';
 import type { CameraApi } from './graph/useCamera';
 import type { Milestone, Session } from './parse/types';
 
@@ -208,7 +209,13 @@ export default function App() {
               <div style={styles.sessionHeader} data-testid="session-header">
                 <div style={styles.sessionTitle}>{headerTitle}</div>
                 <div style={styles.sessionCwdRow}>
-                  <span style={styles.sessionCwd}>{effectiveSession.cwd}</span>
+                  <span
+                    style={styles.sessionCwd}
+                    title={effectiveSession.cwd}
+                    data-testid="session-cwd"
+                  >
+                    {formatPath(effectiveSession.cwd)}
+                  </span>
                   <CopyCwdButton value={effectiveSession.cwd} />
                 </div>
               </div>
