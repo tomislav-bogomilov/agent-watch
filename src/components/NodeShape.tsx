@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { LaidOutNode } from '../graph/layout';
 import type { MilestoneKind } from '../parse/types';
 import { formatTokens } from '../util/formatTokens';
@@ -11,6 +12,10 @@ type Props = {
   pinned?: boolean;
   showContextBadge?: boolean;
 };
+
+export function nodeFilterCohort(state: 'idle' | 'active' | 'success' | 'failed' | 'pruned'): 'glow' | 'none' {
+  return (state === 'active' || state === 'success') ? 'glow' : 'none';
+}
 
 function glyphFor(kind: MilestoneKind): string {
   switch (kind) {
@@ -67,9 +72,8 @@ function shapeFor(kind: MilestoneKind): { d: string; labelX: number } {
   }
 }
 
-export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }: Props) {
+export const NodeShape = memo(function NodeShape({ node, state, inSubagent, pinned, showContextBadge }: Props) {
   const colors = colorsFor(state, inSubagent, node.milestone.kind);
-  const useGlow = state === 'active' || state === 'success';
   const { d, labelX } = shapeFor(node.milestone.kind);
 
   const fullLabel = `${glyphFor(node.milestone.kind)}  ${node.milestone.label}`;
@@ -85,7 +89,6 @@ export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }:
         fill={colors.fill}
         stroke={colors.stroke}
         strokeWidth={state === 'active' ? 2 : state === 'success' ? 1.75 : 1.25}
-        filter={useGlow ? 'url(#tg-glow)' : undefined}
         opacity={state === 'pruned' ? 0.35 : 0.97}
         style={state === 'success' ? { animation: 'tg-shimmer 2.4s ease-in-out infinite' } : undefined}
       />
@@ -142,7 +145,7 @@ export function NodeShape({ node, state, inSubagent, pinned, showContextBadge }:
       )}
     </g>
   );
-}
+});
 
 function tintFor(kind: MilestoneKind): { fill: string; accent: string } {
   // Distinct neon tints per kind, on the TRON cyan/violet/teal axis.

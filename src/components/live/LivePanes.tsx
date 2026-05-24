@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Session, Milestone } from '../../parse/types';
 import { LivePane } from './LivePane';
 import { extractSubagentPaneRoot } from './extractSubagentPaneRoot';
 import { subagentLabel } from './subagentLabel';
-import { nextPaneStatus, remainingSeconds, type PaneState } from './paneStatus';
-import { TICK_MS, CLOSING_MS, SUBAGENT_STABLE_MS } from './liveness';
+import { remainingSeconds } from './paneStatus';
+import { TICK_MS, CLOSING_MS } from './liveness';
 import { pickVisibleSubagentEntries } from './visibleSubagents';
 import { makeLivePlayback } from './livePlayback';
 import { CanvasToolbar } from '../CanvasToolbar';
 import type { CameraApi } from '../../graph/useCamera';
+import { useNowMs } from './useNowMs';
+import { useStatusMap } from './useStatusMap';
 
 type Props = {
   session: Session;
@@ -25,19 +27,6 @@ const outerStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   position: 'relative',
-};
-
-const gridStyle = (n: number): CSSProperties => ({
-  flex: 1,
-  display: 'grid',
-  gridTemplateColumns: n === 1 ? '1fr' : '1fr 1fr',
-  gap: 12,
-  background: 'rgba(0,229,255,0.05)',
-  minHeight: 0,
-});
-
-const fullscreenStyle: CSSProperties = {
-  flex: 1, minHeight: 0, position: 'relative',
 };
 
 const lastSpanStyle: CSSProperties = { gridColumn: 'span 2' };
@@ -88,17 +77,16 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     return map;
   }, [subagentEntries, fileIds]);
 
-  const [statusMap, setStatusMap] = useState<Record<string, PaneState>>({});
   const [userClosedKeys, setUserClosedKeys] = useState<Set<string>>(new Set());
-  const [nowMs, setNowMs] = useState(Date.now());
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mainCameraRef = useRef<CameraApi | null>(null);
   const mainFittedRef = useRef(false);
 
-  useEffect(() => {
-    intervalRef.current = setInterval(() => setNowMs(Date.now()), TICK_MS);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, []);
+  const nowMs = useNowMs(TICK_MS);
+  const { statusMap, seed: seedPaneStatus } = useStatusMap(
+    subagentEntries, keyToFileId, subagentMtimes, userClosedKeys
+  );
+  const statusMapRef = useRef(statusMap);
+  useEffect(() => { statusMapRef.current = statusMap; }, [statusMap]);
 
   // Switching to a different live session must re-fit on first ready, so reset
   // both refs whenever session.id changes. Also drop any user-closed flags
@@ -109,36 +97,10 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     setUserClosedKeys(new Set());
   }, [session.id]);
 
-  useEffect(() => {
-    setStatusMap((prev) => {
-      const next: Record<string, PaneState> = {};
-      for (const e of subagentEntries) {
-        // User-closed panes are sticky: don't re-evaluate them even if the
-        // sub-agent's file keeps getting touched (which would otherwise hit
-        // nextPaneStatus's "activity resumed → active" branch and re-open it).
-        if (userClosedKeys.has(e.key)) {
-          next[e.key] = { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null };
-          continue;
-        }
-        const fileId = keyToFileId.get(e.key);
-        const mtimeIso = fileId ? subagentMtimes[fileId] : undefined;
-        const lastUpdatedMs = mtimeIso ? new Date(mtimeIso).getTime() : nowMs;
-        const staleAtOpen = (nowMs - lastUpdatedMs) >= SUBAGENT_STABLE_MS;
-        const prevState: PaneState = prev[e.key] ?? (staleAtOpen
-          ? { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
-          : { status: 'active', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null }
-        );
-        next[e.key] = nextPaneStatus(prevState, lastUpdatedMs, nowMs);
-      }
-      return next;
-    });
-  }, [nowMs, subagentEntries, keyToFileId, subagentMtimes, userClosedKeys]);
-
   const displayable = pickVisibleSubagentEntries(subagentEntries, keyToFileId, subagentMtimes, statusMap, nowMs);
   const total = 1 + displayable.length;
 
-  // Memoize playback once per mainRoot so both the follow effect and the N=1
-  // render path share the same flattenDFS result.
+  // Memoize playback once per mainRoot so the follow effect can read order.length.
   const mainPlayback = useMemo(() => makeLivePlayback(mainRoot), [mainRoot]);
   const mainOrderLength = total === 1 ? mainPlayback.order.length : 0;
 
@@ -149,81 +111,65 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
     cam.setFollow(true);
   }, [total, mainOrderLength]);
 
-  function closePane(key: string): void {
-    setUserClosedKeys((prev) => {
-      const next = new Set(prev);
-      next.add(key);
-      return next;
-    });
-    setStatusMap((prev) => ({
-      ...prev,
-      [key]: { status: 'closed', closingStartedAt: null, frozenAt: null, frozenRemainingMs: null },
-    }));
-  }
+  const closePaneByKey = useCallback((key: string) => {
+    setUserClosedKeys((prev) => { const next = new Set(prev); next.add(key); return next; });
+  }, []);
 
-  function freezeToggle(key: string): void {
-    setStatusMap((prev) => {
-      const s = prev[key];
-      if (!s) return prev;
-      if (s.status === 'frozen') {
-        const newClosingStartedAt = nowMs - (CLOSING_MS - (s.frozenRemainingMs ?? CLOSING_MS));
-        return { ...prev, [key]: { ...s, status: 'closing', frozenAt: null, frozenRemainingMs: null, closingStartedAt: newClosingStartedAt } };
-      }
-      if (s.status === 'closing') {
-        const elapsed = nowMs - (s.closingStartedAt ?? nowMs);
-        const remaining = Math.max(0, CLOSING_MS - elapsed);
-        return { ...prev, [key]: { ...s, status: 'frozen', frozenAt: nowMs, frozenRemainingMs: remaining } };
-      }
-      return prev;
-    });
-  }
+  const freezeToggleByKey = useCallback((key: string) => {
+    const current = statusMapRef.current[key];
+    if (!current) return;
+    if (current.status === 'frozen') {
+      const newClosingStartedAt = Date.now() - (CLOSING_MS - (current.frozenRemainingMs ?? CLOSING_MS));
+      seedPaneStatus(key, { ...current, status: 'closing', frozenAt: null, frozenRemainingMs: null, closingStartedAt: newClosingStartedAt });
+    } else if (current.status === 'closing') {
+      const elapsed = Date.now() - (current.closingStartedAt ?? Date.now());
+      const remaining = Math.max(0, CLOSING_MS - elapsed);
+      seedPaneStatus(key, { ...current, status: 'frozen', frozenAt: Date.now(), frozenRemainingMs: remaining });
+    }
+  }, [seedPaneStatus]);
 
-  // N=1 fullscreen short-circuit — borderless LivePane (no cut-corner, no
-  // pane header, no notches) so a single MAIN reads as a fullscreen canvas
-  // but retains the embedded detail panel + click-to-pin behavior.
-  if (total === 1) {
-    return (
-      <div style={outerStyle}>
-        <CanvasToolbar
-          showLive={true}
-          liveEngaged={true}
-          onToggleLive={onToggleLive}
-          showFit={true}
-          onFit={() => mainCameraRef.current?.fit()}
-          showFollow={false}
-          follow={false}
-          onToggleFollow={() => {}}
-        />
-        <div data-testid="live-panes-grid" data-n={1} data-fullscreen="true" style={fullscreenStyle}>
-          <LivePane
-            kind="main"
-            label="MAIN"
-            root={mainRoot}
-            cwd={session.cwd}
-            paneId="main"
-            borderless={true}
-            onCameraReady={(api) => { mainCameraRef.current = api; }}
-          />
-        </div>
-      </div>
-    );
-  }
+  const handleMainCameraReady = useCallback((api: CameraApi) => {
+    mainCameraRef.current = api;
+  }, []);
 
-  // N≥2: cut-corner pane grid.
+  const isSolo = total === 1;
+  const gridColumns = isSolo ? '1fr' : '1fr 1fr';
+
   return (
     <div style={outerStyle}>
       <CanvasToolbar
         showLive={true}
         liveEngaged={true}
         onToggleLive={onToggleLive}
-        showFit={false}
-        onFit={() => {}}
+        showFit={isSolo}
+        onFit={() => mainCameraRef.current?.fit()}
         showFollow={false}
         follow={false}
         onToggleFollow={() => {}}
       />
-      <div data-testid="live-panes-grid" data-n={total} style={gridStyle(total)}>
-        <LivePane kind="main" label="MAIN" root={mainRoot} cwd={session.cwd} paneId="main" />
+      <div
+        data-testid="live-panes-grid"
+        data-n={total}
+        data-fullscreen={isSolo ? 'true' : 'false'}
+        style={{
+          flex: 1,
+          display: 'grid',
+          gridTemplateColumns: gridColumns,
+          gap: isSolo ? 0 : 12,
+          background: isSolo ? 'transparent' : 'rgba(0,229,255,0.05)',
+          minHeight: 0,
+          position: 'relative' as const,
+        }}
+      >
+        <LivePane
+          kind="main"
+          label="MAIN"
+          root={mainRoot}
+          cwd={session.cwd}
+          paneId="main"
+          borderless={isSolo}
+          onCameraReady={handleMainCameraReady}
+        />
         {displayable.map((e, idx) => {
           const isLastOdd = total % 2 === 1 && idx === displayable.length - 1;
           const fileId = keyToFileId.get(e.key) ?? e.key;
@@ -241,8 +187,8 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
                 paneId={e.key}
                 closingSeconds={showCountdown ? closingSeconds : null}
                 frozen={frozen}
-                onToggleFreeze={() => freezeToggle(e.key)}
-                onClose={() => closePane(e.key)}
+                onToggleFreeze={() => freezeToggleByKey(e.key)}
+                onClose={() => closePaneByKey(e.key)}
               />
             </div>
           );
