@@ -2,11 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchPromptList, fetchSessionList, fetchSessionPayload } from './client';
 import { parseSession } from '../parse';
 import type { Session } from '../parse/types';
+import { POLL_MS } from '../components/live/liveness';
 
 export function useSessionList() {
   return useQuery({
     queryKey: ['sessions'],
     queryFn: fetchSessionList,
+    refetchInterval: POLL_MS,
   });
 }
 
