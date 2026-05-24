@@ -253,8 +253,9 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
         style={{
           position: 'absolute', top: 12, right: 12, zIndex: 6,
           background: 'rgba(5,8,13,0.85)', border: '1px solid var(--edge-idle)',
-          color: 'var(--text)', padding: '4px 10px', cursor: 'pointer',
-          fontFamily: 'ui-monospace, monospace', fontSize: 11, letterSpacing: 2,
+          color: 'var(--text)', padding: '2px 8px', cursor: 'pointer',
+          fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: 2,
+          height: 20, boxSizing: 'border-box',
         }}
         title="fit (F)"
       >FIT</button>
@@ -262,12 +263,13 @@ export function GraphCanvas({ session, playback, subagentIds, pinnedId, onPin, o
         data-testid="follow-toggle"
         onClick={() => setFollow(!follow)}
         style={{
-          position: 'absolute', top: 12, right: 64, zIndex: 6,
+          position: 'absolute', top: 12, right: 50, zIndex: 6,
           background: 'rgba(5,8,13,0.85)',
           border: `1px solid ${follow ? 'var(--edge-trail)' : 'var(--edge-idle)'}`,
           color: follow ? 'var(--edge-trail)' : 'var(--text)',
-          padding: '4px 10px', cursor: 'pointer',
-          fontFamily: 'ui-monospace, monospace', fontSize: 11, letterSpacing: 2,
+          padding: '2px 8px', cursor: 'pointer',
+          fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: 2,
+          height: 20, boxSizing: 'border-box',
         }}
         title="follow playhead (L)"
       >FOLLOW</button>
