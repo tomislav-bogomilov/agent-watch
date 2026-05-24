@@ -28,6 +28,14 @@ export function useSession(projectId: string | null, sessionId: string | null, l
     },
     enabled: !!projectId && !!sessionId,
     refetchInterval: live ? POLL_MS : false,
+    // TanStack Query's default structural sharing deep-walks the result and
+    // preserves old refs for equal subtrees. For our Milestone tree that
+    // breaks LIVE refresh: when a sub-agent emits a new milestone, the
+    // unchanged ancestor chain keeps its OLD reference, so React's useMemo
+    // chains downstream (layoutTree, extractSubagentPaneRoot, GraphCanvas
+    // visibleNodes) skip the work and the pane never repaints. Opt out:
+    // each poll produces a fresh tree by design — parseSession is fast.
+    structuralSharing: false,
   });
 }
 
