@@ -183,11 +183,11 @@ export function LivePane({
             width: 28,
             height: 28,
             padding: 0,
-            background: '#ff4d4d',
+            background: 'var(--node-failed)',
             border: 'none',
             clipPath: 'polygon(0 0, 100% 100%, 0 100%)',
             cursor: 'pointer',
-            boxShadow: '0 0 10px rgba(255,80,80,0.65)',
+            boxShadow: '0 0 12px rgba(255, 93, 58, 0.7)',
             zIndex: 7,
           }}
           title="close pane"
@@ -201,8 +201,8 @@ export function LivePane({
               fontFamily: 'ui-monospace, monospace',
               fontSize: 14,
               lineHeight: 1,
-              color: '#fff',
-              textShadow: '0 0 4px rgba(0,0,0,0.6)',
+              color: '#05080d',
+              textShadow: '0 0 3px rgba(5, 8, 13, 0.85)',
               pointerEvents: 'none',
               userSelect: 'none',
             }}
