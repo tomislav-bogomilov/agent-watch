@@ -146,7 +146,14 @@ export function LivePane({
   );
 
   useEffect(() => {
-    if (cameraRef.current) cameraRef.current.setFollow(true);
+    const cam = cameraRef.current;
+    if (!cam) return;
+    // Every time the playback grows (a new milestone arrived via LIVE poll),
+    // re-fit the whole tree so the user can see the new node appear inside
+    // the pane instead of being culled off-screen at scale=1, then re-enable
+    // follow so subsequent in-fit playhead changes stay centered.
+    cam.fit();
+    cam.setFollow(true);
   }, [playback.order.length]);
 
   const newest = playback.order[playback.index] ?? null;
