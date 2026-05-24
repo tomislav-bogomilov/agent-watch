@@ -66,7 +66,7 @@ describe('LivePanes', () => {
     expect(grid.getAttribute('data-n')).toBe('3');
   });
 
-  it('transitions sub-agent pane to closing after 60s of stable mtime, then closed after 30s more', () => {
+  it('transitions sub-agent pane to closing after 30s of stable mtime, then closed after 30s more', () => {
     const session = makeSession([m('a')], [
       { id: 'agent-aaaa1111', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('s1') },
     ]);
@@ -76,7 +76,7 @@ describe('LivePanes', () => {
     expect(screen.queryByTestId('countdown-chip')).toBeNull();
 
     // Advance 61s — should enter closing
-    act(() => { vi.advanceTimersByTime(61_000); });
+    act(() => { vi.advanceTimersByTime(31_000); });
     rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} />);
     expect(screen.getByTestId('countdown-chip')).toBeTruthy();
 

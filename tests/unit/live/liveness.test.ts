@@ -13,7 +13,7 @@ function meta(lastUpdatedAt: string): SessionMeta {
 describe('liveness constants', () => {
   it('declares constants used across the live feature', () => {
     expect(LIVE_THRESHOLD_MS).toBe(180_000);
-    expect(SUBAGENT_STABLE_MS).toBe(60_000);
+    expect(SUBAGENT_STABLE_MS).toBe(30_000);
     expect(CLOSING_MS).toBe(30_000);
     expect(POLL_MS).toBe(7_000);
     expect(TICK_MS).toBe(1_000);
