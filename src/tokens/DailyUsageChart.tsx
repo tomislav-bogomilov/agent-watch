@@ -13,6 +13,7 @@ import {
 } from './aggregate';
 import { colorFor } from './palette';
 import { formatTokens } from '../util/formatTokens';
+import { modelLabel } from './modelLabel';
 
 type Props = {
   rows: TokenUsageRow[];
@@ -176,7 +177,13 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
           style={{ ...styles.tooltip, left: hover.cx + 8, top: Math.max(0, hover.cy - 36) }}
         >
           <div>{hover.day}</div>
-          <div style={{ color: colorFor(hover.key, allKeys) }}>{hover.key}</div>
+          <div style={{ color: colorFor(hover.key, allKeys) }}>
+            {(() => {
+              const isSub = hover.key.endsWith('|sub');
+              const baseId = isSub ? hover.key.slice(0, -4) : hover.key;
+              return isSub ? `${modelLabel(baseId)} · sub` : modelLabel(baseId);
+            })()}
+          </div>
           <div>{formatTokens(hover.value)}</div>
         </div>
       )}
@@ -194,7 +201,11 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
                 aria-pressed={!off}
               >
                 <span style={{ ...styles.swatch, background: colorFor(k, allKeys) }} aria-hidden />
-                {k}
+                {(() => {
+                  const isSub = k.endsWith('|sub');
+                  const baseId = isSub ? k.slice(0, -4) : k;
+                  return isSub ? `${modelLabel(baseId)} · sub` : modelLabel(baseId);
+                })()}
               </button>
             );
           })}

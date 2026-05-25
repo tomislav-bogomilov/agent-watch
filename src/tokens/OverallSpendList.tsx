@@ -3,6 +3,7 @@ import type { ModelSummary } from './aggregate';
 import { modelKey } from './aggregate';
 import { colorFor } from './palette';
 import { formatTokens } from '../util/formatTokens';
+import { modelLabel } from './modelLabel';
 
 type Props = { summaries: ModelSummary[] };
 
@@ -32,7 +33,7 @@ export function OverallSpendList({ summaries }: Props) {
           <div key={k} data-testid={`model-row-${k}`} style={styles.row}>
             <div style={styles.rowTop}>
               <span style={styles.modelName}>
-                {s.modelId}
+                {modelLabel(s.modelId)}
                 {s.isSubagent && <span style={styles.subTag}> · subagent</span>}
               </span>
               <span style={styles.breakdown}>
