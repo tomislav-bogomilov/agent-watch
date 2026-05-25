@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTokenUsage } from '../api/hooks';
 import {
   presetCutoff,
@@ -10,14 +10,23 @@ import {
 import { OverallSpendList } from './OverallSpendList';
 import { DailyUsageChart } from './DailyUsageChart';
 import { formatPath } from '../util/formatPath';
+import type { Family } from './family';
+
+type Props = {
+  family: Family;
+  preset: RangePreset;
+  onPresetChange: (p: RangePreset) => void;
+};
 
 function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function TokensPage() {
+export function TokensPage({ family, preset: presetFromApp, onPresetChange }: Props) {
+  void family;
   const [projectId, setProjectId] = useState<string | 'all'>('all');
-  const [preset, setPreset] = useState<RangePreset>('all');
+  const [preset, setPreset] = useState<RangePreset>(presetFromApp);
+  useEffect(() => { setPreset(presetFromApp); }, [presetFromApp]);
   const [metric, setMetric] = useState<Metric>('total');
   const query = useTokenUsage();
   const today = todayUtc();
@@ -50,7 +59,7 @@ export function TokensPage() {
               key={p}
               type="button"
               data-testid={`tokens-preset-${p}`}
-              onClick={() => setPreset(p)}
+              onClick={() => { setPreset(p); onPresetChange(p); }}
               style={{ ...styles.presetBtn, ...(preset === p ? styles.presetBtnOn : null) }}
               aria-pressed={preset === p}
             >{p.toUpperCase()}</button>

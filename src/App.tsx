@@ -9,7 +9,8 @@ import { DetailPanel } from './components/DetailPanel';
 import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
 import { TokensPage } from './tokens/TokensPage';
-import { useHashRoute } from './util/useHashRoute';
+import { useTokenUsage } from './api/hooks';
+import { presetCutoff, type RangePreset } from './tokens/aggregate';
 import { CopyCwdButton } from './components/CopyCwdButton';
 import { usePromptList, useSession, useSessionList, isLiveMeta } from './api/hooks';
 import { sliceSession } from './parse/slice';
@@ -30,11 +31,23 @@ const CONTENT_MAX = 2400;
 
 const STORAGE_MODE = 'tg.library.mode';
 const STORAGE_FAMILY = 'tg.usage.family';
+const STORAGE_PRESET = 'tg.usage.preset';
+
+function readPreset(): RangePreset {
+  try {
+    const raw = localStorage.getItem(STORAGE_PRESET);
+    if (raw === '7d' || raw === '30d' || raw === '90d' || raw === 'all') return raw;
+    return '30d';
+  } catch {
+    return '30d';
+  }
+}
 
 function readMode(): LibraryMode {
   try {
     const raw = localStorage.getItem(STORAGE_MODE);
-    return raw === 'prompts' ? 'prompts' : 'sessions';
+    if (raw === 'prompts' || raw === 'usage') return raw;
+    return 'sessions';
   } catch {
     return 'sessions';
   }
@@ -96,15 +109,28 @@ function CornerNotch({ corner }: { corner: 'tl' | 'tr' | 'bl' | 'br' }) {
 
 export default function App() {
   const [selected, setSelected] = useState<Selection | null>(null);
-  const [mode, setMode] = useState<LibraryMode>(() => readMode());
+  const [mode, setMode] = useState<LibraryMode>(() => {
+    if (typeof window !== 'undefined' && window.location.hash === '#/tokens') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      return 'usage';
+    }
+    return readMode();
+  });
   useEffect(() => {
     try { localStorage.setItem(STORAGE_MODE, mode); } catch { /* ignore */ }
   }, [mode]);
-  // @ts-expect-error setFamily will be used in later tasks (Task 7+)
   const [family, setFamily] = useState<Family>(() => readFamily());
   useEffect(() => {
     try { localStorage.setItem(STORAGE_FAMILY, family); } catch { /* ignore */ }
   }, [family]);
+  const [preset, setPreset] = useState<RangePreset>(() => readPreset());
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_PRESET, preset); } catch { /* ignore */ }
+  }, [preset]);
+  const usageQuery = useTokenUsage();
+  const usageProjectId: 'all' = 'all';
+  const today = new Date().toISOString().slice(0, 10);
+  const usageCutoffDay = presetCutoff(preset, today);
   const sessionsQuery = useSessionList();
   const selectedMeta = useMemo(() => {
     if (!selected || !sessionsQuery.data) return null;
@@ -120,7 +146,6 @@ export default function App() {
     sessionIsLive || liveEngaged,
   );
   const promptsQuery = usePromptList();
-  const route = useHashRoute();
 
   // For prompt selections, derive an `effectiveSession` whose root is the
   // sliced chain. For session selections, pass the parsed session through.
@@ -245,10 +270,15 @@ export default function App() {
         onResize={(d) => setSidebarWidth((w) => w + d)}
         mode={mode}
         onModeChange={setMode}
+        usageRows={usageQuery.data?.rows ?? []}
+        usageProjectId={usageProjectId}
+        usageCutoffDay={usageCutoffDay}
+        usageFamily={family}
+        onUsageFamilyChange={setFamily}
       />
       <main style={styles.main}>
         <div style={styles.contentFrame}>
-          {route === 'tokens' ? <TokensPage /> : (<>
+          {mode === 'usage' ? <TokensPage family={family} preset={preset} onPresetChange={setPreset} /> : (<>
           {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
           {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
           {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
