@@ -27,6 +27,25 @@ type Hover = { day: string; key: string; value: number; cx: number; cy: number }
 
 const MARGIN = { top: 16, right: 16, bottom: 28, left: 56 };
 const TOOLTIP_W = 140;
+const ISO_OFF_X = 5;
+const ISO_OFF_Y = 5;
+const LEGEND_H = 32;
+
+const PANEL_BG: React.CSSProperties = {
+  background: [
+    'radial-gradient(rgba(0,229,255,0.55) 0.9px, transparent 1.1px) 14px 12px / 60px 70px',
+    'radial-gradient(rgba(127,255,212,0.45) 0.8px, transparent 1px) 42px 38px / 70px 60px',
+    'radial-gradient(rgba(0,229,255,0.40) 0.7px, transparent 0.9px) 78px 18px / 80px 50px',
+    'radial-gradient(rgba(0,229,255,0.28) 0.6px, transparent 0.8px) 4px 8px / 28px 32px',
+    'radial-gradient(rgba(127,255,212,0.22) 0.5px, transparent 0.7px) 19px 22px / 34px 40px',
+    'radial-gradient(rgba(0,229,255,0.15) 0.4px, transparent 0.5px) 10px 30px / 22px 26px',
+    'radial-gradient(ellipse at center, rgba(0,229,255,0.10), transparent 70%)',
+    'rgba(5,8,13,0.92)',
+  ].join(', '),
+  border: '1px solid #00e5ff',
+  boxShadow: '0 0 10px rgba(0,229,255,0.55), inset 0 0 10px rgba(0,229,255,0.20)',
+  animation: 'paneBreathe 3.5s ease-in-out infinite',
+};
 
 export function DailyUsageChart({ rows, projectId, preset, today, metric }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -70,6 +89,9 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
     return { days, allKeys, activeKeys, data, hasData: true };
   }, [rows, projectId, preset, today, metric, disabled]);
 
+  // SVG height is reduced by LEGEND_H to reserve space for the legend row below.
+  const svgHeight = Math.max(160, height - LEGEND_H);
+
   useEffect(() => {
     setHover(null);
     if (!hasData || !svgRef.current) return;
@@ -77,7 +99,8 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
     svg.selectAll('*').remove();
 
     const innerW = Math.max(10, width - MARGIN.left - MARGIN.right);
-    const innerH = Math.max(10, height - MARGIN.top - MARGIN.bottom);
+    // Use svgHeight (not height) so axes fit inside the actual SVG element.
+    const innerH = Math.max(10, svgHeight - MARGIN.top - MARGIN.bottom);
 
     const x = d3.scaleBand<string>()
       .domain(days)
@@ -135,11 +158,43 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
         g.select('.domain').attr('stroke', 'rgba(110,224,238,0.25)');
       });
 
-    // bars (with hover handlers) — one <g> per series, closure captures the key
+    // Isometric wireframe bars — drawing order: side polygons, front rects, top polygons.
+    // One <g> per series.
     const barsG = svg.append('g');
+
+    // Pass 1: side polygons (drawn first, behind everything)
     series.forEach((s) => {
-      barsG.append('g')
-        .attr('fill', colorFor(s.key, allKeys))
+      const color = colorFor(s.key, allKeys);
+      const sideG = barsG.append('g');
+      s.forEach((d) => {
+        const bx = x(d.data.day) ?? 0;
+        const bw = x.bandwidth();
+        const yTop = y(d[1]);
+        const yBottom = y(d[0]);
+        const h = Math.max(0, yBottom - yTop);
+        if (h <= 0) return;
+        // Side panel: right face of the bar, offset ISO_OFF_X right and ISO_OFF_Y up
+        const pts = [
+          `${bx + bw},${yTop}`,
+          `${bx + bw + ISO_OFF_X},${yTop - ISO_OFF_Y}`,
+          `${bx + bw + ISO_OFF_X},${yBottom - ISO_OFF_Y}`,
+          `${bx + bw},${yBottom}`,
+        ].join(' ');
+        sideG.append('polygon')
+          .attr('points', pts)
+          .attr('fill', color)
+          .attr('fill-opacity', 0.08)
+          .attr('stroke', color)
+          .attr('stroke-width', 1)
+          .attr('stroke-opacity', 1);
+      });
+    });
+
+    // Pass 2: front rects (data-role="bar" goes here only, for test assertion compat)
+    const frontG = barsG.append('g');
+    series.forEach((s) => {
+      const color = colorFor(s.key, allKeys);
+      frontG.append('g')
         .selectAll('rect')
         .data(s)
         .join('rect')
@@ -150,6 +205,11 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
         .attr('y', (d) => y(d[1]))
         .attr('height', (d) => Math.max(0, y(d[0]) - y(d[1])))
         .attr('width', x.bandwidth())
+        .attr('fill', color)
+        .attr('fill-opacity', 0.10)
+        .attr('stroke', color)
+        .attr('stroke-width', 1.1)
+        .attr('stroke-opacity', 1)
         .style('cursor', 'crosshair')
         .on('mouseenter', (_event, d) => {
           const rx = (x(d.data.day) ?? 0) + x.bandwidth() / 2;
@@ -158,7 +218,35 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
         })
         .on('mouseleave', () => setHover(null));
     });
-  }, [hasData, width, height, days, allKeys, activeKeys, data]);
+
+    // Pass 3: top polygons (drawn last, on top)
+    series.forEach((s) => {
+      const color = colorFor(s.key, allKeys);
+      const topG = barsG.append('g');
+      s.forEach((d) => {
+        const bx = x(d.data.day) ?? 0;
+        const bw = x.bandwidth();
+        const yTop = y(d[1]);
+        const yBottom = y(d[0]);
+        const h = Math.max(0, yBottom - yTop);
+        if (h <= 0) return;
+        // Top face: parallelogram on the top of the bar
+        const pts = [
+          `${bx},${yTop}`,
+          `${bx + ISO_OFF_X},${yTop - ISO_OFF_Y}`,
+          `${bx + bw + ISO_OFF_X},${yTop - ISO_OFF_Y}`,
+          `${bx + bw},${yTop}`,
+        ].join(' ');
+        topG.append('polygon')
+          .attr('points', pts)
+          .attr('fill', color)
+          .attr('fill-opacity', 0.15)
+          .attr('stroke', color)
+          .attr('stroke-width', 1)
+          .attr('stroke-opacity', 1);
+      });
+    });
+  }, [hasData, width, svgHeight, days, allKeys, activeKeys, data]);
 
   function toggleKey(k: string): void {
     setDisabled((prev) => {
@@ -169,9 +257,9 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
   }
 
   return (
-    <div ref={containerRef} style={styles.container}>
+    <div ref={containerRef} style={{ ...styles.container, ...PANEL_BG }}>
       {!hasData && <div style={styles.empty}>NO USAGE IN RANGE</div>}
-      {hasData && <svg ref={svgRef} width={width} height={height} />}
+      {hasData && <svg ref={svgRef} width={width} height={svgHeight} />}
       {hover && (() => {
         const flipLeft = hover.cx + 8 + TOOLTIP_W > width;
         const left = flipLeft ? Math.max(0, hover.cx - 8 - TOOLTIP_W) : hover.cx + 8;
@@ -222,7 +310,15 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
 }
 
 const styles = {
-  container: { width: '100%', height: '100%', position: 'relative' as const, minHeight: 200, overflow: 'hidden' },
+  container: {
+    width: '100%',
+    height: '100%',
+    position: 'relative' as const,
+    minHeight: 200,
+    overflow: 'hidden',
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+  },
   empty: {
     position: 'absolute' as const,
     inset: 0,
@@ -248,13 +344,17 @@ const styles = {
     zIndex: 4,
   },
   legend: {
-    position: 'absolute' as const,
-    bottom: 4,
-    right: 8,
     display: 'flex' as const,
     flexWrap: 'wrap' as const,
     gap: 6,
     pointerEvents: 'auto' as const,
+    paddingLeft: MARGIN.left,
+    paddingTop: 6,
+    paddingBottom: 6,
+    borderTop: '1px solid rgba(110,224,238,0.18)',
+    height: LEGEND_H,
+    boxSizing: 'border-box' as const,
+    alignItems: 'center' as const,
   },
   chip: {
     display: 'inline-flex' as const,
