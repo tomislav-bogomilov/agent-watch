@@ -255,7 +255,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
       {isLoading && <div style={styles.muted}>scanning…</div>}
       {error && <div style={styles.error}>error: {(error as Error).message}</div>}
       {hasData && groups.length === 0 && <div style={styles.muted}>(none)</div>}
-      <div style={styles.scroll}>
+      <div className="tg-library-scroll" style={styles.scroll}>
         {groups.map((g) => {
           const isOpen = expanded.has(g.key);
           const isDragOver = dragOverKey === g.key && dragKey !== null && dragKey !== g.key;
