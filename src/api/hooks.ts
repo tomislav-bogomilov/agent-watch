@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchPromptList, fetchSessionList, fetchSessionPayload } from './client';
+import { fetchPromptList, fetchSessionList, fetchSessionPayload, fetchTokenUsage } from './client';
+import type { TokenUsageResponse } from './client';
 import { parseSession } from '../parse';
 import type { Session } from '../parse/types';
 import { POLL_MS } from '../components/live/liveness';
@@ -16,6 +17,14 @@ export function usePromptList() {
   return useQuery({
     queryKey: ['prompts'],
     queryFn: fetchPromptList,
+  });
+}
+
+export function useTokenUsage() {
+  return useQuery<TokenUsageResponse>({
+    queryKey: ['token-usage'],
+    queryFn: fetchTokenUsage,
+    staleTime: 60_000,
   });
 }
 

@@ -1,4 +1,7 @@
 import type { PromptMeta, SessionMeta, SessionPayload } from '../parse/types';
+import type { TokenUsageResponse } from '../../server/aggregate-token-usage';
+
+export type { TokenUsageResponse, TokenUsageRow, TokenUsageProject } from '../../server/aggregate-token-usage';
 
 export async function fetchSessionList(): Promise<SessionMeta[]> {
   const res = await fetch('/api/sessions');
@@ -21,4 +24,10 @@ export async function fetchPromptList(): Promise<PromptMeta[]> {
   if (!res.ok) throw new Error(`prompt list failed: ${res.status}`);
   const json = (await res.json()) as { prompts: PromptMeta[] };
   return json.prompts;
+}
+
+export async function fetchTokenUsage(): Promise<TokenUsageResponse> {
+  const res = await fetch('/api/token-usage');
+  if (!res.ok) throw new Error(`token usage fetch failed: ${res.status}`);
+  return (await res.json()) as TokenUsageResponse;
 }
