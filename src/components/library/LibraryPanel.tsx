@@ -18,9 +18,10 @@ type Props = {
   onToggleCollapsed: () => void;
   width: number;
   onResize: (delta: number) => void;
+  mode: LibraryMode;
+  onModeChange: (m: LibraryMode) => void;
 };
 
-const STORAGE_MODE = 'tg.library.mode';
 const STORAGE_EXPANDED = 'tg.projects.expanded';
 const STORAGE_ORDER = 'tg.projects.order';
 const STORAGE_TITLES = 'tg.session.titles';
@@ -51,16 +52,10 @@ function reorderArray<T>(arr: T[], from: number, to: number): T[] {
   return next;
 }
 
-function readMode(): LibraryMode {
-  const raw = readJson<string>(STORAGE_MODE, 'sessions');
-  return raw === 'prompts' ? 'prompts' : 'sessions';
-}
-
-export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize }: Props) {
+export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize, mode, onModeChange }: Props) {
   const sessionsQuery = useSessionList();
   const promptsQuery = usePromptList();
 
-  const [mode, setModeState] = useState<LibraryMode>(() => readMode());
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(readJson<string[]>(STORAGE_EXPANDED, [])));
   const [order, setOrder] = useState<string[]>(() => readJson<string[]>(STORAGE_ORDER, []));
@@ -68,11 +63,6 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const expandedInit = useRef<Set<LibraryMode>>(new Set());
-
-  function setMode(next: LibraryMode): void {
-    setModeState(next);
-    writeJson(STORAGE_MODE, next);
-  }
 
   function onRename(sessionId: string, title: string): void {
     setTitles((prev) => {
@@ -214,7 +204,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
         <span style={styles.dropdownWrap}>
           <select
             value={mode}
-            onChange={(e) => setMode(e.target.value as LibraryMode)}
+            onChange={(e) => onModeChange(e.target.value as LibraryMode)}
             style={styles.dropdown}
             data-testid="library-mode"
             aria-label="library mode"

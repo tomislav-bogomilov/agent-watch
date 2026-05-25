@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LibraryPanel, type Selection } from './components/library/LibraryPanel';
+import type { LibraryMode } from './components/library/LibraryPanel';
 import { GraphCanvas } from './components/GraphCanvas';
 import { LivePanes } from './components/live/LivePanes';
 import { NowPlaying } from './components/NowPlaying';
@@ -25,6 +26,17 @@ const DETAIL_MIN = 320;
 const DETAIL_MAX = 720;
 const NARROW_THRESHOLD = 1400;
 const CONTENT_MAX = 2400;
+
+const STORAGE_MODE = 'tg.library.mode';
+
+function readMode(): LibraryMode {
+  try {
+    const raw = localStorage.getItem(STORAGE_MODE);
+    return raw === 'prompts' ? 'prompts' : 'sessions';
+  } catch {
+    return 'sessions';
+  }
+}
 
 function collectSubagentIds(root: Milestone): Set<string> {
   const ids = new Set<string>();
@@ -72,6 +84,10 @@ function CornerNotch({ corner }: { corner: 'tl' | 'tr' | 'bl' | 'br' }) {
 
 export default function App() {
   const [selected, setSelected] = useState<Selection | null>(null);
+  const [mode, setMode] = useState<LibraryMode>(() => readMode());
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_MODE, mode); } catch { /* ignore */ }
+  }, [mode]);
   const sessionsQuery = useSessionList();
   const selectedMeta = useMemo(() => {
     if (!selected || !sessionsQuery.data) return null;
@@ -210,6 +226,8 @@ export default function App() {
         onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
         width={sidebarWidth}
         onResize={(d) => setSidebarWidth((w) => w + d)}
+        mode={mode}
+        onModeChange={setMode}
       />
       <main style={styles.main}>
         <div style={styles.contentFrame}>
