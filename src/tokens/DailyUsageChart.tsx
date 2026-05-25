@@ -44,7 +44,7 @@ const PANEL_BG: React.CSSProperties = {
   ].join(', '),
   border: '1px solid #00e5ff',
   boxShadow: '0 0 10px rgba(0,229,255,0.55), inset 0 0 10px rgba(0,229,255,0.20)',
-  animation: 'paneBreathe 3.5s ease-in-out infinite',
+  animation: 'mmBreathe 3.5s ease-in-out infinite',
 };
 
 export function DailyUsageChart({ rows, projectId, preset, today, metric }: Props) {
