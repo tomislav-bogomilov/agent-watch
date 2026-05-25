@@ -1,0 +1,3 @@
+{"uuid":"b1","parentUuid":null,"timestamp":"2026-05-21T08:00:00Z","type":"user","message":{"role":"user","content":"hi"}}
+{"uuid":"b2","parentUuid":"b1","timestamp":"2026-05-21T08:00:01Z","type":"assistant","message":{"role":"assistant","model":"claude-sonnet-4-6","usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+{"uuid":"b3","parentUuid":"b2","timestamp":"2026-05-21T08:00:02Z","type":"assistant","message":{"role":"assistant"}}
