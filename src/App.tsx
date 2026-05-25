@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LibraryPanel, type Selection } from './components/library/LibraryPanel';
-import { CanvasToolbar } from './components/CanvasToolbar';
 import { GraphCanvas } from './components/GraphCanvas';
 import { LivePanes } from './components/live/LivePanes';
 import { NowPlaying } from './components/NowPlaying';
@@ -14,6 +13,7 @@ import { sliceSession } from './parse/slice';
 import { usePlayback } from './playback/usePlayback';
 import { useKeyboard } from './playback/useKeyboard';
 import { usePersistentWidth } from './util/usePersistentWidth';
+import { formatPath } from './util/formatPath';
 import type { CameraApi } from './graph/useCamera';
 import type { Milestone, Session } from './parse/types';
 
@@ -37,6 +37,35 @@ function collectSubagentIds(root: Milestone): Set<string> {
   }
   walk(root, false);
   return ids;
+}
+
+function CornerNotch({ corner }: { corner: 'tl' | 'tr' | 'bl' | 'br' }) {
+  const polygons = {
+    tl: 'polygon(0 0, 100% 0, 0 100%)',
+    tr: 'polygon(0 0, 100% 0, 100% 100%)',
+    bl: 'polygon(0 0, 0 100%, 100% 100%)',
+    br: 'polygon(100% 0, 100% 100%, 0 100%)',
+  };
+  const pos =
+    corner === 'tl' ? { top: 0, left: 0 } :
+    corner === 'tr' ? { top: 0, right: 0 } :
+    corner === 'bl' ? { bottom: 0, left: 0 } :
+    { bottom: 0, right: 0 };
+  return (
+    <span
+      aria-hidden
+      style={{
+        position: 'absolute',
+        width: 12, height: 12,
+        background: 'var(--edge-trail)',
+        boxShadow: '0 0 6px var(--edge-trail)',
+        clipPath: polygons[corner],
+        pointerEvents: 'none',
+        zIndex: 6,
+        ...pos,
+      }}
+    />
+  );
 }
 
 export default function App() {
@@ -180,10 +209,7 @@ export default function App() {
         onResize={(d) => setSidebarWidth((w) => w + d)}
       />
       <main style={styles.main}>
-        <div style={{
-          ...styles.contentFrame,
-          paddingRight: displayedMilestone ? detailWidth : 0,
-        }}>
+        <div style={styles.contentFrame}>
           {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
           {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
           {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
@@ -206,11 +232,60 @@ export default function App() {
           {effectiveSession && !needsConfirm && (
             <div style={styles.canvasSlot}>
               <div style={styles.sessionHeader} data-testid="session-header">
-                <div style={styles.sessionTitle}>{headerTitle}</div>
-                <div style={styles.sessionCwdRow}>
-                  <span style={styles.sessionCwd}>{effectiveSession.cwd}</span>
-                  <CopyCwdButton value={effectiveSession.cwd} />
+                <div style={styles.sessionHeaderText}>
+                  <div style={styles.sessionTitle}>{headerTitle}</div>
+                  <div style={styles.sessionCwdRow}>
+                    <span
+                      style={styles.sessionCwd}
+                      title={effectiveSession.cwd}
+                      data-testid="session-cwd"
+                    >
+                      {formatPath(effectiveSession.cwd)}
+                    </span>
+                    <CopyCwdButton value={effectiveSession.cwd} />
+                  </div>
                 </div>
+                {!liveEngaged && (
+                  <div style={styles.headerToolGroup} data-testid="canvas-toolbar">
+                    <button
+                      type="button"
+                      style={styles.headerToolBtn}
+                      onClick={() => cameraRef.current?.fit()}
+                      data-testid="fit-button"
+                      aria-label="fit"
+                      title="fit (F)"
+                    >FIT</button>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.headerToolBtn,
+                        ...(cameraRef.current?.follow ? styles.headerToolBtnOn : null),
+                      }}
+                      onClick={() => {
+                        const next = !(cameraRef.current?.follow ?? false);
+                        cameraRef.current?.setFollow(next);
+                      }}
+                      aria-pressed={cameraRef.current?.follow ?? false}
+                      data-testid="follow-toggle"
+                      aria-label="follow"
+                      title="follow (C)"
+                    >FOLLOW</button>
+                    {sessionIsLive && (
+                      <button
+                        type="button"
+                        style={{
+                          ...styles.headerToolBtn,
+                          ...(liveEngaged ? styles.headerToolBtnOn : null),
+                        }}
+                        onClick={() => setLiveEngaged((v) => !v)}
+                        aria-pressed={liveEngaged}
+                        data-testid="live-button"
+                        aria-label="live"
+                        title="toggle live"
+                      >LIVE</button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {liveEngaged ? (
@@ -220,7 +295,11 @@ export default function App() {
                   onToggleLive={() => setLiveEngaged((v) => !v)}
                 />
               ) : (
-                <>
+                <div style={styles.canvasCard}>
+                  <CornerNotch corner="tl" />
+                  <CornerNotch corner="tr" />
+                  <CornerNotch corner="bl" />
+                  <CornerNotch corner="br" />
                   <GraphCanvas
                     session={effectiveSession}
                     playback={playback}
@@ -231,23 +310,12 @@ export default function App() {
                     filters={filters}
                     onCameraReady={(api) => { cameraRef.current = api; }}
                     liveEngaged={liveEngaged}
-                  />
-                  <CanvasToolbar
-                    showLive={sessionIsLive}
-                    liveEngaged={liveEngaged}
-                    onToggleLive={() => setLiveEngaged((v) => !v)}
-                    showFit={true}
-                    onFit={() => cameraRef.current?.fit()}
-                    showFollow={true}
-                    follow={cameraRef.current?.follow ?? false}
-                    onToggleFollow={() => {
-                      const next = !(cameraRef.current?.follow ?? false);
-                      cameraRef.current?.setFollow(next);
-                    }}
+                    detailPanelOpen={!!displayedMilestone}
+                    detailPanelWidth={detailWidth}
                   />
                   <FilterToggles value={filters} onChange={setFilters} />
                   <Legend />
-                </>
+                </div>
               )}
             </div>
           )}
@@ -310,26 +378,37 @@ const styles = {
     position: 'absolute' as const,
     top: 16,
     left: 24,
+    right: 24,
     zIndex: 5,
     pointerEvents: 'none' as const,
+    display: 'flex' as const,
+    alignItems: 'flex-end' as const,
+    gap: 14,
   },
   sessionTitle: {
     fontSize: 11,
     letterSpacing: 3,
     color: 'var(--edge-trail)',
     fontFamily: 'ui-monospace, monospace',
+    whiteSpace: 'nowrap' as const,
+    overflow: 'hidden' as const,
+    textOverflow: 'ellipsis' as const,
   },
   sessionCwd: {
     fontSize: 11,
     color: 'var(--text-dim)',
     fontFamily: 'ui-monospace, monospace',
     marginTop: 2,
+    whiteSpace: 'nowrap' as const,
+    overflow: 'hidden' as const,
+    textOverflow: 'ellipsis' as const,
   },
   sessionCwdRow: {
     display: 'flex' as const,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     marginTop: 2,
     pointerEvents: 'auto' as const,
+    minWidth: 0,
   },
   overflow: {
     position: 'absolute' as const, inset: 0,
@@ -350,5 +429,49 @@ const styles = {
     color: 'var(--edge-trail)', padding: '8px 18px', cursor: 'pointer',
     fontFamily: 'ui-monospace, monospace', letterSpacing: 3, fontSize: 11,
     boxShadow: '0 0 12px rgba(0, 229, 255, 0.25)',
+  },
+  canvasCard: {
+    position: 'absolute' as const,
+    inset: 0,
+    border: '1px solid rgba(0,229,255,0.55)',
+    clipPath: [
+      'polygon(',
+      '12px 0, calc(100% - 12px) 0,',
+      '100% 12px, 100% calc(100% - 12px),',
+      'calc(100% - 12px) 100%, 12px 100%,',
+      '0 calc(100% - 12px), 0 12px',
+      ')',
+    ].join(''),
+    animation: 'paneBreathe 3.5s ease-in-out infinite',
+    overflow: 'hidden' as const,
+  },
+  headerToolGroup: {
+    display: 'flex' as const,
+    gap: 6,
+    marginLeft: 'auto',
+    flexShrink: 0,
+    pointerEvents: 'auto' as const,
+  },
+  headerToolBtn: {
+    background: 'rgba(5,8,13,0.85)',
+    border: '1px solid rgba(110, 224, 238, 0.6)',
+    color: 'var(--text)',
+    fontSize: 10,
+    letterSpacing: 2,
+    padding: '4px 10px',
+    textTransform: 'uppercase' as const,
+    fontFamily: 'ui-monospace, monospace',
+    cursor: 'pointer' as const,
+  },
+  headerToolBtnOn: {
+    background: 'rgba(0,229,255,0.10)',
+    color: 'var(--edge-trail)',
+    borderColor: 'var(--edge-trail)',
+  },
+  sessionHeaderText: {
+    minWidth: 0,
+    flexShrink: 1,
+    flexGrow: 1,
+    pointerEvents: 'auto' as const,
   },
 };

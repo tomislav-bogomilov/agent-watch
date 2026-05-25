@@ -26,6 +26,9 @@ type Props = {
    *  LIVE N=1 mode where the tree has been stripped via buildMainRoot and the
    *  default walk produces enormous overlapping false-positive regions. */
   hideSubagentRegions?: boolean;
+  /** Forwarded to <Minimap> so it shifts left when the details panel is docked. */
+  detailPanelOpen?: boolean;
+  detailPanelWidth?: number;
 };
 
 type SubagentRegion = { x: number; y: number; width: number; height: number };
@@ -65,6 +68,7 @@ function computeSubagentRegions(root: Milestone, nodes: LaidOutNode[]): Subagent
 export function GraphCanvas({
   session, playback, subagentIds, pinnedId, onPin, onScrubTo, filters, onCameraReady,
   liveEngaged, compact = false, hideSubagentRegions = false,
+  detailPanelOpen = false, detailPanelWidth = 0,
 }: Props) {
   const layout = useMemo(() => layoutTree(session.root), [session]);
   const subagentRegions = useMemo(
@@ -336,6 +340,8 @@ export function GraphCanvas({
           onJump={(pt) => centerOn(pt, transform.k)}
           onPan={(pt) => centerOn(pt, transform.k, { animate: false })}
           onZoom={(pt, k) => centerOn(pt, k, { animate: false })}
+          detailPanelOpen={detailPanelOpen}
+          detailPanelWidth={detailPanelWidth}
         />
       )}
       {hover && <NodeTooltip milestone={hover.milestone} screenX={hover.screenX} screenY={hover.screenY} />}

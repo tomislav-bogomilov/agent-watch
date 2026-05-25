@@ -29,7 +29,7 @@ const ALL_FILTERS: Filters = { hidePruned: false, hideSubagents: false, successO
 
 const wrapper: CSSProperties = {
   position: 'relative',
-  background: '#050810',
+  background: 'transparent', // was '#050810' — let the body grid show through
   overflow: 'hidden',
   display: 'flex',
   width: '100%',
@@ -70,32 +70,57 @@ function notchStyle(corner: 'tl'|'tr'|'bl'|'br', color: string): CSSProperties {
   };
 }
 
-const headerStyle = (color: string): CSSProperties => ({
-  position: 'absolute', top: 0, left: 0, right: 0, height: 22,
+const headerStyle = (color: string, hasClose: boolean): CSSProperties => ({
+  position: 'absolute',
+  top: 8,
+  left: 8,
+  right: hasClose ? 36 : 8,
+  height: 20,
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: '0 14px',
-  background: 'linear-gradient(rgba(5,8,13,0.95), rgba(5,8,13,0.5))',
-  borderBottom: '1px solid rgba(110,224,238,0.08)',
+  padding: '0 10px', gap: 12,
+  background: 'rgba(5,8,13,0.85)',
+  border: `1px solid ${color}33`,
+  borderRadius: 2,
   fontSize: 9, letterSpacing: 2, color,
   fontFamily: 'ui-monospace, monospace',
   zIndex: 5, pointerEvents: 'none',
+  backdropFilter: 'blur(2px)',
 });
 
 const canvasHost = (withHeader: boolean): CSSProperties => ({
   flex: 1, minWidth: 0, position: 'relative',
-  paddingTop: withHeader ? 22 : 0,
+  paddingTop: withHeader ? 36 : 0,
 });
 
-const detailStyle = (withHeader: boolean): CSSProperties => ({
-  width: '36%', minWidth: 160, flexShrink: 0,
-  borderLeft: '1px solid rgba(110,224,238,0.18)',
-  background: 'rgba(5,8,13,0.92)',
-  padding: withHeader ? '24px 12px 12px' : '12px 12px 12px',
-  fontFamily: 'ui-monospace, monospace',
-  fontSize: 11, color: '#d4e9f0',
-  overflow: 'auto',
-  position: 'relative', zIndex: 4,
-});
+type AccentRgb = readonly [number, number, number]; // r, g, b
+
+const ACCENT_MAIN: AccentRgb = [0, 229, 255];        // cyan
+const ACCENT_SUB:  AccentRgb = [184, 148, 255];      // purple
+
+// inset from clip-path corners + BR notch (margin top tracks header band)
+function detailStyle(withHeader: boolean, accent: AccentRgb): CSSProperties {
+  const [r, g, b] = accent;
+  const topStopAlpha = accent === ACCENT_MAIN ? 0.08 : 0.10;
+  const topEdgeAlpha = accent === ACCENT_MAIN ? 0.22 : 0.28;
+  return {
+    width: '36%', minWidth: 160, flexShrink: 0,
+    margin: withHeader ? '36px 12px 12px 0' : '12px 12px 12px 0',
+    borderLeft: `1px solid rgba(${r}, ${g}, ${b}, 0.55)`,
+    background: [
+      `linear-gradient(180deg, rgba(${r},${g},${b},${topStopAlpha}), rgba(5,8,13,0.95) 60%, rgba(5,8,13,1))`,
+      '#050810',
+    ].join(', '),
+    boxShadow: [
+      `inset 1px 0 0 rgba(${r}, ${g}, ${b}, ${topEdgeAlpha})`,
+      `inset 6px 0 18px rgba(${r}, ${g}, ${b}, 0.06)`,
+    ].join(', '),
+    padding: 12,
+    fontFamily: 'ui-monospace, monospace',
+    fontSize: 11, color: '#d4e9f0',
+    overflow: 'auto',
+    position: 'relative', zIndex: 4,
+  };
+}
 
 function collectInnerSubagentIds(root: Milestone): Set<string> {
   // Only marks descendants of a spawn's children[0] (the inner subtree). Walks
@@ -225,14 +250,26 @@ export function LivePane({
         </button>
       )}
 
-      <div style={canvasHost(showHeader)}>
-        {showHeader && (
-          <div style={headerStyle(accent)}>
-            <span>{label}</span>
-            <span style={{ color: '#6e95a5' }}>{newest?.summary ?? ''}</span>
-          </div>
-        )}
+      {showHeader && (
+        <div style={headerStyle(accent, !!onClose)}>
+          <span style={{ flexShrink: 0 }}>{label}</span>
+          <span
+            style={{
+              color: '#6e95a5',
+              flex: '1 1 auto',
+              minWidth: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              textAlign: 'right',
+            }}
+          >
+            {newest?.summary ?? ''}
+          </span>
+        </div>
+      )}
 
+      <div style={canvasHost(showHeader)}>
         <GraphCanvas
           session={session}
           playback={playback}
@@ -263,7 +300,7 @@ export function LivePane({
         )}
       </div>
 
-      <aside data-testid="live-pane-detail" style={detailStyle(showHeader)}>
+      <aside data-testid="live-pane-detail" style={detailStyle(showHeader, kind === 'main' ? ACCENT_MAIN : ACCENT_SUB)}>
         <div style={{ fontSize: 9, letterSpacing: 3, color: accent, marginBottom: 6 }}>
           {kind === 'main' ? 'MAIN · NODE' : 'SUBAGENT · NODE'}
         </div>

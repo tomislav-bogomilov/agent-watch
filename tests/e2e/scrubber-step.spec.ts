@@ -8,6 +8,11 @@ test('scrubber click jumps playhead and pauses', async ({ page }) => {
   // Start playback so we can verify the scrubber pauses it.
   await page.getByTestId('play-toggle').click();
 
+  // Dismiss the detail panel if it opened automatically (floating panel covers
+  // the right side of the scrubber track since Task 7 removed paddingRight).
+  const closeBtn = page.getByTestId('detail-close');
+  if (await closeBtn.isVisible()) await closeBtn.click();
+
   const scrubber = page.getByTestId('scrubber-track');
   await expect(scrubber).toBeVisible();
   const box = await scrubber.boundingBox();
