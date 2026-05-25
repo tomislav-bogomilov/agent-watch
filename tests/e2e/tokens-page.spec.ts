@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 test('tokens page: shows per-model rows and stacked-bar chart from fixtures', async ({ page }) => {
-  await page.goto('/#/tokens');
+  await page.goto('/');
+  await page.getByTestId('library-mode').selectOption('usage');
 
   // Page chrome present
   await expect(page.getByTestId('tokens-page')).toBeVisible();
