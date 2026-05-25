@@ -11,4 +11,8 @@
   --subagent-accent: #9d6cff;
   --text: #aeeaf2;
   --text-dim: #4f7782;
+  --tg-rail-bg-edge: rgba(0, 229, 255, 0.18);
+  --tg-rail-bg-mid: rgba(0, 229, 255, 0.02);
+  --tg-rail-thumb-dark: #003844;
+  --tg-rail-thumb-bright: #5cf2ff;
 }
