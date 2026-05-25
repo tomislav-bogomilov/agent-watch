@@ -88,9 +88,8 @@ export const NodeShape = memo(function NodeShape({ node, state, inSubagent, pinn
         d={d}
         fill={colors.fill}
         stroke={colors.stroke}
-        strokeWidth={state === 'active' ? 2 : state === 'success' ? 1.75 : 1.25}
+        strokeWidth={state === 'active' ? 2 : state === 'success' ? 1.5 : 1.25}
         opacity={state === 'pruned' ? 0.35 : 0.97}
-        style={state === 'success' ? { animation: 'tg-shimmer 2.4s ease-in-out infinite' } : undefined}
       />
       <text
         x={labelX}
@@ -147,21 +146,23 @@ export const NodeShape = memo(function NodeShape({ node, state, inSubagent, pinn
   );
 });
 
-function tintFor(kind: MilestoneKind): { fill: string; accent: string } {
+function tintFor(kind: MilestoneKind): { fill: string; accent: string; successFill: string } {
   // Distinct neon tints per kind, on the TRON cyan/violet/teal axis.
+  // `fill` is the idle/active fallback; `successFill` is the lifted-luminance
+  // post-active plate (P1) used in the `success` state of colorsFor().
   switch (kind) {
     case 'root_prompt':
     case 'user_followup':
-      return { fill: '#0a2230', accent: '#5cf2ff' };
+      return { fill: '#0a2230', accent: '#5cf2ff', successFill: '#1a4254' };
     case 'tool_call':
-      return { fill: '#0f2e2a', accent: '#7fffd4' };
+      return { fill: '#0f2e2a', accent: '#7fffd4', successFill: '#1c4a40' };
     case 'subagent_spawn':
-      return { fill: '#1a1230', accent: '#9d6cff' };
+      return { fill: '#1a1230', accent: '#9d6cff', successFill: '#2c1f4a' };
     case 'completion':
-      return { fill: '#0d2a16', accent: '#7fffd4' };
+      return { fill: '#0d2a16', accent: '#7fffd4', successFill: '#194028' };
     case 'assistant_turn':
     default:
-      return { fill: '#0f2632', accent: '#5cf2ff' };
+      return { fill: '#0f2632', accent: '#5cf2ff', successFill: '#1a3d54' };
   }
 }
 
@@ -174,7 +175,11 @@ function colorsFor(state: State, inSubagent: boolean, kind: MilestoneKind) {
     case 'active':
       return { fill: 'var(--node-active)', stroke: 'var(--node-active)', text: '#001017' };
     case 'success':
-      return { fill: tint.fill, stroke: 'var(--node-success)', text: 'var(--node-success)' };
+      return {
+        fill: tint.successFill,
+        stroke: 'var(--node-success)',
+        text: 'var(--text)',
+      };
     case 'failed':
       return { fill: tint.fill, stroke: 'var(--node-failed)', text: 'var(--node-failed)' };
     case 'pruned':
