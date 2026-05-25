@@ -18,6 +18,7 @@ describe('DailyUsageChart', () => {
         preset="all"
         today="2026-05-22"
         metric="total"
+        family="all"
       />
     );
     // 3 days × 2 model keys = 6 stack rects (zero-height ones still rendered)
@@ -33,6 +34,7 @@ describe('DailyUsageChart', () => {
         preset="all"
         today="2026-05-22"
         metric="total"
+        family="all"
       />
     );
     expect(screen.getByText(/NO USAGE IN RANGE/i)).toBeDefined();
