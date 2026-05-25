@@ -21,7 +21,6 @@ export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubage
   // Use the same cyan family for every state so all tracks read as
   // wired-up paths. Differences come from stroke width, opacity, and
   // glow strength.
-  const stroke = inSubagent ? 'var(--subagent-accent)' : 'var(--edge-trail)';
   const dashArray = state === 'drawing' ? `${pathLength(edge)}` : undefined;
   const dashOffset = state === 'drawing' ? pathLength(edge) * (1 - progress) : 0;
   // Visual hierarchy:
@@ -33,9 +32,17 @@ export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubage
   // (inbound to the current playhead) reads obviously different from the
   // older trail behind it. Recent stays close to drawing; older fades.
   const isRecentDone = freshness >= 0.95;
-  // Tail-done is dramatically demoted so the recent transition (and the
-  // active node) are the unambiguous focus. Tail floors at ~0.18 opacity.
-  const doneOpacity = isRecentDone ? 0.92 : Math.max(0.18, 0.1 + 0.25 * freshness);
+  const stroke = inSubagent
+    ? 'var(--subagent-accent)'
+    : (state === 'done' && !isRecentDone)
+      ? 'var(--node-success)'
+      : 'var(--edge-trail)';
+  // Tail-done is demoted so the recent transition (and the active node) are
+  // the unambiguous focus. Opacity floor raised to 0.40 so the trail stays
+  // readable even for the oldest done edges.
+  const doneOpacity = isRecentDone
+    ? 0.92
+    : Math.max(0.40, 0.25 + 0.55 * freshness);
   const opacity =
     state === 'pruned' ? 0.28 :
     state === 'idle' ? 0.55 :
@@ -71,7 +78,8 @@ export const EdgePath = memo(function EdgePath({ edge, state, progress, inSubage
   // glow with no per-frame paint-shader work.
   const glowFilter =
     state === 'drawing' ? `drop-shadow(0 0 6px var(--edge-trail))`
-    : state === 'done' ? `drop-shadow(0 0 4px var(--edge-trail))`
+    : state === 'done' && isRecentDone ? `drop-shadow(0 0 4px var(--edge-trail))`
+    : state === 'done' ? `drop-shadow(0 0 3px var(--node-success))`
     : state === 'idle' ? `drop-shadow(0 0 1.5px var(--edge-trail))`
     : `drop-shadow(0 0 1px rgba(255,255,255,0.08))`;
   const style: CSSProperties = { filter: glowFilter };
