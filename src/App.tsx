@@ -19,6 +19,7 @@ import { usePersistentWidth } from './util/usePersistentWidth';
 import { formatPath } from './util/formatPath';
 import type { CameraApi } from './graph/useCamera';
 import type { Milestone, Session } from './parse/types';
+import type { Family } from './tokens/family';
 
 const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 520;
@@ -28,6 +29,7 @@ const NARROW_THRESHOLD = 1400;
 const CONTENT_MAX = 2400;
 
 const STORAGE_MODE = 'tg.library.mode';
+const STORAGE_FAMILY = 'tg.usage.family';
 
 function readMode(): LibraryMode {
   try {
@@ -35,6 +37,16 @@ function readMode(): LibraryMode {
     return raw === 'prompts' ? 'prompts' : 'sessions';
   } catch {
     return 'sessions';
+  }
+}
+
+function readFamily(): Family {
+  try {
+    const raw = localStorage.getItem(STORAGE_FAMILY);
+    if (raw === 'opus' || raw === 'sonnet' || raw === 'haiku' || raw === 'all') return raw;
+    return 'all';
+  } catch {
+    return 'all';
   }
 }
 
@@ -88,6 +100,11 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem(STORAGE_MODE, mode); } catch { /* ignore */ }
   }, [mode]);
+  // @ts-expect-error setFamily will be used in later tasks (Task 7+)
+  const [family, setFamily] = useState<Family>(() => readFamily());
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_FAMILY, family); } catch { /* ignore */ }
+  }, [family]);
   const sessionsQuery = useSessionList();
   const selectedMeta = useMemo(() => {
     if (!selected || !sessionsQuery.data) return null;
