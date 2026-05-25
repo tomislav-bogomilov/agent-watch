@@ -7,6 +7,8 @@ import { PlaybackControls } from './components/PlaybackControls';
 import { DetailPanel } from './components/DetailPanel';
 import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
+import { TokensPage } from './tokens/TokensPage';
+import { useHashRoute } from './util/useHashRoute';
 import { CopyCwdButton } from './components/CopyCwdButton';
 import { usePromptList, useSession, useSessionList, isLiveMeta } from './api/hooks';
 import { sliceSession } from './parse/slice';
@@ -85,6 +87,7 @@ export default function App() {
     sessionIsLive || liveEngaged,
   );
   const promptsQuery = usePromptList();
+  const route = useHashRoute();
 
   // For prompt selections, derive an `effectiveSession` whose root is the
   // sliced chain. For session selections, pass the parsed session through.
@@ -210,6 +213,7 @@ export default function App() {
       />
       <main style={styles.main}>
         <div style={styles.contentFrame}>
+          {route === 'tokens' ? <TokensPage /> : (<>
           {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
           {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
           {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
@@ -331,6 +335,7 @@ export default function App() {
             width={detailWidth}
             onResize={(d) => setDetailWidth((w) => w + d)}
           />
+        </>)}
         </div>
       </main>
     </div>

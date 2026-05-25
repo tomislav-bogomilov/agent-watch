@@ -224,6 +224,19 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
           </select>
         </span>
         <button
+          type="button"
+          data-testid="tokens-link"
+          onClick={() => {
+            window.location.hash = window.location.hash === '#/tokens' ? '' : '#/tokens';
+          }}
+          style={{
+            ...styles.tokensLink,
+            ...(typeof window !== 'undefined' && window.location.hash === '#/tokens' ? styles.tokensLinkOn : null),
+          }}
+          aria-label="tokens"
+          title="token usage"
+        >TOKENS</button>
+        <button
           onClick={onToggleCollapsed}
           style={styles.collapseBtn}
           aria-label="collapse sidebar"
@@ -371,4 +384,19 @@ const styles = {
   groupCount: { color: 'var(--text-dim)' },
   muted: { padding: '0 12px', color: 'var(--text-dim)', fontSize: 12 },
   error: { padding: '0 12px', color: 'var(--node-failed)', fontSize: 12 },
+  tokensLink: {
+    background: 'transparent',
+    border: '1px solid var(--edge-idle)',
+    color: 'var(--text)',
+    fontFamily: 'ui-monospace, monospace',
+    fontSize: 10,
+    letterSpacing: 2,
+    padding: '4px 8px',
+    cursor: 'pointer' as const,
+  },
+  tokensLinkOn: {
+    borderColor: 'var(--edge-trail)',
+    color: 'var(--edge-trail)',
+    background: 'rgba(0,229,255,0.10)',
+  },
 };
