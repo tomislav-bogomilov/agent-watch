@@ -21,8 +21,33 @@ export function OverallSpendList({ summaries }: Props) {
     return <div style={styles.empty}>NO USAGE IN RANGE</div>;
   }
 
+  const grand = summaries.reduce(
+    (acc, s) => ({
+      input: acc.input + s.input,
+      output: acc.output + s.output,
+      cached: acc.cached + s.cached,
+      total: acc.total + s.total,
+    }),
+    { input: 0, output: 0, cached: 0, total: 0 },
+  );
+
   return (
     <div style={styles.list}>
+      <div
+        data-testid="model-row-all"
+        style={{ ...styles.row, borderBottom: '1px solid rgba(110,224,238,0.25)', paddingBottom: 10 }}
+      >
+        <div style={styles.rowTop}>
+          <span style={styles.grandLabel}>ALL MODELS</span>
+          <span style={styles.breakdown}>
+            IN {formatTokens(grand.input)} · OUT {formatTokens(grand.output)} · CACHED {formatTokens(grand.cached)}
+          </span>
+          <span style={styles.total}>{formatTokens(grand.total)}</span>
+        </div>
+        <div style={styles.barTrack} aria-hidden>
+          <div style={{ ...styles.barSeg, width: '100%', background: 'var(--edge-trail)', opacity: 0.5 }} />
+        </div>
+      </div>
       {summaries.map((s) => {
         const k = modelKey(s.modelId, s.isSubagent);
         const widthPct = maxTotal > 0 ? (s.total / maxTotal) * 100 : 0;
@@ -63,6 +88,7 @@ const styles = {
     fontFamily: 'ui-monospace, monospace',
     fontSize: 11,
   },
+  grandLabel: { color: 'var(--edge-trail)', letterSpacing: 1, flexShrink: 0, fontFamily: 'ui-monospace, monospace' },
   modelName: { color: 'var(--text)', letterSpacing: 1, flexShrink: 0 },
   subTag: { color: 'var(--text-dim)' },
   breakdown: { color: 'var(--text-dim)', flex: 1, overflow: 'hidden' as const, textOverflow: 'ellipsis' as const, whiteSpace: 'nowrap' as const },
