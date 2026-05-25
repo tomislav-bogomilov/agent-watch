@@ -26,6 +26,7 @@ type Props = {
 type Hover = { day: string; key: string; value: number; cx: number; cy: number } | null;
 
 const MARGIN = { top: 16, right: 16, bottom: 28, left: 56 };
+const TOOLTIP_W = 140;
 
 export function DailyUsageChart({ rows, projectId, preset, today, metric }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -171,22 +172,27 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
     <div ref={containerRef} style={styles.container}>
       {!hasData && <div style={styles.empty}>NO USAGE IN RANGE</div>}
       {hasData && <svg ref={svgRef} width={width} height={height} />}
-      {hover && (
-        <div
-          data-testid="chart-tooltip"
-          style={{ ...styles.tooltip, left: hover.cx + 8, top: Math.max(0, hover.cy - 36) }}
-        >
-          <div>{hover.day}</div>
-          <div style={{ color: colorFor(hover.key, allKeys) }}>
-            {(() => {
-              const isSub = hover.key.endsWith('|sub');
-              const baseId = isSub ? hover.key.slice(0, -4) : hover.key;
-              return isSub ? `${modelLabel(baseId)} · sub` : modelLabel(baseId);
-            })()}
+      {hover && (() => {
+        const flipLeft = hover.cx + 8 + TOOLTIP_W > width;
+        const left = flipLeft ? Math.max(0, hover.cx - 8 - TOOLTIP_W) : hover.cx + 8;
+        const top = Math.max(0, hover.cy - 36);
+        return (
+          <div
+            data-testid="chart-tooltip"
+            style={{ ...styles.tooltip, left, top, width: TOOLTIP_W }}
+          >
+            <div>{hover.day}</div>
+            <div style={{ color: colorFor(hover.key, allKeys) }}>
+              {(() => {
+                const isSub = hover.key.endsWith('|sub');
+                const baseId = isSub ? hover.key.slice(0, -4) : hover.key;
+                return isSub ? `${modelLabel(baseId)} · sub` : modelLabel(baseId);
+              })()}
+            </div>
+            <div>{formatTokens(hover.value)}</div>
           </div>
-          <div>{formatTokens(hover.value)}</div>
-        </div>
-      )}
+        );
+      })()}
       {hasData && allKeys.length > 0 && (
         <div style={styles.legend} data-testid="chart-legend">
           {allKeys.map((k) => {
@@ -216,7 +222,7 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
 }
 
 const styles = {
-  container: { width: '100%', height: '100%', position: 'relative' as const, minHeight: 200 },
+  container: { width: '100%', height: '100%', position: 'relative' as const, minHeight: 200, overflow: 'hidden' },
   empty: {
     position: 'absolute' as const,
     inset: 0,
