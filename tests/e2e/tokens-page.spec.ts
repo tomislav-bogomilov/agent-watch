@@ -16,9 +16,10 @@ test('tokens page: shows per-model rows and stacked-bar chart from fixtures', as
   const initialRects = await page.locator('svg [data-role="bar"]').count();
   expect(initialRects).toBeGreaterThan(0);
 
-  // 7D preset narrows the window — bar count must change (fixture days are
-  // 2026-05-20 and 2026-05-23; "today" is whatever the test runner's date is
-  // when invoked, so the assertion is "count changes" not "count equals N").
+  // 7D preset narrows the window — bar count must change. Fixture event
+  // timestamps are 2026-05-10 and 2026-05-15 (event `timestamp` field, not
+  // the filename), well outside the 7-day window from any modern run date,
+  // so 7D drops every row to zero bars regardless of when the suite runs.
   await page.getByTestId('tokens-preset-7d').click();
   await expect.poll(async () => page.locator('svg [data-role="bar"]').count())
     .not.toBe(initialRects);

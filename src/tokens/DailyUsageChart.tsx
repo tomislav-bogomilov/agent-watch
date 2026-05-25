@@ -47,6 +47,10 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
     return () => ro.disconnect();
   }, []);
 
+  useEffect(() => {
+    setDisabled(new Set());
+  }, [projectId, preset]);
+
   // allKeys is every model key present in the filtered data; activeKeys
   // is the subset to actually stack (legend toggles flip membership).
   const { days, allKeys, activeKeys, data, hasData } = useMemo(() => {
@@ -65,6 +69,7 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
   }, [rows, projectId, preset, today, metric, disabled]);
 
   useEffect(() => {
+    setHover(null);
     if (!hasData || !svgRef.current) return;
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
