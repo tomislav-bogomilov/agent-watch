@@ -1,0 +1,2 @@
+{"uuid":"t1","parentUuid":null,"timestamp":"2026-05-20T10:00:00Z","type":"user","message":{"role":"user","content":"hi"}}
+{"uuid":"t2","parentUuid":"t1","timestamp":"2026-05-20T10:00:01Z","type":"assistant","message":{"role":"assistant","model":"claude-opus-4-7","content":[{"type":"text","text":"hello"}],"usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":200,"cache_creation_input_tokens":300}}}

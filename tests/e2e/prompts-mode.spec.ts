@@ -4,7 +4,7 @@ test('prompts mode: dropdown switches the list, clicking a prompt opens a scoped
   await page.goto('/');
 
   // Default Sessions mode renders a list with 4 fixture projects (happy/fail/sub/live).
-  await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(4);
+  await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(6);
 
   // Switch to Prompts mode via the dropdown.
   await page.locator('[data-testid="library-mode"]').selectOption('prompts');
@@ -30,5 +30,5 @@ test('prompts mode: dropdown switches the list, clicking a prompt opens a scoped
   // Now switch back to Sessions mode and verify the dropdown remains
   // functional and the session list reappears.
   await page.locator('[data-testid="library-mode"]').selectOption('sessions');
-  await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(4);
+  await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(6);
 });
