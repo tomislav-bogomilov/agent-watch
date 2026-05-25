@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import type { Plugin, Connect } from 'vite';
+import { aggregateTokenUsage } from './aggregate-token-usage';
 
 type SessionMeta = {
   projectId: string;
@@ -330,6 +331,24 @@ export function sessionsPlugin(): Plugin {
           }
           const prompts = await listPrompts(root);
           sendJson(res, 200, { prompts });
+        } catch (err) {
+          next(err as Error);
+        }
+      });
+
+      server.middlewares.use('/api/token-usage', async (req, res, next) => {
+        try {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'method not allowed' });
+            return;
+          }
+          const url = req.url ?? '/';
+          if (url !== '/' && url !== '') {
+            sendJson(res, 400, { error: 'expected /api/token-usage' });
+            return;
+          }
+          const payload = await aggregateTokenUsage(root);
+          sendJson(res, 200, payload);
         } catch (err) {
           next(err as Error);
         }
