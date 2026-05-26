@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 test('tokens page: shows per-model rows and stacked-bar chart from fixtures', async ({ page }) => {
-  await page.goto('/#/tokens');
+  await page.goto('/');
+  await page.getByTestId('library-mode').selectOption('usage');
 
   // Page chrome present
   await expect(page.getByTestId('tokens-page')).toBeVisible();
@@ -11,6 +12,10 @@ test('tokens page: shows per-model rows and stacked-bar chart from fixtures', as
   await expect(page.getByTestId('model-row-claude-opus-4-7')).toBeVisible();
   await expect(page.getByTestId('model-row-claude-opus-4-7|sub')).toBeVisible();
   await expect(page.getByTestId('model-row-claude-sonnet-4-6')).toBeVisible();
+
+  // Default is now 30D — switch to ALL so the captured baseline covers
+  // the full fixture range and later "back to ALL" assertions match.
+  await page.getByTestId('tokens-preset-all').click();
 
   // Chart renders bars (3 model keys × N days)
   const initialRects = await page.locator('svg [data-role="bar"]').count();

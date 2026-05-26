@@ -12,11 +12,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-@keyframes tg-shimmer {
-  0%, 100% { opacity: 0.88; }
-  50%      { opacity: 1.0; }
-}
-
 @keyframes tg-edge-pulse {
   0%, 100% { stroke-width: 4;   stroke-opacity: 0.85; }
   50%      { stroke-width: 5.5; stroke-opacity: 1.0; }
@@ -25,4 +20,55 @@ body {
 @keyframes tg-edge-trail {
   0%, 100% { stroke-opacity: 0.88; }
   50%      { stroke-opacity: 1.0; }
+}
+
+/* TRON glass-cylinder scrollbar for the left library panel.
+   Width 6px; horizontal radial gradient gives the thumb a curved-tube look. */
+.tg-library-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.tg-library-scroll::-webkit-scrollbar-track {
+  background: linear-gradient(
+    90deg,
+    var(--tg-rail-bg-edge),
+    var(--tg-rail-bg-mid) 50%,
+    var(--tg-rail-bg-edge)
+  );
+  box-shadow:
+    inset 1px 0 2px rgba(0, 0, 0, 0.9),
+    inset -1px 0 2px rgba(0, 0, 0, 0.9);
+}
+.tg-library-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    90deg,
+    var(--tg-rail-thumb-dark) 0%,
+    #00b3c8 35%,
+    var(--tg-rail-thumb-bright) 50%,
+    #00b3c8 65%,
+    var(--tg-rail-thumb-dark) 100%
+  );
+  border-top: 1px solid rgba(180, 250, 255, 0.6);
+  border-bottom: 1px solid rgba(0, 40, 50, 0.9);
+  box-shadow:
+    0 0 6px rgba(0, 229, 255, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.tg-library-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    90deg,
+    #004c5c 0%,
+    #00d6ee 35%,
+    #b8faff 50%,
+    #00d6ee 65%,
+    #004c5c 100%
+  );
+  box-shadow:
+    0 0 10px rgba(0, 229, 255, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+/* Firefox fallback (no per-element gradient support for scrollbars). */
+.tg-library-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tg-rail-thumb-bright) transparent;
 }

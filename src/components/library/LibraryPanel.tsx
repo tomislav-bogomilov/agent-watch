@@ -4,8 +4,11 @@ import type { PromptMeta, SessionMeta } from '../../parse/types';
 import { ResizeHandle } from '../ResizeHandle';
 import { PromptsList } from './PromptsList';
 import { SessionsList } from './SessionsList';
+import { UsageCardsList } from './UsageCardsList';
+import type { TokenUsageRow } from '../../api/client';
+import type { Family } from '../../tokens/family';
 
-export type LibraryMode = 'sessions' | 'prompts';
+export type LibraryMode = 'sessions' | 'prompts' | 'usage';
 
 export type Selection =
   | { kind: 'session'; projectId: string; sessionId: string }
@@ -18,9 +21,16 @@ type Props = {
   onToggleCollapsed: () => void;
   width: number;
   onResize: (delta: number) => void;
+  mode: LibraryMode;
+  onModeChange: (m: LibraryMode) => void;
+  // Usage-mode props (consumed only when mode === 'usage')
+  usageRows: TokenUsageRow[];
+  usageProjectId: string | 'all';
+  usageCutoffDay: string;
+  usageFamily: Family;
+  onUsageFamilyChange: (f: Family) => void;
 };
 
-const STORAGE_MODE = 'tg.library.mode';
 const STORAGE_EXPANDED = 'tg.projects.expanded';
 const STORAGE_ORDER = 'tg.projects.order';
 const STORAGE_TITLES = 'tg.session.titles';
@@ -51,16 +61,10 @@ function reorderArray<T>(arr: T[], from: number, to: number): T[] {
   return next;
 }
 
-function readMode(): LibraryMode {
-  const raw = readJson<string>(STORAGE_MODE, 'sessions');
-  return raw === 'prompts' ? 'prompts' : 'sessions';
-}
-
-export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize }: Props) {
+export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize, mode, onModeChange, usageRows, usageProjectId, usageCutoffDay, usageFamily, onUsageFamilyChange }: Props) {
   const sessionsQuery = useSessionList();
   const promptsQuery = usePromptList();
 
-  const [mode, setModeState] = useState<LibraryMode>(() => readMode());
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(readJson<string[]>(STORAGE_EXPANDED, [])));
   const [order, setOrder] = useState<string[]>(() => readJson<string[]>(STORAGE_ORDER, []));
@@ -68,11 +72,6 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const expandedInit = useRef<Set<LibraryMode>>(new Set());
-
-  function setMode(next: LibraryMode): void {
-    setModeState(next);
-    writeJson(STORAGE_MODE, next);
-  }
 
   function onRename(sessionId: string, title: string): void {
     setTitles((prev) => {
@@ -214,28 +213,16 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
         <span style={styles.dropdownWrap}>
           <select
             value={mode}
-            onChange={(e) => setMode(e.target.value as LibraryMode)}
+            onChange={(e) => onModeChange(e.target.value as LibraryMode)}
             style={styles.dropdown}
             data-testid="library-mode"
             aria-label="library mode"
           >
             <option value="sessions">SESSIONS</option>
             <option value="prompts">PROMPTS</option>
+            <option value="usage">USAGE</option>
           </select>
         </span>
-        <button
-          type="button"
-          data-testid="tokens-link"
-          onClick={() => {
-            window.location.hash = window.location.hash === '#/tokens' ? '' : '#/tokens';
-          }}
-          style={{
-            ...styles.tokensLink,
-            ...(typeof window !== 'undefined' && window.location.hash === '#/tokens' ? styles.tokensLinkOn : null),
-          }}
-          aria-label="tokens"
-          title="token usage"
-        >TOKENS</button>
         <button
           onClick={onToggleCollapsed}
           style={styles.collapseBtn}
@@ -244,19 +231,34 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
           title="collapse (\)"
         >«</button>
       </div>
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="filter…"
-        style={styles.filter}
-        data-testid="session-filter"
-      />
-      {isLoading && <div style={styles.muted}>scanning…</div>}
-      {error && <div style={styles.error}>error: {(error as Error).message}</div>}
-      {hasData && groups.length === 0 && <div style={styles.muted}>(none)</div>}
-      <div style={styles.scroll}>
-        {groups.map((g) => {
+      {mode !== 'usage' && (
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="filter…"
+          style={styles.filter}
+          data-testid="session-filter"
+        />
+      )}
+      {mode !== 'usage' && (
+        <>
+          {isLoading && <div style={styles.muted}>scanning…</div>}
+          {error && <div style={styles.error}>error: {(error as Error).message}</div>}
+          {hasData && groups.length === 0 && <div style={styles.muted}>(none)</div>}
+        </>
+      )}
+      <div className="tg-library-scroll" style={styles.scroll}>
+        {mode === 'usage' ? (
+          <UsageCardsList
+            rows={usageRows}
+            projectId={usageProjectId}
+            cutoffDay={usageCutoffDay}
+            selected={usageFamily}
+            onSelect={onUsageFamilyChange}
+          />
+        ) : (
+        groups.map((g) => {
           const isOpen = expanded.has(g.key);
           const isDragOver = dragOverKey === g.key && dragKey !== null && dragKey !== g.key;
           return (
@@ -306,7 +308,8 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
               )}
             </div>
           );
-        })}
+        })
+        )}
       </div>
     </aside>
   );
@@ -384,19 +387,4 @@ const styles = {
   groupCount: { color: 'var(--text-dim)' },
   muted: { padding: '0 12px', color: 'var(--text-dim)', fontSize: 12 },
   error: { padding: '0 12px', color: 'var(--node-failed)', fontSize: 12 },
-  tokensLink: {
-    background: 'transparent',
-    border: '1px solid var(--edge-idle)',
-    color: 'var(--text)',
-    fontFamily: 'ui-monospace, monospace',
-    fontSize: 10,
-    letterSpacing: 2,
-    padding: '4px 8px',
-    cursor: 'pointer' as const,
-  },
-  tokensLinkOn: {
-    borderColor: 'var(--edge-trail)',
-    color: 'var(--edge-trail)',
-    background: 'rgba(0,229,255,0.10)',
-  },
 };

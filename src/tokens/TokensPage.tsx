@@ -7,26 +7,37 @@ import {
   type RangePreset,
   type Metric,
 } from './aggregate';
+import { familyOf } from './family';
 import { OverallSpendList } from './OverallSpendList';
 import { DailyUsageChart } from './DailyUsageChart';
 import { formatPath } from '../util/formatPath';
+import type { Family } from './family';
+
+type Props = {
+  family: Family;
+  preset: RangePreset;
+  onPresetChange: (p: RangePreset) => void;
+};
 
 function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function TokensPage() {
+export function TokensPage({ family, preset, onPresetChange }: Props) {
   const [projectId, setProjectId] = useState<string | 'all'>('all');
-  const [preset, setPreset] = useState<RangePreset>('all');
   const [metric, setMetric] = useState<Metric>('total');
   const query = useTokenUsage();
   const today = todayUtc();
 
-  const summaries = useMemo(() => {
+  const filtered = useMemo(() => {
     if (!query.data) return [];
     const cutoff = presetCutoff(preset, today);
-    return summariesPerModel(filterRows(query.data.rows, projectId, cutoff));
-  }, [query.data, projectId, preset, today]);
+    const byProjectAndDate = filterRows(query.data.rows, projectId, cutoff);
+    if (family === 'all') return byProjectAndDate;
+    return byProjectAndDate.filter((r) => familyOf(r.modelId) === family);
+  }, [query.data, projectId, preset, family, today]);
+
+  const summaries = useMemo(() => summariesPerModel(filtered), [filtered]);
 
   return (
     <div style={styles.page} data-testid="tokens-page">
@@ -50,7 +61,7 @@ export function TokensPage() {
               key={p}
               type="button"
               data-testid={`tokens-preset-${p}`}
-              onClick={() => setPreset(p)}
+              onClick={() => onPresetChange(p)}
               style={{ ...styles.presetBtn, ...(preset === p ? styles.presetBtnOn : null) }}
               aria-pressed={preset === p}
             >{p.toUpperCase()}</button>
@@ -93,6 +104,7 @@ export function TokensPage() {
                 preset={preset}
                 metric={metric}
                 today={today}
+                family={family}
               />
             </div>
           </div>

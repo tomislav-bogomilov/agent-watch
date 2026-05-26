@@ -274,7 +274,7 @@ export function GraphCanvas({
     let state: 'idle' | 'active' | 'success' | 'failed' | 'pruned';
     if (n.id === currentId && !playback.finished) state = 'active';
     else if (n.milestone.failed) state = 'failed';
-    else if (taintedIds.has(n.id)) state = 'pruned';
+    else if (taintedIds.has(n.id) && !traversedIds.has(n.id)) state = 'pruned';
     else if (playback.finished && successIds.has(n.id)) state = 'success';
     else if (playback.finished && traversedIds.has(n.id)) state = 'success';
     else if (traversedIds.has(n.id)) state = 'success';

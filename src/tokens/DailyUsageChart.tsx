@@ -14,6 +14,7 @@ import {
 import { colorFor } from './palette';
 import { formatTokens } from '../util/formatTokens';
 import { modelLabel } from './modelLabel';
+import { familyOf, type Family } from './family';
 
 type Props = {
   rows: TokenUsageRow[];
@@ -21,6 +22,7 @@ type Props = {
   preset: RangePreset;
   today: string;
   metric: Metric;
+  family: Family;
 };
 
 type Hover = { day: string; key: string; value: number; cx: number; cy: number } | null;
@@ -47,7 +49,7 @@ const PANEL_BG: React.CSSProperties = {
   animation: 'mmBreathe 3.5s ease-in-out infinite',
 };
 
-export function DailyUsageChart({ rows, projectId, preset, today, metric }: Props) {
+export function DailyUsageChart({ rows, projectId, preset, today, metric, family }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [width, setWidth] = useState(800);
@@ -76,7 +78,8 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
   // is the subset to actually stack (legend toggles flip membership).
   const { days, allKeys, activeKeys, data, hasData } = useMemo(() => {
     const cutoff = presetCutoff(preset, today);
-    const filtered = filterRows(rows, projectId, cutoff);
+    const base = filterRows(rows, projectId, cutoff);
+    const filtered = family === 'all' ? base : base.filter((r) => familyOf(r.modelId) === family);
     if (filtered.length === 0) {
       return { days: [] as string[], allKeys: [] as string[], activeKeys: [] as string[], data: [] as DayRow[], hasData: false };
     }
@@ -87,7 +90,7 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric }: Prop
     const activeKeys = allKeys.filter((k) => !disabled.has(k));
     const data = stackData(filtered, days, activeKeys, metric);
     return { days, allKeys, activeKeys, data, hasData: true };
-  }, [rows, projectId, preset, today, metric, disabled]);
+  }, [rows, projectId, preset, today, metric, disabled, family]);
 
   // SVG height is reduced by LEGEND_H to reserve space for the legend row below.
   const svgHeight = Math.max(160, height - LEGEND_H);
