@@ -11,6 +11,13 @@ const SCALE_MAX = 8;
 const PROGRAMMATIC_GUARD_MS = 320;
 const TWEEN_MS = 280;
 
+// FOLLOW focus pose: scale fits 9 nodes vertically (NODE_Y_SPACING=110, so
+// total span = 9 × 110 = 990 layout units = full viewport height), and the
+// playhead sits at 30% from the top so the bottom 70% shows lookahead.
+const FOCUS_VISIBLE_NODES = 9;
+const NODE_Y_SPACING = 110;
+const FOCUS_VERTICAL_RATIO = 0.30;
+
 export function fitTransform(layout: Bounds, viewport: Viewport, margin = 24): Transform {
   const availW = Math.max(1, viewport.width - margin * 2);
   const availH = Math.max(1, viewport.height - margin * 2);
@@ -33,6 +40,23 @@ export function centerOnTransform(
     k,
     x: viewport.width / 2 - layoutPoint.x * k,
     y: viewport.height / 2 - layoutPoint.y * k,
+  };
+}
+
+export function focusedZoomFor(viewport: Viewport): number {
+  const raw = viewport.height / (FOCUS_VISIBLE_NODES * NODE_Y_SPACING);
+  return Math.max(SCALE_MIN, Math.min(SCALE_MAX, raw));
+}
+
+export function focusOnTransform(
+  layoutPoint: { x: number; y: number },
+  viewport: Viewport,
+): Transform {
+  const k = focusedZoomFor(viewport);
+  return {
+    k,
+    x: viewport.width / 2 - layoutPoint.x * k,
+    y: viewport.height * FOCUS_VERTICAL_RATIO - layoutPoint.y * k,
   };
 }
 
@@ -69,6 +93,7 @@ export type CameraApi = {
   fit: () => void;
   frameInitial: (rootPoint: { x: number; y: number }) => void;
   centerOn: (pt: { x: number; y: number }, k?: number, opts?: { animate?: boolean }) => void;
+  focusOn: (pt: { x: number; y: number }, opts?: { animate?: boolean }) => void;
 };
 
 export function useCamera({ svgRef, layout, viewport }: Options): CameraApi {
@@ -129,5 +154,10 @@ export function useCamera({ svgRef, layout, viewport }: Options): CameraApi {
     applyTransform(centerOnTransform(pt, viewport, targetK), animate);
   }, [applyTransform, viewport, transform.k]);
 
-  return { transform, follow, setFollow, fit, frameInitial, centerOn };
+  const focusOn = useCallback((pt: { x: number; y: number }, opts?: { animate?: boolean }) => {
+    const animate = opts?.animate ?? true;
+    applyTransform(focusOnTransform(pt, viewport), animate);
+  }, [applyTransform, viewport]);
+
+  return { transform, follow, setFollow, fit, frameInitial, centerOn, focusOn };
 }

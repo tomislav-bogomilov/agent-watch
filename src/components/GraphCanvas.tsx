@@ -6,7 +6,7 @@ import { EdgePath, edgeFilterCohort } from './EdgePath';
 import { NodeTooltip } from './NodeTooltip';
 import { Minimap } from './Minimap';
 import { collectTaintedIds } from '../parse/failure';
-import { useCamera, type CameraApi } from '../graph/useCamera';
+import { useCamera, focusedZoomFor, type CameraApi } from '../graph/useCamera';
 import { visibleLayoutRect, nodeInRect, edgeIntersectsRect } from '../graph/viewport';
 import type { Filters } from './FilterToggles';
 import type { Milestone, Session } from '../parse/types';
@@ -95,7 +95,7 @@ export function GraphCanvas({
   }, []);
 
   const camera = useCamera({ svgRef, layout, viewport });
-  const { transform, fit, frameInitial, follow, centerOn } = camera;
+  const { transform, fit, frameInitial, follow, centerOn, focusOn } = camera;
 
   useEffect(() => {
     onCameraReady?.(camera);
@@ -177,14 +177,18 @@ export function GraphCanvas({
     if (followRafRef.current != null) cancelAnimationFrame(followRafRef.current);
     followRafRef.current = requestAnimationFrame(() => {
       followRafRef.current = null;
-      // Tolerance: skip the tween if the node is already within 8 screen-px
-      // of the viewport center at the current zoom.
+      // Tolerance: skip the tween only if the node is already within 8 screen-px
+      // of the focused target (30% from top) AND the zoom is already at focusedK.
+      // Otherwise we need to tween so the zoom snap fires.
+      const focusedK = focusedZoomFor(viewport);
       const screenX = node.x * transform.k + transform.x;
       const screenY = node.y * transform.k + transform.y;
       const dx = screenX - viewport.width / 2;
-      const dy = screenY - viewport.height / 2;
-      if (Math.sqrt(dx * dx + dy * dy) < 8) return;
-      centerOn({ x: node.x, y: node.y }, transform.k);
+      const dy = screenY - viewport.height * 0.30;
+      const inPosition = Math.sqrt(dx * dx + dy * dy) < 8;
+      const inZoom = Math.abs(transform.k - focusedK) < 0.01;
+      if (inPosition && inZoom) return;
+      focusOn({ x: node.x, y: node.y });
     });
 
     return () => {
