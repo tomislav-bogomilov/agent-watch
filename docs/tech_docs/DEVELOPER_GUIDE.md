@@ -1,0 +1,413 @@
+# ClaudeWatch — Developer Guide
+
+> Technical onboarding for developers working on ClaudeWatch. For a non-technical
+> walkthrough of the app, see [`USER_GUIDE.md`](./USER_GUIDE.md). For product intent
+> and history, see the root `PRD.md` and the specs under `docs/superpowers/`.
+
+---
+
+## 1. What ClaudeWatch is
+
+In ClaudeWatch, **nodes represent individual Thoughts** — the discrete steps in a
+Claude Code agent's reasoning and execution: a prompt, a decision, a tool call, a
+subagent spawn, a completion. The graph structure captures how those Thoughts connect:
+edges link a Thought to the Thoughts that follow from it, so a whole session becomes a
+visual, traversable network rather than a flat wall of JSONL.
+
+A **playhead** moves through this graph during playback, drawing a glowing TRON-style
+trail along the path the agent actually took. Failed steps glow red, dead-end branches
+dim out, and the winning path to completion brightens. The visualization *is* the
+product — the UI chrome stays deliberately minimal so the graph and its traversal take
+focus.
+
+ClaudeWatch reads Claude Code's own session logs off your local disk. There's no
+recording step and no instrumentation: you run Claude Code as normal, then point
+ClaudeWatch at the logs it already wrote.
+
+---
+
+## 2. Run it
+
+```bash
+npm install
+npm run dev        # Vite dev server → http://localhost:5173
+```
+
+That single command boots both halves of the app — the React frontend and the Node-side
+Vite plugin that reads session files (see §4). It is **dev-only**: there is no production
+build target.
+
+**Prerequisite:** a populated `~/.claude/projects` directory (i.e. you've run Claude Code
+locally). Override the location with the `CLAUDE_HOME` env var — the e2e tests use this to
+point at fixtures.
+
+```bash
+npm run typecheck  # tsc -b
+npm test           # vitest run  (unit tests)
+npm run test:watch # vitest      (watch mode)
+npm run test:e2e   # playwright test (spins up its own server on :5174)
+```
+
+**Stack:** React 19, TypeScript 5.6, Vite 6, TanStack Query 5.51, D3 7.9. Tests: Vitest 3
+(unit, jsdom) and Playwright 1.47 (e2e, Chromium only).
+
+---
+
+## 3. Architecture at a glance
+
+ClaudeWatch is a single Vite app with a thin Node backend implemented as a Vite plugin.
+The frontend never touches the filesystem; the plugin is the only code with `fs` access.
+
+```mermaid
+flowchart LR
+    subgraph Browser["Browser — React 19 + D3 + TanStack Query"]
+        UI["Components<br/>(GraphCanvas, LivePanes,<br/>LibraryPanel, TokensPage)"]
+        API["src/api<br/>fetch helpers + Query hooks"]
+        PARSE["src/parse<br/>JSONL → Thought tree<br/>(pure)"]
+        GRAPH["src/graph + src/playback<br/>layout, camera, clock<br/>(pure)"]
+    end
+    subgraph Node["Vite plugin (Node side) — only fs access"]
+        PLUGIN["server/vite-plugin-sessions.ts<br/>+ aggregate-token-usage.ts"]
+    end
+    DISK[("~/.claude/projects<br/>*.jsonl")]
+
+    UI --> API
+    API -->|HTTP /api/*| PLUGIN
+    PLUGIN -->|reads| DISK
+    API --> PARSE
+    PARSE --> GRAPH
+    GRAPH --> UI
+```
+
+The plugin exposes four endpoints; the frontend consumes them through typed fetch helpers
+wrapped in TanStack Query hooks. Parsing and layout are **pure** (no React, no DOM), which
+keeps them unit-testable in isolation.
+
+### Module boundaries
+
+| Path | Responsibility |
+|---|---|
+| `server/vite-plugin-sessions.ts` | Vite plugin: HTTP endpoints, directory listing, JSONL streaming, path validation against `CLAUDE_HOME/projects` |
+| `server/aggregate-token-usage.ts` | Walks all sessions, sums per-model token usage for the Token Usage page |
+| `src/api/` | Typed fetch helpers (`client.ts`) + TanStack Query hooks (`hooks.ts`) |
+| `src/parse/` | JSONL → semantic `Milestone` tree. Pure functions, no React, no D3 |
+| `src/graph/` | D3 tree layout, viewport math, camera (`useCamera`). Pure inputs → laid-out nodes |
+| `src/playback/` | `usePlayback()` animation clock + `useKeyboard()` shortcuts |
+| `src/components/` | React UI: graph canvas, controls, HUD, minimap, detail panel |
+| `src/components/live/` | Live multi-pane view for in-progress sessions |
+| `src/components/library/` | Left sidebar: Sessions / Prompts / Usage modes |
+| `src/tokens/` | Token Usage page (chart, spend list, aggregation) |
+| `src/theme/` | TRON color tokens + shared SVG glow filters |
+| `src/util/` | Display helpers (`formatPath`, `formatTokens`) |
+| `tests/` | Unit (`tests/unit/`) and e2e (`tests/e2e/`) + fixtures |
+
+---
+
+## 4. Data source
+
+Claude Code stores session logs as JSONL on disk:
+
+```
+~/.claude/projects/
+  <projectId>/                        # projectId = the cwd, path-encoded
+    <sessionId>.jsonl                 # the main session
+    <sessionId>/
+      subagents/
+        agent-<id>.jsonl              # one file per spawned subagent
+```
+
+- **`projectId`** is the working directory with separators replaced by `-`. On Windows,
+  `C:\Users\foo\proj` becomes `C--Users-foo-proj`. The plugin decodes this back to a cwd
+  for display.
+- Each **JSONL line is one event**, with fields including `uuid`, `parentUuid`,
+  `timestamp`, `type` (`user` / `assistant` / various noise types), `isMeta`,
+  `isSidechain`, and — for messages — a `message` block. Tool calls appear as `tool_use`
+  content blocks inside assistant messages; results appear as `tool_result` blocks inside
+  the *following* user message.
+- The plugin reads these files directly and streams them as opaque JSONL strings. All
+  interpretation happens in the frontend parser.
+
+### Endpoints (served by the Vite plugin)
+
+| Method + path | Returns | Notes |
+|---|---|---|
+| `GET /api/sessions` | `{ sessions: SessionMeta[] }` | Newest first; only sessions with ≥1 assistant turn; extracts a title from the first meaningful user message. Polled live. |
+| `GET /api/sessions/:projectId/:sessionId` | `SessionPayload` | Main JSONL + every `subagents/*.jsonl`, each with its `lastUpdatedAt` mtime |
+| `GET /api/prompts` | `{ prompts: PromptMeta[] }` | Every user prompt across all sessions, newest first |
+| `GET /api/token-usage` | `TokenUsageResponse` | Per-model token aggregation (see §8) |
+
+Path safety: IDs are validated against `[A-Za-z0-9._-]+` before any filesystem access, so
+a crafted `projectId`/`sessionId` can't escape `CLAUDE_HOME/projects`.
+
+---
+
+## 5. The parsing pipeline
+
+The parser turns raw JSONL into a tree of `Milestone` nodes — each milestone is one
+Thought. Entry point: `parseSession(payload)` in `src/parse/index.ts`.
+
+```mermaid
+flowchart TD
+    A["JSONL string"] -->|parseJsonl| B["RawEvent[]"]
+    B -->|filterNoise| C["RawEvent[] (clean)"]
+    C -->|buildChain| D["RawEvent[] (parent→child order)"]
+    D -->|buildMilestones| E["Milestone tree"]
+    E -->|attachSubagents| F["Milestone tree + subagent subtrees"]
+    F -->|computeSuccessPath| G["successPath: Set&lt;id&gt;"]
+    F -->|countMilestones| H["totalMilestones"]
+    G --> I["Session"]
+    H --> I
+```
+
+**Stage by stage:**
+
+1. **`filterNoise`** (`filter.ts`) drops events that carry no semantic step:
+   `file-history-snapshot`, `attachment`, `system`, `last-prompt`, `permission-mode`,
+   `ai-title`, `queue-operation`; anything with `isMeta: true`; CLI command-wrapper /
+   local-caveat user messages; and empty assistant turns.
+2. **`buildChain`** (`chain.ts`) reorders events into a parent→child tree by walking
+   `parentUuid → uuid`. **Timestamps are not authoritative for ordering** — they can be
+   out of sequence — so the parent-pointer chain is the source of truth. A final sweep
+   picks up any nodes orphaned by filtering.
+3. **`buildMilestones`** (`milestones.ts`) collapses the event chain into `Milestone`s:
+   it collects all `tool_result` blocks, then walks events emitting one milestone per
+   semantic step, merging each `tool_use` with its matching result. Labels, summaries and
+   results are produced by `extract-label.ts`, `extract-summary.ts`, `extract-result.ts`
+   (`sentence.ts` provides "first sentence" extraction). The final assistant turn is
+   promoted to `completion`; token `usage` is attached and propagated back onto the prompt
+   that triggered each response.
+4. **`attachSubagents`** (`subagents.ts`) parses each `agent-*.jsonl`, builds its milestone
+   tree, and attaches it under the matching `subagent_spawn` node. Matching tries, in
+   order: the explicit `agentId` in the spawn's tool result → timestamp proximity → file
+   order.
+5. **`computeSuccessPath` + taint** (`failure.ts`) marks any milestone whose tool result
+   errored (or whose Bash exit code ≠ 0) as `failed`; a branch containing a failure is
+   *tainted*. The success path is the chain from root to the final completion excluding
+   tainted branches, stored as a `Set<id>` for O(1) "is this on the success path?" lookups.
+6. **`sliceSession`** (`slice.ts`) is a post-parse transform used by Prompts mode: given a
+   prompt id, it extracts the contiguous slice of the main trail from that prompt up to
+   (but excluding) the next `user_followup`, rebuilds it as a fresh sub-tree, and
+   recomputes `totalMilestones` and the intersected success path.
+
+### The tree shape
+
+The `children` array encodes structure. A normal milestone has one child (the next step).
+A `subagent_spawn` has two: `children[0]` is the subagent's subtree (a side branch),
+`children[1]` is the main flow continuing. D3's tree layout handles both uniformly.
+
+```mermaid
+flowchart TD
+    P["root_prompt"] --> AT["assistant_turn"]
+    AT --> TC["tool_call (Read)"]
+    TC --> SP["subagent_spawn"]
+    SP -->|children0| SUB["subagent root<br/>(its own subtree)"]
+    SP -->|children1| TC2["tool_call (Bash)"]
+    TC2 --> DONE["completion"]
+```
+
+### Data model (`src/parse/types.ts`)
+
+```typescript
+type MilestoneKind =
+  | 'root_prompt'      // first user message
+  | 'assistant_turn'   // assistant text, no tool call
+  | 'tool_call'        // one tool_use + its result
+  | 'subagent_spawn'   // a Task/Agent tool call
+  | 'user_followup'    // a later user message
+  | 'completion';      // the final assistant turn
+
+type Milestone = {
+  id: string;             // event uuid; "<uuid>#<toolId>" for tool calls
+  kind: MilestoneKind;
+  label: string;          // short on-node label, e.g. "Read slice.ts"
+  summary: string;        // one-line action (~160 chars)
+  result?: string;        // one-line outcome (tool calls only)
+  detail?: string;        // full text for the detail panel
+  timestamp: string;
+  failed: boolean;
+  toolName?: string;      // for tool_call / subagent_spawn
+  raw: unknown;           // original event(s), kept for the detail panel
+  children: Milestone[];  // see "tree shape" above
+  usage?: ContextUsage;   // token usage from the assistant event
+  contextSize?: number;   // input + cacheRead + cacheCreation
+};
+
+type Session = {
+  id: string;
+  cwd: string;
+  startedAt: string;
+  root: Milestone;
+  successPath: Set<string>;
+  totalMilestones: number;
+  subagentMtimes: Record<string, string>;  // subagentId → ISO mtime
+};
+```
+
+---
+
+## 6. Rendering & playback
+
+The renderer is pure-data-driven: D3 computes layout coordinates, React renders the SVG,
+and the playback clock advances an index. No imperative D3 transitions fight React's
+reconciler.
+
+### Layout (`src/graph/layout.ts`)
+`d3.tree()` with **fixed node spacing** (`nodeSize([140, 110])`) produces `{x, y}` per
+node — a top-down tree. Layout is memoized two ways: a `WeakMap` keyed on the root object,
+and an LRU (cap 16) keyed on a structural fingerprint, so re-parses of the same shape don't
+re-lay-out.
+
+### Camera (`src/graph/useCamera.ts`, `viewport.ts`)
+The camera is a zoom transform `{k, x, y}` (scale clamped to `[0.2, 8]`). Two modes:
+
+- **FREE** — manual pan/zoom via d3-zoom. Any wheel/drag turns FOLLOW off.
+- **FOLLOW** — the camera animates to keep the playhead in view. At follow zoom the
+  viewport shows **9 nodes** vertically (`FOCUS_VISIBLE_NODES = 9` × `NODE_Y_SPACING 110`),
+  with the playhead placed **30% from the top** (`FOCUS_VERTICAL_RATIO = 0.30`) so most of
+  the frame is lookahead. Transitions tween over `TWEEN_MS = 280`; a `PROGRAMMATIC_GUARD_MS`
+  window prevents programmatic tweens from being misread as user input that would flip
+  FOLLOW off.
+
+Helper transforms: `fitTransform` (whole graph to viewport), `focusOnTransform` (follow
+framing), `initialFrameTransform` (root anchored near top at 1:1 on first load).
+
+### Playback clock (`src/playback/usePlayback.ts`)
+State: `{ order, index, edgeProgress, playing, speed, finished }`. `order` is a **depth-first
+flatten** of the tree — which makes subagent traversal temporally faithful: when the trail
+reaches a spawn, it descends into the subagent subtree before continuing the main flow. A
+RAF loop accumulates wall-clock time; `BASE_MS_PER_NODE = 400` divided by `speed`
+(`0.25 / 0.5 / 1 / 2 / 4`) sets the pace. `index` and `edgeProgress` live in a single state
+slot to avoid double-advancing on a React re-invoke.
+
+### Keyboard (`src/playback/useKeyboard.ts`)
+
+| Key | Action |
+|---|---|
+| `Space` | play / pause |
+| `→` / `←` | step forward / back one node |
+| `F` | fit whole graph |
+| `L` | toggle FOLLOW |
+| `\` | toggle sidebar |
+| `Esc` | close detail panel |
+
+### Visual states
+Each node resolves to one of: **idle** → **active** (the playhead) → **success** (on the
+winning path after finish) — with **failed** (red) and **pruned** (tainted, dimmed)
+branching off. Node *shape* encodes kind (chevron = prompt, octagon = tool, parallelogram =
+subagent, hexagon = completion). Edges animate a `stroke-dashoffset` "line-draw" as the
+trail advances, then fade with a comet-tail freshness gradient behind the playhead. A
+single shared SVG glow `<filter>` (`src/theme/Filters.tsx`) is reused across all glowing
+elements — never per-node — for performance. Color tokens live in `src/theme/tokens.css`.
+
+The minimap (`Minimap.tsx`) renders the whole graph scaled down with a draggable viewport
+rect; click to jump, drag to pan, wheel to zoom.
+
+---
+
+## 7. The four feature areas
+
+```mermaid
+flowchart TD
+    APP["src/App.tsx<br/>shell + hash routing"]
+    APP --> LIB["LibraryPanel (left sidebar)"]
+    APP --> VIEW{"mode === 'usage'?"}
+    VIEW -->|yes| TOK["TokensPage"]
+    VIEW -->|no| LIVE{"liveEngaged?"}
+    LIVE -->|yes| LP["LivePanes (multi-pane)"]
+    LIVE -->|no| GC["GraphCanvas (single playback)"]
+```
+
+`App.tsx` is the shell. View switching is **hash-based** (`#/tokens` ⇒ Token Usage),
+hand-rolled with no router. Sidebar `mode` (`sessions` / `prompts` / `usage`) and several
+UI preferences persist to `localStorage`.
+
+### 7.1 Graph view
+The default view. `GraphCanvas` renders the laid-out tree; `usePlayback` drives the
+playhead; `PlaybackControls`, `NowPlaying` (HUD readout), `NodeTooltip`, `DetailPanel`,
+`Legend`, `FilterToggles`, `CanvasToolbar` and `Minimap` surround it. When a **prompt** is
+selected (not a whole session), `App.tsx` builds an `effectiveSession` via
+`sliceSession(rawSession, promptId)` and feeds that scoped tree to all the same components.
+
+### 7.2 Live sessions (`src/components/live/`)
+A session is **live** if its file mtime is younger than `LIVE_THRESHOLD_MS` (180 s).
+`useSessionList` polls every `POLL_MS` (7 s); opening a live session auto-engages the
+**multi-pane** view — one pane for the main agent trail (`extractMainTrail`, which excludes
+inner subagent subtrees) plus one pane per active subagent (`extractSubagentPaneRoot`).
+While live, `useSession(…, live=true)` refetches and **re-parses in full** each poll;
+`structuralSharing: false` (see §9) is essential here. Each subagent pane runs a
+state machine (`paneStatus.ts`): `active → closing → closed`, with a `frozen` escape hatch.
+A subagent goes `closing` after `SUBAGENT_STABLE_MS` (30 s) of no writes and then closes
+after a `CLOSING_MS` (30 s) countdown — shown by `CountdownChip`, which the user can hover
+to abort and click to freeze. Live playback (`livePlayback.ts`) is synthetic: no scrubbing,
+the newest node is always the head.
+
+### 7.3 Library panel (`src/components/library/`)
+The left sidebar has three modes via a dropdown (persisted at `tg.library.mode`):
+
+- **Sessions** — every session, grouped by project, with rename (double-click) and a
+  pulsing `LiveTag` on live ones.
+- **Prompts** — every user prompt (`/api/prompts`); selecting one renders that prompt's
+  scoped slice (see §7.1).
+- **Usage** — token usage cards; the full page lives at `#/tokens`.
+
+Shared: substring filter, draggable/collapsible project groups (order + expansion in
+`localStorage`), and a resizable/collapsible sidebar.
+
+### 7.4 Token Usage page (`src/tokens/`)
+See §8.
+
+---
+
+## 8. Token usage aggregation
+
+`server/aggregate-token-usage.ts` walks every `*.jsonl` under `CLAUDE_HOME/projects`, keeps
+only `assistant` events that carry a `model` and a `usage` block, and sums tokens into rows
+keyed by **`projectId | modelId | isSubagent | day`** (day = the UTC `YYYY-MM-DD` of the
+event). `cached` combines `cache_read_input_tokens + cache_creation_input_tokens`. The
+endpoint returns all rows plus the project list — **no time filtering server-side**.
+
+The client (`src/tokens/aggregate.ts`) does the rest: filter by project + day cutoff,
+densify the day axis, sort model keys by volume, and build stack data for the chart.
+`DailyUsageChart.tsx` renders an isometric stacked-bar chart (D3); `OverallSpendList.tsx`
+renders the per-model summary. `family.ts`, `modelLabel.ts`, and `palette.ts` handle
+model-family detection, display labels (`claude-opus-4-7` → `Opus 4.7`), and colors. No
+dollar conversion — tokens only.
+
+---
+
+## 9. Conventions & gotchas
+
+- **`structuralSharing: false` on `useSession`.** Milestone trees are rebuilt from scratch
+  on every parse. TanStack Query's default structural sharing would keep stale object
+  references and break the memo chains that detect new milestones during live polling. It's
+  off deliberately — don't "optimize" it back on.
+- **Order by `parentUuid`, not timestamp.** Timestamps in the JSONL can be out of sequence.
+  The parent-pointer chain is authoritative.
+- **Subagent linkage is heuristic.** Matching a `Task` tool call to its `agent-*.jsonl` is
+  not derivable from the filename alone — see the matching cascade in §5.4. Treat unknown
+  shapes as ignorable rather than erroring.
+- **Schema drift.** The parser is pinned to the currently-observed Claude Code JSONL schema.
+  Unknown event `type`s are treated as noise, not errors.
+- **1000-milestone cap.** `App.tsx` gates sessions over 1000 milestones behind a confirm
+  prompt to protect layout/render performance.
+- **Pure modules stay pure.** `src/parse/` and `src/graph/` must not import React or touch
+  the DOM — that's what keeps them unit-testable and re-runnable on every live poll.
+- **One glow filter.** Reuse the shared SVG filter; never define glow per-node.
+
+---
+
+## 10. Testing
+
+- **Unit (Vitest, jsdom)** — `tests/unit/**/*.test.{ts,tsx}`. Focused on the pure modules:
+  the noise filter, each milestone extractor, result/summary rules, success-path
+  computation, the layout adapter, and `sliceSession`. Run with `npm test`.
+- **E2E (Playwright, Chromium)** — `tests/e2e/`. Playwright starts its own dev server on
+  **:5174** with `CLAUDE_HOME` pointed at `tests/fixtures/` so tests run against handcrafted
+  JSONL, never your real sessions. Run with `npm run test:e2e`.
+
+Fixtures live under `tests/fixtures/`; real session logs are never committed.
+
+---
+
+*Keep this guide in sync with the code. When you change the data model, the parsing
+pipeline, the endpoints, or a feature area, update the matching section here.*
