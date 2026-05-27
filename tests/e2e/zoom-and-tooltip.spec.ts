@@ -7,7 +7,7 @@ test('wheel-zoom enlarges nodes (graph is no longer fit-to-screen only)', async 
   await expect(firstNode).toBeVisible();
   const before = await firstNode.boundingBox();
   if (!before) throw new Error('no node bbox');
-  const svg = page.locator('svg').first();
+  const svg = page.getByTestId('graph-canvas');
   const svgBox = await svg.boundingBox();
   if (!svgBox) throw new Error('no svg bbox');
   await page.mouse.move(svgBox.x + svgBox.width / 2, svgBox.y + svgBox.height / 2);
@@ -23,7 +23,7 @@ test('FIT button reduces scale toward fit after zoom', async ({ page }) => {
   await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
   const firstNode = page.locator('svg g[data-id]').first();
   await expect(firstNode).toBeVisible();
-  const svg = page.locator('svg').first();
+  const svg = page.getByTestId('graph-canvas');
   const svgBox = await svg.boundingBox();
   if (!svgBox) throw new Error('no svg bbox');
   await page.mouse.move(svgBox.x + svgBox.width / 2, svgBox.y + svgBox.height / 2);

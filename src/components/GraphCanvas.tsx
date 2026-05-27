@@ -310,6 +310,7 @@ export function GraphCanvas({
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} onMouseLeave={() => setHover(null)}>
       <svg
         ref={svgRef}
+        data-testid="graph-canvas"
         width="100%"
         height="100%"
         style={{ display: 'block', cursor: 'grab' }}

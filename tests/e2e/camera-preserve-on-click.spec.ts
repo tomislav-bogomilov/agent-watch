@@ -16,7 +16,7 @@ test('clicking a node preserves the zoom level (does not refit)', async ({ page 
   await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
   await expect(page.locator('svg g[data-id]').first()).toBeVisible();
   // Zoom in on the canvas — any refit would visibly shrink the scale.
-  const svg = page.locator('svg').first();
+  const svg = page.getByTestId('graph-canvas');
   const svgBox = await svg.boundingBox();
   if (!svgBox) throw new Error('no svg bbox');
   await page.mouse.move(svgBox.x + svgBox.width / 2, svgBox.y + svgBox.height / 2);
