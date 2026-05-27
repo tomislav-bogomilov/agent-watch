@@ -15,8 +15,8 @@ describe('AppHeader', () => {
     expect(screen.getByTestId('app-header').querySelector('svg')).not.toBeNull();
   });
 
-  it('renders the tagline', () => {
+  it('renders the two-tone tagline reading "watch claude think"', () => {
     render(<AppHeader />);
-    expect(screen.getByText('watch claude think')).toBeTruthy();
+    expect(screen.getByTestId('app-tagline').textContent).toBe('watch claude think');
   });
 });
