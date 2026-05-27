@@ -182,7 +182,14 @@ export function LivePane({
   }, [playback.order.length]);
 
   const newest = playback.order[playback.index] ?? null;
-  const selected = (pinnedId ? playback.order.find((m) => m.id === pinnedId) : null) ?? newest;
+  // The graph's active node + FOLLOW camera always track `newest` (the live
+  // playhead). The detail aside normally mirrors that, but a click pins it to a
+  // specific node so it can be read while the stream advances. The pin is
+  // re-resolved against each fresh poll's order, so a pinned node's own content
+  // (e.g. a result filling in) still updates in place. `pinned` is null once the
+  // node leaves the tree or the user escapes via the PINNED control.
+  const pinned = pinnedId ? playback.order.find((m) => m.id === pinnedId) ?? null : null;
+  const selected = pinned ?? newest;
 
   const showHeader = !borderless;
   const showNotches = !borderless;
@@ -301,8 +308,38 @@ export function LivePane({
       </div>
 
       <aside data-testid="live-pane-detail" style={detailStyle(showHeader, kind === 'main' ? ACCENT_MAIN : ACCENT_SUB)}>
-        <div style={{ fontSize: 9, letterSpacing: 3, color: accent, marginBottom: 6 }}>
-          {kind === 'main' ? 'MAIN · NODE' : 'SUBAGENT · NODE'}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 9, letterSpacing: 3, color: accent }}>
+            {kind === 'main' ? 'MAIN · NODE' : 'SUBAGENT · NODE'}
+          </span>
+          {pinned && (
+            <button
+              type="button"
+              data-testid="live-pane-unpin"
+              onClick={() => setPinnedId(null)}
+              title="return to live"
+              aria-label="return to live"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'rgba(5,8,13,0.6)',
+                border: `1px solid ${accent}`,
+                color: accent,
+                fontFamily: 'ui-monospace, monospace',
+                fontSize: 8,
+                letterSpacing: 2,
+                padding: '2px 6px',
+                cursor: 'pointer',
+                flexShrink: 0,
+                boxShadow: `0 0 6px ${accent}55`,
+              }}
+            >
+              <span aria-hidden style={{ fontSize: 7 }}>●</span>
+              PINNED
+              <span aria-hidden style={{ fontSize: 10, lineHeight: 1 }}>✕</span>
+            </button>
+          )}
         </div>
         {selected && (
           <>
