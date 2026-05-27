@@ -40,15 +40,15 @@ const styles = {
   brand: {
     display: 'flex' as const,
     alignItems: 'center' as const,
-    gap: 14,
+    gap: 6,
   },
   wordmark: {
     fontFamily: 'ui-monospace, monospace',
     fontSize: 14,
     letterSpacing: 3,
-    color: 'var(--text)',
+    color: 'var(--edge-trail)', // CLAUDE — cyan, matching the tagline "claude"
   },
-  accent: { color: 'var(--edge-trail)' },
+  accent: { color: 'var(--node-success)' }, // WATCH — green, matching the eye
   tagline: {
     fontFamily: 'ui-monospace, monospace',
     fontSize: 10,
