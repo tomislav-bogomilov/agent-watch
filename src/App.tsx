@@ -3,6 +3,7 @@ import { LibraryPanel, type Selection } from './components/library/LibraryPanel'
 import type { LibraryMode } from './components/library/LibraryPanel';
 import { GraphCanvas } from './components/GraphCanvas';
 import { LivePanes } from './components/live/LivePanes';
+import { AppHeader } from './components/AppHeader';
 import { NowPlaying } from './components/NowPlaying';
 import { PlaybackControls } from './components/PlaybackControls';
 import { DetailPanel } from './components/DetailPanel';
@@ -261,7 +262,9 @@ export default function App() {
 
   return (
     <div style={styles.shell}>
-      <LibraryPanel
+      <AppHeader />
+      <div style={styles.body}>
+        <LibraryPanel
         selected={selected}
         onSelect={setSelected}
         collapsed={sidebarCollapsed}
@@ -403,12 +406,14 @@ export default function App() {
         </>)}
         </div>
       </main>
+      </div>
     </div>
   );
 }
 
 const styles = {
-  shell: { display: 'flex', height: '100%' },
+  shell: { display: 'flex' as const, flexDirection: 'column' as const, height: '100%' },
+  body: { display: 'flex' as const, flex: 1, minHeight: 0 },
   main: {
     flex: 1,
     position: 'relative' as const,
