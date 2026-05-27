@@ -72,3 +72,19 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--tg-rail-thumb-bright) transparent;
 }
+
+/* ClaudeWatch logo: the radar sweep arm rotates about the eye centre.
+   transform-box: view-box makes transform-origin:center resolve to the
+   SVG viewBox centre (32,32). */
+@keyframes cw-sweep-rot {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.cw-sweep {
+  transform-origin: center;
+  transform-box: view-box;
+  animation: cw-sweep-rot 6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cw-sweep { animation: none; }
+}
