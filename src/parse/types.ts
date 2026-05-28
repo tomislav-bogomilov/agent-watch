@@ -37,6 +37,7 @@ export type Session = {
   successPath: Set<string>;
   totalMilestones: number;
   subagentMtimes: Record<string, string>;
+  skillTrack?: SkillTrack;
 };
 
 export type RawEvent = {
@@ -86,4 +87,15 @@ export type PromptMeta = {
   text: string;
   timestamp: string;
   ordinal: number;
+};
+
+export type SkillActivation = {
+  name: string;
+  activatedAt: string;
+  byTurnId: string;
+  tokenCost: number;
+};
+
+export type SkillTrack = {
+  activations: SkillActivation[];
 };
