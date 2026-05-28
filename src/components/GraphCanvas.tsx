@@ -11,6 +11,10 @@ import { visibleLayoutRect, nodeInRect, edgeIntersectsRect } from '../graph/view
 import type { Filters } from './FilterToggles';
 import type { Milestone, Session } from '../parse/types';
 import type { PlaybackState } from '../playback/usePlayback';
+import { HologramPanel, type HologramView } from './HologramPanel';
+import { layoutHologram } from '../graph/hologramLayout';
+import { deriveHologramMetrics } from '../parse/deriveHologramMetrics';
+import { skillsActiveAt } from '../parse/skills';
 type Props = {
   session: Session;
   playback: PlaybackState;
@@ -30,6 +34,8 @@ type Props = {
   detailPanelOpen?: boolean;
   detailPanelWidth?: number;
 };
+
+const HOLOGRAM_PANEL_SIZE = { w: 350, h: 400 };
 
 type SubagentRegion = { x: number; y: number; width: number; height: number };
 
@@ -306,6 +312,39 @@ export function GraphCanvas({
     (nodeFilterCohort(state) === 'glow' ? renderedNodesGlow : renderedNodesPlain).push(elem);
   }
 
+  const hologramView: HologramView | null = useMemo(() => {
+    if (!pinnedId) return null;
+    const node = layout.nodes.find((n) => n.id === pinnedId);
+    if (!node) return null;
+    const idx = playback.order.findIndex((m) => m.id === pinnedId);
+    const prev = idx > 0 ? playback.order[idx - 1] : null;
+    const metrics = deriveHologramMetrics(node.milestone, prev, session);
+    const skills = session.skillTrack
+      ? skillsActiveAt(node.milestone, session.skillTrack)
+      : [];
+    const totalTokens = skills.reduce((s, sk) => s + sk.tokenCost, 0);
+    return {
+      milestone: node.milestone,
+      mode: liveEngaged ? 'live' : 'playback',
+      metrics,
+      skills,
+      skillsTotal: { count: skills.length, totalTokens },
+    };
+  }, [pinnedId, layout.nodes, playback.order, session, liveEngaged]);
+
+  const hologramPlacement = useMemo(() => {
+    if (!hologramView) return null;
+    const node = layout.nodes.find((n) => n.id === pinnedId);
+    if (!node) return null;
+    const hologramRect = {
+      x: visibleRect.minX,
+      y: visibleRect.minY,
+      w: visibleRect.maxX - visibleRect.minX,
+      h: visibleRect.maxY - visibleRect.minY,
+    };
+    return layoutHologram(node, layout.nodes, hologramRect, HOLOGRAM_PANEL_SIZE);
+  }, [hologramView, pinnedId, layout.nodes, visibleRect]);
+
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} onMouseLeave={() => setHover(null)}>
       <svg
@@ -334,6 +373,17 @@ export function GraphCanvas({
           <g data-cohort="edges-glow">{renderedEdgesGlow}</g>
           <g data-cohort="nodes-plain">{renderedNodesPlain}</g>
           <g data-cohort="nodes-glow" filter="url(#tg-glow)">{renderedNodesGlow}</g>
+
+          {hologramView && hologramPlacement && (
+            <HologramPanel
+              key={pinnedId ?? 'none'}
+              view={hologramView}
+              panelRect={hologramPlacement.panelRect}
+              connectorPath={hologramPlacement.connectorPath}
+              open={!!pinnedId}
+              onClose={() => onPin(null)}
+            />
+          )}
         </g>
       </svg>
       {!compact && (
@@ -349,7 +399,9 @@ export function GraphCanvas({
           detailPanelWidth={detailPanelWidth}
         />
       )}
-      {hover && <NodeTooltip milestone={hover.milestone} screenX={hover.screenX} screenY={hover.screenY} />}
+      {hover && hover.milestone.id !== pinnedId && (
+        <NodeTooltip milestone={hover.milestone} screenX={hover.screenX} screenY={hover.screenY} />
+      )}
     </div>
   );
 }
