@@ -19,6 +19,10 @@ type Props = {
   connectorPath: string;
   open: boolean;
   onClose: () => void;
+  /** Optional key for the content layer. Changing this key remounts the row
+   *  group so the stack-assemble animation re-runs (used during playback so
+   *  every advancing playhead gets the entrance animation). */
+  contentKey?: string;
 };
 
 const SCAN_STEP = 14;
@@ -41,7 +45,7 @@ function fmtDelta(delta: number | null): string {
   return `${sign} ${delta >= 0 ? '+' : '-'}${k} since prev`;
 }
 
-export function HologramPanel({ view, panelRect, connectorPath, open, onClose }: Props) {
+export function HologramPanel({ view, panelRect, connectorPath, open, onClose, contentKey }: Props) {
   const { mounted, exiting } = useExitAnimation(open, 200);
   const [expanded, setExpanded] = useState(false);
   const filterId = useId();
@@ -130,6 +134,7 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
         ))}
       </g>
 
+      <g key={contentKey ?? milestone.id} data-testid="holo-content">
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '250ms' }}>
         <rect x={10} y={HEADER_Y} width={w - 20} height={26} fill="rgba(0,229,255,0.10)" />
         <text x={20} y={HEADER_Y + 18} className="holo-id" data-testid="holo-id">{idText}</text>
@@ -272,6 +277,7 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
           {milestone.timestamp ? new Date(milestone.timestamp).toISOString().slice(11, 23) : '—'}
         </text>
         <text x={w - 10} y={FOOTER_TEXT_Y} className="holo-kind" textAnchor="end">► STREAM</text>
+      </g>
       </g>
 
       <g style={{

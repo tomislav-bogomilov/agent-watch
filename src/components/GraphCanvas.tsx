@@ -410,9 +410,10 @@ export function GraphCanvas({
           <g data-cohort="nodes-plain">{renderedNodesPlain}</g>
           <g data-cohort="nodes-glow" filter="url(#tg-glow)">{renderedNodesGlow}</g>
 
-          {hologramPinned && hologramPlacement && hologramKey && (
+          {hologramPinned && hologramPlacement && hologramKey && presentedId && (
             <HologramPanel
               key={hologramKey}
+              contentKey={presentedId}
               view={hologramPinned.view}
               panelRect={hologramPlacement.panelRect}
               connectorPath={hologramPlacement.connectorPath}
