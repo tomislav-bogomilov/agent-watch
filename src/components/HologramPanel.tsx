@@ -58,11 +58,12 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
 
   const w = panelRect.w;
 
+  const showIdleGap = metrics.idleGapMs !== null;
   const HEADER_Y = 10;
   const LATENCY_Y = 62;
   const IDLE_Y = 102;
-  const SKILLS_HEAD_Y = 132;
-  const SKILLS_FIRST_ROW_Y = 140;
+  const SKILLS_HEAD_Y = showIdleGap ? 132 : 102;
+  const SKILLS_FIRST_ROW_Y = SKILLS_HEAD_Y + 8;
   const SKILLS_ROW_STEP = 14;
   const skillsBlockBottom = SKILLS_FIRST_ROW_Y + SKILLS_ROW_STEP * topSkills.length
     + (hiddenSkills.length > 0 ? SKILLS_ROW_STEP : 0);
@@ -109,15 +110,15 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
         <rect x={10} y={HEADER_Y} width={w - 20} height={26} fill="rgba(0,229,255,0.10)" />
         <text x={20} y={HEADER_Y + 18} className="holo-id" data-testid="holo-id">{idText}</text>
         <text x={120} y={HEADER_Y + 18} className="holo-kind" data-testid="holo-kind">{kindText}</text>
-        <rect x={w - 80} y={HEADER_Y + 5} width={62} height={16} rx={2} className="holo-mode-chip" />
-        <text x={w - 49} y={HEADER_Y + 16} className="holo-mode-text" textAnchor="middle" data-testid="holo-mode-chip">{modeText}</text>
+        <rect x={w - 104} y={HEADER_Y + 5} width={62} height={16} rx={2} className="holo-mode-chip" />
+        <text x={w - 73} y={HEADER_Y + 16} className="holo-mode-text" textAnchor="middle" data-testid="holo-mode-chip">{modeText}</text>
         <g
           className="holo-close"
           data-testid="holo-close"
           onClick={onClose}
-          transform={`translate(${w - 14}, ${HEADER_Y + 13})`}
+          transform={`translate(${w - 22}, ${HEADER_Y + 13})`}
         >
-          <circle r={10} fill="transparent" />
+          <circle r={9} fill="rgba(5,8,13,0.5)" />
           <text className="holo-close-text" textAnchor="middle" y={4}>×</text>
         </g>
         <line x1={10} y1={HEADER_Y + 34} x2={w - 10} y2={HEADER_Y + 34} className="holo-divider" />
@@ -136,14 +137,16 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
         <line x1={10} y1={LATENCY_Y + 22} x2={w - 10} y2={LATENCY_Y + 22} className="holo-divider" />
       </g>
 
-      <g className="holo-row" style={{ ['--holo-row-delay' as string]: '370ms' }}>
-        <text x={20} y={IDLE_Y} className="holo-label">IDLE GAP</text>
-        <text x={240} y={IDLE_Y} className="holo-value" textAnchor="end" data-testid="holo-idle-value">
-          {fmtMs(metrics.idleGapMs)}
-        </text>
-        <text x={250} y={IDLE_Y} className="holo-value-sub">since prev turn</text>
-        <line x1={10} y1={IDLE_Y + 12} x2={w - 10} y2={IDLE_Y + 12} className="holo-divider" />
-      </g>
+      {showIdleGap && (
+        <g className="holo-row" style={{ ['--holo-row-delay' as string]: '370ms' }}>
+          <text x={20} y={IDLE_Y} className="holo-label">IDLE GAP</text>
+          <text x={240} y={IDLE_Y} className="holo-value" textAnchor="end" data-testid="holo-idle-value">
+            {fmtMs(metrics.idleGapMs)}
+          </text>
+          <text x={250} y={IDLE_Y} className="holo-value-sub">since prev turn</text>
+          <line x1={10} y1={IDLE_Y + 12} x2={w - 10} y2={IDLE_Y + 12} className="holo-divider" />
+        </g>
+      )}
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '430ms' }}>
         <text x={20} y={SKILLS_HEAD_Y} className="holo-label">SKILLS LOADED</text>

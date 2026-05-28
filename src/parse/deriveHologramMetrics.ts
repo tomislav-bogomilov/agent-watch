@@ -76,7 +76,12 @@ export function deriveHologramMetrics(
 
   const curTs = tsMs(current.timestamp);
   const prevTs = prev ? tsMs(prev.timestamp) : null;
-  const idleGapMs = curTs !== null && prevTs !== null ? curTs - prevTs : null;
+  let idleGapMs: number | null = curTs !== null && prevTs !== null ? curTs - prevTs : null;
+  // When latency couldn't be measured from a tree parent and we fell back to
+  // playback-prev, idleGapMs ends up identical. Suppress the duplicate row.
+  if (idleGapMs !== null && latencyMs !== null && idleGapMs === latencyMs) {
+    idleGapMs = null;
+  }
 
   const contextSize = current.contextSize ?? null;
   const prevContext = prev?.contextSize ?? null;

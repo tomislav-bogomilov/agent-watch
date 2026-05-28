@@ -29,11 +29,24 @@ describe('deriveHologramMetrics', () => {
     expect(out.contextDeltaSincePrev).toBeNull();
   });
 
-  it('computes idleGapMs from timestamps when prev exists', () => {
+  it('computes idleGapMs from timestamps when prev exists and differs from latency', () => {
+    // Build a tree so latency comes from the tree parent (not prev) and the
+    // two values differ — otherwise idleGapMs is suppressed as duplicate.
+    const cur = ms({ id: 'c', timestamp: '2026-01-01T00:00:04Z' });
+    const root = ms({ id: 'root', kind: 'root_prompt', timestamp: '2026-01-01T00:00:00Z', children: [cur] });
+    const prev = ms({ id: 'p', timestamp: '2026-01-01T00:00:01Z' });
+    const out = deriveHologramMetrics(cur, prev, sessionWith(root));
+    expect(out.latencyMs).toBe(4000);   // cur - tree-parent (root)
+    expect(out.idleGapMs).toBe(3000);   // cur - prev
+  });
+
+  it('suppresses idleGapMs when it equals latencyMs (duplicate row)', () => {
+    // No tree parent → latency falls back to prev → both values equal → suppress.
     const prev = ms({ id: 'p', timestamp: '2026-01-01T00:00:00Z' });
     const cur  = ms({ id: 'c', timestamp: '2026-01-01T00:00:04Z' });
     const out = deriveHologramMetrics(cur, prev, sessionWith(cur));
-    expect(out.idleGapMs).toBe(4000);
+    expect(out.latencyMs).toBe(4000);
+    expect(out.idleGapMs).toBeNull();
   });
 
   it('computes contextDeltaSincePrev from contextSize when both have it', () => {

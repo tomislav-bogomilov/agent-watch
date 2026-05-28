@@ -57,51 +57,93 @@ function slotFor(
   }
 }
 
-function buildConnectorPath(selected: LaidOutNode, panelRect: Rect): string {
+function segmentHitsRect(p1: Point, p2: Point, r: Rect): boolean {
+  if (p1.y === p2.y) {
+    if (p1.y <= r.y || p1.y >= r.y + r.h) return false;
+    const lo = Math.min(p1.x, p2.x);
+    const hi = Math.max(p1.x, p2.x);
+    return !(hi <= r.x || lo >= r.x + r.w);
+  }
+  if (p1.x === p2.x) {
+    if (p1.x <= r.x || p1.x >= r.x + r.w) return false;
+    const lo = Math.min(p1.y, p2.y);
+    const hi = Math.max(p1.y, p2.y);
+    return !(hi <= r.y || lo >= r.y + r.h);
+  }
+  return false;
+}
+
+function pathHitsObstacle(points: Point[], obstacles: Rect[]): boolean {
+  for (let i = 0; i + 1 < points.length; i++) {
+    for (const o of obstacles) {
+      if (segmentHitsRect(points[i], points[i + 1], o)) return true;
+    }
+  }
+  return false;
+}
+
+function toPathD(points: Point[]): string {
+  let d = `M ${points[0].x},${points[0].y}`;
+  for (let i = 1; i < points.length; i++) d += ` L ${points[i].x},${points[i].y}`;
+  return d;
+}
+
+function buildConnectorPath(selected: LaidOutNode, panelRect: Rect, obstacles: Rect[]): string {
   const cx = selected.x;
   const cy = selected.y;
-  const edges = {
-    left:   { mid: { x: panelRect.x, y: panelRect.y + panelRect.h / 2 },                side: 'L' as const },
-    right:  { mid: { x: panelRect.x + panelRect.w, y: panelRect.y + panelRect.h / 2 },  side: 'R' as const },
-    top:    { mid: { x: panelRect.x + panelRect.w / 2, y: panelRect.y },                side: 'T' as const },
-    bottom: { mid: { x: panelRect.x + panelRect.w / 2, y: panelRect.y + panelRect.h },  side: 'B' as const },
-  };
-  let bestKey: keyof typeof edges = 'left';
-  let bestDist = Infinity;
-  for (const k of Object.keys(edges) as Array<keyof typeof edges>) {
-    const m = edges[k].mid;
-    const d = (m.x - cx) ** 2 + (m.y - cy) ** 2;
-    if (d < bestDist) { bestDist = d; bestKey = k; }
-  }
-  const panelEnter = edges[bestKey].mid;
   const nodeEdges: Record<'L' | 'R' | 'T' | 'B', Point> = {
     L: { x: cx - NODE_W / 2, y: cy },
     R: { x: cx + NODE_W / 2, y: cy },
     T: { x: cx, y: cy - NODE_H / 2 },
     B: { x: cx, y: cy + NODE_H / 2 },
   };
-  let nodeStart: Point = nodeEdges.R;
-  let nodeBest = Infinity;
-  for (const k of ['L','R','T','B'] as const) {
-    const p = nodeEdges[k];
-    const d = (p.x - panelEnter.x) ** 2 + (p.y - panelEnter.y) ** 2;
-    if (d < nodeBest) { nodeBest = d; nodeStart = p; }
-  }
-  const midX = (nodeStart.x + panelEnter.x) / 2;
-  const midY = (nodeStart.y + panelEnter.y) / 2;
+  const panelEdges: Record<'L' | 'R' | 'T' | 'B', Point> = {
+    L: { x: panelRect.x,                  y: panelRect.y + panelRect.h / 2 },
+    R: { x: panelRect.x + panelRect.w,    y: panelRect.y + panelRect.h / 2 },
+    T: { x: panelRect.x + panelRect.w / 2, y: panelRect.y                  },
+    B: { x: panelRect.x + panelRect.w / 2, y: panelRect.y + panelRect.h    },
+  };
 
-  const horizontalFirst = nodeStart === nodeEdges.L || nodeStart === nodeEdges.R;
-  const bend1: Point = horizontalFirst
-    ? { x: midX, y: nodeStart.y }
-    : { x: nodeStart.x, y: midY };
-  const bend2: Point = horizontalFirst
-    ? { x: midX, y: panelEnter.y }
-    : { x: panelEnter.x, y: midY };
+  // Pair each node edge with the panel edge that gives the most natural
+  // route (exit direction matches the relative position of the panel).
+  const panelIsRight  = panelRect.x       >  cx + NODE_W / 2;
+  const panelIsLeft   = panelRect.x + panelRect.w < cx - NODE_W / 2;
+  const panelIsBelow  = panelRect.y       >  cy + NODE_H / 2;
+  const panelIsAbove  = panelRect.y + panelRect.h < cy - NODE_H / 2;
 
-  if (nodeStart.x === panelEnter.x || nodeStart.y === panelEnter.y) {
-    return `M ${nodeStart.x},${nodeStart.y} L ${panelEnter.x},${panelEnter.y}`;
+  // Build candidate (nodeStart, panelEnter, bendFirstAxis) tuples in priority
+  // order — natural exits first, then fallbacks.
+  const candidates: Array<{ start: Point; enter: Point; horizontalFirst: boolean }> = [];
+  const push = (start: Point, enter: Point, horizontalFirst: boolean) =>
+    candidates.push({ start, enter, horizontalFirst });
+
+  if (panelIsRight)  { push(nodeEdges.R, panelEdges.L, true);  push(nodeEdges.R, panelEdges.T, true);  push(nodeEdges.R, panelEdges.B, true);  }
+  if (panelIsLeft)   { push(nodeEdges.L, panelEdges.R, true);  push(nodeEdges.L, panelEdges.T, true);  push(nodeEdges.L, panelEdges.B, true);  }
+  if (panelIsBelow)  { push(nodeEdges.B, panelEdges.T, false); push(nodeEdges.B, panelEdges.L, false); push(nodeEdges.B, panelEdges.R, false); }
+  if (panelIsAbove)  { push(nodeEdges.T, panelEdges.B, false); push(nodeEdges.T, panelEdges.L, false); push(nodeEdges.T, panelEdges.R, false); }
+  // Catch-all (diagonal where neither side wholly clears): every node edge × every panel edge.
+  for (const ne of ['L', 'R', 'T', 'B'] as const) {
+    for (const pe of ['L', 'R', 'T', 'B'] as const) {
+      push(nodeEdges[ne], panelEdges[pe], ne === 'L' || ne === 'R');
+      push(nodeEdges[ne], panelEdges[pe], ne === 'T' || ne === 'B');
+    }
   }
-  return `M ${nodeStart.x},${nodeStart.y} L ${bend1.x},${bend1.y} L ${bend2.x},${bend2.y} L ${panelEnter.x},${panelEnter.y}`;
+
+  function pointsFor(start: Point, enter: Point, horizontalFirst: boolean): Point[] {
+    if (start.x === enter.x || start.y === enter.y) {
+      return [start, enter];
+    }
+    const bend1 = horizontalFirst ? { x: enter.x, y: start.y } : { x: start.x, y: enter.y };
+    return [start, bend1, enter];
+  }
+
+  for (const c of candidates) {
+    const pts = pointsFor(c.start, c.enter, c.horizontalFirst);
+    if (!pathHitsObstacle(pts, obstacles)) return toPathD(pts);
+  }
+  // Worst case: return the natural-direction path even if it crosses something.
+  const first = candidates[0];
+  return toPathD(pointsFor(first.start, first.enter, first.horizontalFirst));
 }
 
 export function layoutHologram(
@@ -119,7 +161,7 @@ export function layoutHologram(
       const slot = slotFor(selected, dir, d, panelSize);
       if (!rectInside(slot, visibleRect)) continue;
       if (obstacleRects.some((o) => rectsIntersect(slot, o))) continue;
-      return { panelRect: slot, connectorPath: buildConnectorPath(selected, slot) };
+      return { panelRect: slot, connectorPath: buildConnectorPath(selected, slot, obstacleRects) };
     }
   }
 
@@ -131,5 +173,5 @@ export function layoutHologram(
     if (overlap < bestScore) { bestScore = overlap; best = slot; }
   }
   const fallback = best!;
-  return { panelRect: fallback, connectorPath: buildConnectorPath(selected, fallback) };
+  return { panelRect: fallback, connectorPath: buildConnectorPath(selected, fallback, obstacleRects) };
 }

@@ -81,7 +81,7 @@ describe('HologramPanel', () => {
     expect(rows).toHaveLength(8);
   });
 
-  it('renders em-dash placeholders when metrics are null', () => {
+  it('renders em-dash placeholders when metrics are null; hides idle-gap row entirely', () => {
     const view = {
       ...fullView,
       metrics: {
@@ -93,7 +93,7 @@ describe('HologramPanel', () => {
     };
     render(<svg><HologramPanel view={view} panelRect={panelRect} connectorPath={connectorPath} open={true} onClose={() => {}} /></svg>);
     expect(screen.getByTestId('holo-latency-value').textContent).toBe('—');
-    expect(screen.getByTestId('holo-idle-value').textContent).toBe('—');
+    expect(screen.queryByTestId('holo-idle-value')).toBeNull();
     expect(screen.getByTestId('holo-context-value').textContent).toBe('—');
   });
 
