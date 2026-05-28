@@ -59,19 +59,40 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
   const w = panelRect.w;
 
   const showIdleGap = metrics.idleGapMs !== null;
+  // Vertical layout — every section uses the same top/bottom padding around
+  // its content and divider so the rhythm reads cleanly.
+  const SECTION_TOP_PAD = 22;   // divider → first content baseline
+  const SECTION_BOTTOM_PAD = 14; // last content baseline → next divider
+  const SKILLS_ROW_STEP = 16;
+
   const HEADER_Y = 10;
-  const LATENCY_Y = 62;
-  const IDLE_Y = 102;
-  const SKILLS_HEAD_Y = showIdleGap ? 132 : 102;
-  const SKILLS_FIRST_ROW_Y = SKILLS_HEAD_Y + 8;
-  const SKILLS_ROW_STEP = 14;
+  const HEADER_DIVIDER_Y = HEADER_Y + 34;
+
+  const LATENCY_Y = HEADER_DIVIDER_Y + SECTION_TOP_PAD;
+  const LATENCY_SUB_Y = LATENCY_Y + 14;
+  const LATENCY_DIVIDER_Y = LATENCY_SUB_Y + SECTION_BOTTOM_PAD;
+
+  const IDLE_Y = LATENCY_DIVIDER_Y + SECTION_TOP_PAD;
+  const IDLE_DIVIDER_Y = IDLE_Y + SECTION_BOTTOM_PAD;
+
+  const SKILLS_HEAD_Y = (showIdleGap ? IDLE_DIVIDER_Y : LATENCY_DIVIDER_Y) + SECTION_TOP_PAD;
+  const SKILLS_FIRST_ROW_Y = SKILLS_HEAD_Y + 10;
   const skillsBlockBottom = SKILLS_FIRST_ROW_Y + SKILLS_ROW_STEP * topSkills.length
     + (hiddenSkills.length > 0 ? SKILLS_ROW_STEP : 0);
-  const CACHE_Y = skillsBlockBottom + 18;
-  const CONTEXT_Y = CACHE_Y + 36;
-  const TOKENS_LABEL_Y = CONTEXT_Y + 26;
-  const FOOTER_Y = TOKENS_LABEL_Y + 30;
-  const panelHeight = FOOTER_Y + 14;
+  const SKILLS_DIVIDER_Y = skillsBlockBottom + SECTION_BOTTOM_PAD;
+
+  const CACHE_Y = SKILLS_DIVIDER_Y + SECTION_TOP_PAD;
+  const CACHE_SUB_Y = CACHE_Y + 16;
+  const CACHE_DIVIDER_Y = CACHE_SUB_Y + SECTION_BOTTOM_PAD;
+
+  const CONTEXT_Y = CACHE_DIVIDER_Y + SECTION_TOP_PAD;
+  const CONTEXT_DIVIDER_Y = CONTEXT_Y + SECTION_BOTTOM_PAD;
+
+  const TOKENS_LABEL_Y = CONTEXT_DIVIDER_Y + SECTION_TOP_PAD;
+
+  const FOOTER_DIVIDER_Y = TOKENS_LABEL_Y + SECTION_BOTTOM_PAD + 4;
+  const FOOTER_TEXT_Y = FOOTER_DIVIDER_Y + 14;
+  const panelHeight = FOOTER_TEXT_Y + 8;
 
   const skillsTotalCost = skills.reduce((s, x) => s + x.tokenCost, 0);
   const pctOfTotal = (cost: number) =>
@@ -121,7 +142,7 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
           <circle r={9} fill="rgba(5,8,13,0.5)" />
           <text className="holo-close-text" textAnchor="middle" y={4}>×</text>
         </g>
-        <line x1={10} y1={HEADER_Y + 34} x2={w - 10} y2={HEADER_Y + 34} className="holo-divider" />
+        <line x1={10} y1={HEADER_DIVIDER_Y} x2={w - 10} y2={HEADER_DIVIDER_Y} className="holo-divider" />
       </g>
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '310ms' }}>
@@ -131,10 +152,10 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
         </text>
         <rect x={250} y={LATENCY_Y - 7} width={w - 270} height={8} rx={1} fill="var(--holo-bar-bg)" />
         <rect x={250} y={LATENCY_Y - 7} width={(w - 270) * latencyBarFill} height={8} rx={1} fill="var(--holo-cyan)" />
-        <text x={250} y={LATENCY_Y + 14} className="holo-value-sub" data-testid="holo-latency-sub">
+        <text x={250} y={LATENCY_SUB_Y} className="holo-value-sub" data-testid="holo-latency-sub">
           {metrics.latencyMedianMs > 0 ? `vs ${(metrics.latencyMedianMs / 1000).toFixed(1)}s median` : '—'}
         </text>
-        <line x1={10} y1={LATENCY_Y + 22} x2={w - 10} y2={LATENCY_Y + 22} className="holo-divider" />
+        <line x1={10} y1={LATENCY_DIVIDER_Y} x2={w - 10} y2={LATENCY_DIVIDER_Y} className="holo-divider" />
       </g>
 
       {showIdleGap && (
@@ -144,7 +165,7 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
             {fmtMs(metrics.idleGapMs)}
           </text>
           <text x={250} y={IDLE_Y} className="holo-value-sub">since prev turn</text>
-          <line x1={10} y1={IDLE_Y + 12} x2={w - 10} y2={IDLE_Y + 12} className="holo-divider" />
+          <line x1={10} y1={IDLE_DIVIDER_Y} x2={w - 10} y2={IDLE_DIVIDER_Y} className="holo-divider" />
         </g>
       )}
 
@@ -187,18 +208,18 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
           </g>
         )}
 
-        <line x1={10} y1={CACHE_Y - 18} x2={w - 10} y2={CACHE_Y - 18} className="holo-divider" />
+        <line x1={10} y1={SKILLS_DIVIDER_Y} x2={w - 10} y2={SKILLS_DIVIDER_Y} className="holo-divider" />
       </g>
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '490ms' }}>
         <text x={20} y={CACHE_Y} className="holo-label">CACHE EFFICIENCY</text>
         <text x={w - 10} y={CACHE_Y} className="holo-value" textAnchor="end">{fmtPct(metrics.cacheEfficiency)}</text>
-        <text x={20} y={CACHE_Y + 16} className="holo-value-sub">
+        <text x={20} y={CACHE_SUB_Y} className="holo-value-sub">
           {metrics.cacheReads !== null
             ? `cache reads ${formatTokens(metrics.cacheReads)} · misses ${formatTokens(metrics.cacheMisses ?? 0)}`
             : '—'}
         </text>
-        <line x1={10} y1={CACHE_Y + 26} x2={w - 10} y2={CACHE_Y + 26} className="holo-divider" />
+        <line x1={10} y1={CACHE_DIVIDER_Y} x2={w - 10} y2={CACHE_DIVIDER_Y} className="holo-divider" />
       </g>
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '550ms' }}>
@@ -209,7 +230,7 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
         <text x={w - 10} y={CONTEXT_Y} className="holo-value" textAnchor="end" data-testid="holo-context-value">
           {metrics.contextSize !== null ? `${(metrics.contextSize / 1000).toFixed(1)}k` : '—'}
         </text>
-        <line x1={10} y1={CONTEXT_Y + 16} x2={w - 10} y2={CONTEXT_Y + 16} className="holo-divider" />
+        <line x1={10} y1={CONTEXT_DIVIDER_Y} x2={w - 10} y2={CONTEXT_DIVIDER_Y} className="holo-divider" />
       </g>
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '610ms' }}>
@@ -243,11 +264,11 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
       </g>
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '670ms' }}>
-        <line x1={10} y1={FOOTER_Y - 6} x2={w - 10} y2={FOOTER_Y - 6} className="holo-divider-faint" />
-        <text x={20} y={FOOTER_Y + 6} className="holo-label-dim">
+        <line x1={10} y1={FOOTER_DIVIDER_Y} x2={w - 10} y2={FOOTER_DIVIDER_Y} className="holo-divider-faint" />
+        <text x={20} y={FOOTER_TEXT_Y} className="holo-label-dim">
           {milestone.timestamp ? new Date(milestone.timestamp).toISOString().slice(11, 23) : '—'}
         </text>
-        <text x={w - 10} y={FOOTER_Y + 6} className="holo-kind" textAnchor="end">► STREAM</text>
+        <text x={w - 10} y={FOOTER_TEXT_Y} className="holo-kind" textAnchor="end">► STREAM</text>
       </g>
 
       <g transform={`translate(${-panelRect.x}, ${-panelRect.y})`}>
