@@ -105,7 +105,10 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
   return (
     <g
       data-testid="holo-root"
-      transform={`translate(${panelRect.x}, ${panelRect.y})`}
+      style={{
+        transform: `translate(${panelRect.x}px, ${panelRect.y}px)`,
+        transition: 'transform 280ms cubic-bezier(.4,.2,.2,1)',
+      }}
       className={exiting ? 'holo-exiting' : ''}
     >
       <defs>
@@ -271,10 +274,17 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
         <text x={w - 10} y={FOOTER_TEXT_Y} className="holo-kind" textAnchor="end">► STREAM</text>
       </g>
 
-      <g transform={`translate(${-panelRect.x}, ${-panelRect.y})`}>
+      <g style={{
+        transform: `translate(${-panelRect.x}px, ${-panelRect.y}px)`,
+        transition: 'transform 280ms cubic-bezier(.4,.2,.2,1)',
+      }}>
         <path d={connectorPath} className="holo-conn-line holo-line"
               data-testid="holo-conn-path"
-              style={{ strokeDasharray: '4 3' }} />
+              style={{
+                d: `path("${connectorPath}")`,
+                strokeDasharray: '4 3',
+                transition: 'd 280ms cubic-bezier(.4,.2,.2,1)',
+              }} />
       </g>
     </g>
   );

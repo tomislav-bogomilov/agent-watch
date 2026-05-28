@@ -325,11 +325,33 @@ export function GraphCanvas({
   // so hologramPlacement can reuse it without a second layout.nodes.find.
   type PinnedComputed = { view: HologramView; node: LaidOutNode };
 
+  // The hologram tracks the active milestone — pinned by the user, or the
+  // playhead when playback is running / has advanced past the root. The key
+  // used to remount changes ONLY on pinned-id changes (or open ↔ closed),
+  // so during playback the panel stays mounted and content updates smoothly.
+  const [hologramDismissed, setHologramDismissed] = useState(false);
+  useEffect(() => { if (pinnedId) setHologramDismissed(false); }, [pinnedId]);
+  useEffect(() => { setHologramDismissed(false); }, [session.id]);
+
+  const presentedId: string | null = useMemo(() => {
+    if (hologramDismissed && !pinnedId) return null;
+    if (pinnedId) return pinnedId;
+    if (playback.playing || playback.index > 0) return playback.order[playback.index]?.id ?? null;
+    return null;
+  }, [hologramDismissed, pinnedId, playback.playing, playback.index, playback.order]);
+
+  const hologramKey: string | null = pinnedId ?? (presentedId ? 'playback' : null);
+
+  const handleHologramClose = () => {
+    if (pinnedId) onPin(null);
+    else setHologramDismissed(true);
+  };
+
   const hologramPinned: PinnedComputed | null = useMemo(() => {
-    if (!pinnedId) return null;
-    const node = layout.nodes.find((n) => n.id === pinnedId);
+    if (!presentedId) return null;
+    const node = layout.nodes.find((n) => n.id === presentedId);
     if (!node) return null;
-    const idx = playback.order.findIndex((m) => m.id === pinnedId);
+    const idx = playback.order.findIndex((m) => m.id === presentedId);
     const prev = idx > 0 ? playback.order[idx - 1] : null;
     const metrics = deriveHologramMetrics(node.milestone, prev, session);
     const skills = session.skillTrack
@@ -346,7 +368,7 @@ export function GraphCanvas({
       },
       node,
     };
-  }, [pinnedId, layout.nodes, playback.order, session, liveEngaged]);
+  }, [presentedId, layout.nodes, playback.order, session, liveEngaged]);
 
   const hologramPlacement = useMemo(() => {
     if (!hologramPinned) return null;
@@ -388,14 +410,14 @@ export function GraphCanvas({
           <g data-cohort="nodes-plain">{renderedNodesPlain}</g>
           <g data-cohort="nodes-glow" filter="url(#tg-glow)">{renderedNodesGlow}</g>
 
-          {hologramPinned && hologramPlacement && (
+          {hologramPinned && hologramPlacement && hologramKey && (
             <HologramPanel
-              key={pinnedId ?? 'none'}
+              key={hologramKey}
               view={hologramPinned.view}
               panelRect={hologramPlacement.panelRect}
               connectorPath={hologramPlacement.connectorPath}
-              open={!!pinnedId}
-              onClose={() => onPin(null)}
+              open={true}
+              onClose={handleHologramClose}
             />
           )}
         </g>
