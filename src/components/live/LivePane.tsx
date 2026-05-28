@@ -348,6 +348,14 @@ export function LivePane({
             {selected.result && (
               <div style={{ fontSize: 10, color: selected.failed ? 'var(--node-failed)' : '#6e95a5', marginTop: 6, whiteSpace: 'pre-wrap' }}>{selected.result}</div>
             )}
+            {selected.detail && (
+              <pre style={{
+                fontSize: 10, color: '#6e95a5',
+                whiteSpace: 'pre-wrap', margin: '8px 0 0 0',
+                background: 'rgba(15,38,50,0.4)', padding: '6px 8px',
+                border: '1px solid var(--grid)',
+              }}>{selected.detail}</pre>
+            )}
           </>
         )}
       </aside>
