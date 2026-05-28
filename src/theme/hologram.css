@@ -1,0 +1,124 @@
+/* src/theme/hologram.css
+   Scoped styles + keyframes for HologramPanel.
+   All classes are prefixed `holo-` to avoid collisions with the rest of the app. */
+
+/* --- shared color / sizing tokens (panel-local, not global) --- */
+:root {
+  --holo-cyan: #00e5ff;
+  --holo-cyan-bright: #5cf2ff;
+  --holo-mint: #7fffd4;
+  --holo-amber: #ffb86c;
+  --holo-fill: rgba(0,229,255,0.05);
+  --holo-divider: rgba(0,229,255,0.22);
+  --holo-scan: rgba(0,229,255,0.06);
+  --holo-chip-fill: rgba(125,243,255,0.08);
+  --holo-chip-stroke: rgba(125,243,255,0.55);
+  --holo-bar-bg: rgba(0,229,255,0.10);
+  --holo-mode-fill: rgba(255,184,108,0.14);
+  --holo-mode-stroke: rgba(255,184,108,0.55);
+}
+
+/* --- connector --- */
+.holo-conn-line {
+  stroke: var(--holo-mint);
+  stroke-width: 1;
+  fill: none;
+  stroke-dasharray: 4 3;
+  opacity: 0.6;
+  filter: drop-shadow(0 0 1.5px rgba(127,255,212,0.55));
+}
+.holo-conn-corner {
+  fill: none;
+  stroke: var(--holo-cyan);
+  stroke-width: 0.7;
+  opacity: 0.55;
+}
+
+/* --- frame + brackets --- */
+.holo-frame {
+  fill: var(--holo-fill);
+  stroke: var(--holo-cyan);
+  stroke-width: 1.1;
+}
+.holo-corner-bracket {
+  stroke: var(--holo-cyan-bright);
+  stroke-width: 1.6;
+  fill: none;
+  filter: drop-shadow(0 0 2px rgba(92,242,255,0.85));
+}
+.holo-scan { stroke: var(--holo-scan); stroke-width: 0.5; }
+.holo-divider { stroke: var(--holo-divider); stroke-width: 0.6; }
+.holo-divider-faint { stroke: rgba(0,229,255,0.1); stroke-width: 0.5; }
+
+/* --- text styles --- */
+.holo-id { font: 700 11px ui-monospace, monospace; fill: var(--holo-cyan); letter-spacing: 1.8px; }
+.holo-kind { font: 600 9px ui-monospace, monospace; fill: var(--holo-mint); letter-spacing: 1.6px; }
+.holo-label { font: 600 9px ui-monospace, monospace; fill: var(--holo-cyan-bright); letter-spacing: 1.2px; }
+.holo-label-dim { font: 600 9px ui-monospace, monospace; fill: #3d7a8a; letter-spacing: 1.2px; }
+.holo-value { font: 600 13px ui-monospace, monospace; fill: #e8faff; }
+.holo-value-sub { font: 9px ui-monospace, monospace; fill: #5fa9b8; }
+.holo-skill-name { font: 600 10px ui-monospace, monospace; fill: #aeeaf2; }
+.holo-skill-tokens { font: 600 9px ui-monospace, monospace; fill: var(--holo-mint); }
+.holo-skill-dim { font: 600 10px ui-monospace, monospace; fill: #4f7782; }
+
+/* --- mode chip --- */
+.holo-mode-chip { fill: var(--holo-mode-fill); stroke: var(--holo-mode-stroke); stroke-width: 0.6; }
+.holo-mode-text { font: 700 9px ui-monospace, monospace; fill: var(--holo-amber); letter-spacing: 1.6px; }
+
+/* --- expand row --- */
+.holo-expand-row { fill: rgba(0,229,255,0.08); stroke: rgba(0,229,255,0.35); stroke-width: 0.6; cursor: pointer; }
+.holo-expand-row:hover { fill: rgba(0,229,255,0.16); }
+.holo-expand-text { font: 600 10px ui-monospace, monospace; fill: var(--holo-cyan-bright); }
+
+/* --- close button --- */
+.holo-close { cursor: pointer; }
+.holo-close-text { font: 700 13px ui-monospace, monospace; fill: #e8faff; }
+.holo-close:hover .holo-close-text { fill: var(--holo-cyan-bright); }
+
+/* === ANIMATION — stack assemble === */
+.holo-line {
+  /* stroke-dasharray is set inline per path so we know the right length;
+     here we just animate stroke-dashoffset */
+  animation: holo-line-trace 200ms ease-out 0ms 1 normal both;
+}
+@keyframes holo-line-trace {
+  from { stroke-dashoffset: var(--holo-line-len, 200); }
+  to   { stroke-dashoffset: 0; }
+}
+
+.holo-shell {
+  opacity: 0;
+  animation: holo-shell-fade 50ms ease-out 200ms 1 normal forwards;
+}
+@keyframes holo-shell-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.holo-row {
+  opacity: 0;
+  transform: translateY(-10px);
+  animation: holo-row-slide 280ms cubic-bezier(.2,.7,.3,1.05) var(--holo-row-delay, 250ms) 1 normal forwards;
+  transform-box: fill-box;
+}
+@keyframes holo-row-slide {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* === EXIT === */
+.holo-exiting { transition: opacity 200ms ease-out; opacity: 0 !important; }
+
+/* === REDUCED MOTION === */
+@media (prefers-reduced-motion: reduce) {
+  .holo-line,
+  .holo-shell,
+  .holo-row {
+    animation: holo-rm-fade 200ms ease-out 0ms 1 normal forwards !important;
+    transform: none !important;
+  }
+  @keyframes holo-rm-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+}
