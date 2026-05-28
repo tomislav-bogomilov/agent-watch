@@ -71,9 +71,7 @@ test.describe('Hologram detail view', () => {
     await firstNode.click({ force: true });
     await expect(page.getByTestId('holo-root')).toBeVisible();
 
-    // The holo-close button is an SVG <g> element. Use force:true to bypass the
-    // detail-panel aside that may overlap the screen coordinates.
-    await page.getByTestId('holo-close').click({ force: true });
+    await page.getByTestId('holo-close').click();
 
     await expect(page.getByTestId('holo-root')).toHaveCount(0);
   });

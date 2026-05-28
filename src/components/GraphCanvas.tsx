@@ -312,14 +312,14 @@ export function GraphCanvas({
     (nodeFilterCohort(state) === 'glow' ? renderedNodesGlow : renderedNodesPlain).push(elem);
   }
 
-  const strictVisibleRect = useMemo(
-    () => visibleLayoutRect(
+  const strictVisibleRect = useMemo(() => {
+    const effectiveWidth = detailPanelOpen ? viewport.width - detailPanelWidth : viewport.width;
+    return visibleLayoutRect(
       { k: transform.k, x: transform.x, y: transform.y },
-      { width: viewport.width, height: viewport.height },
+      { width: effectiveWidth, height: viewport.height },
       0
-    ),
-    [transform.k, transform.x, transform.y, viewport.width, viewport.height]
-  );
+    );
+  }, [transform.k, transform.x, transform.y, viewport.width, viewport.height, detailPanelOpen, detailPanelWidth]);
 
   // Local type — combines the HologramView data with the resolved LaidOutNode
   // so hologramPlacement can reuse it without a second layout.nodes.find.
