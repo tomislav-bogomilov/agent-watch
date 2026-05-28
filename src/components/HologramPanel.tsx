@@ -64,7 +64,7 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
   const SKILLS_HEAD_Y = 132;
   const SKILLS_FIRST_ROW_Y = 140;
   const SKILLS_ROW_STEP = 14;
-  const skillsBlockBottom = SKILLS_FIRST_ROW_Y + 14 * topSkills.length + 14;
+  const skillsBlockBottom = SKILLS_FIRST_ROW_Y + SKILLS_ROW_STEP * topSkills.length + SKILLS_ROW_STEP;
   const CACHE_Y = skillsBlockBottom + 18;
   const CONTEXT_Y = CACHE_Y + 50;
   const TOKENS_LABEL_Y = CONTEXT_Y + 34;
@@ -185,9 +185,11 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
             <text x={8} y={10} className="holo-expand-text">
               {expanded ? '▲  collapse' : `▼  ${hiddenSkills.length} more`}
             </text>
-            <text x={w - 50} y={10} className="holo-skill-tokens" textAnchor="end">
-              ~{formatTokens(hiddenSum)}
-            </text>
+            {hiddenSum > 0 && (
+              <text x={w - 50} y={10} className="holo-skill-tokens" textAnchor="end">
+                ~{formatTokens(hiddenSum)}
+              </text>
+            )}
           </g>
         )}
 
