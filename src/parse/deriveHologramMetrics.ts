@@ -62,7 +62,17 @@ export function deriveHologramMetrics(
   session: Session,
 ): HologramMetrics {
   const parent = findParent(session.root, current);
-  const latencyMs = parent ? latencyOf(current, tsMs(parent.timestamp)) : null;
+  let latencyMs = parent ? latencyOf(current, tsMs(parent.timestamp)) : null;
+  // Fall back to playback-prev when the tree parent has no usable timestamp.
+  if (latencyMs === null && prev) latencyMs = latencyOf(current, tsMs(prev.timestamp));
+  // Root milestone fallback: use the first child as a proxy. This gives the
+  // "time before the next step" for nodes that are themselves the trail root
+  // (no parent, no preceding playback entry).
+  if (latencyMs === null && current.children.length > 0) {
+    const firstChildTs = tsMs(current.children[0].timestamp);
+    const curTs = tsMs(current.timestamp);
+    if (firstChildTs !== null && curTs !== null) latencyMs = firstChildTs - curTs;
+  }
 
   const curTs = tsMs(current.timestamp);
   const prevTs = prev ? tsMs(prev.timestamp) : null;

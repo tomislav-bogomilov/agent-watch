@@ -64,29 +64,20 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
   const SKILLS_HEAD_Y = 132;
   const SKILLS_FIRST_ROW_Y = 140;
   const SKILLS_ROW_STEP = 14;
-  const skillsBlockBottom = SKILLS_FIRST_ROW_Y + SKILLS_ROW_STEP * topSkills.length + SKILLS_ROW_STEP;
+  const skillsBlockBottom = SKILLS_FIRST_ROW_Y + SKILLS_ROW_STEP * topSkills.length
+    + (hiddenSkills.length > 0 ? SKILLS_ROW_STEP : 0);
   const CACHE_Y = skillsBlockBottom + 18;
-  const CONTEXT_Y = CACHE_Y + 50;
-  const TOKENS_LABEL_Y = CONTEXT_Y + 34;
-  const FOOTER_Y = TOKENS_LABEL_Y + 46;
+  const CONTEXT_Y = CACHE_Y + 36;
+  const TOKENS_LABEL_Y = CONTEXT_Y + 26;
+  const FOOTER_Y = TOKENS_LABEL_Y + 30;
   const panelHeight = FOOTER_Y + 14;
 
-  const totalTok = metrics.tokens ? Object.values(metrics.tokens).reduce((s, v) => s + v, 0) : 0;
-  const tokenWidth = (key: keyof NonNullable<typeof metrics.tokens>) => {
-    if (!metrics.tokens || totalTok === 0) return 0;
-    return (metrics.tokens[key] / totalTok) * (w - 30);
-  };
-
-  const tokensTextLine = metrics.tokens
-    ? `${formatTokens(metrics.tokens.input)} · ${formatTokens(metrics.tokens.cacheRead)} · ${formatTokens(metrics.tokens.cacheCreation)} · ${formatTokens(metrics.tokens.output)}`
-    : '—';
+  const skillsTotalCost = skills.reduce((s, x) => s + x.tokenCost, 0);
+  const pctOfTotal = (cost: number) =>
+    skillsTotalCost > 0 ? `${Math.round((cost / skillsTotalCost) * 100)}%` : '0%';
 
   const latencyBarFill = metrics.latencyMs && metrics.latencyMedianMs > 0
     ? Math.min(1, metrics.latencyMs / (metrics.latencyMedianMs * 2))
-    : 0;
-
-  const cellsFilled = metrics.cacheEfficiency !== null
-    ? Math.round(metrics.cacheEfficiency * 10)
     : 0;
 
   return (
@@ -162,14 +153,14 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
 
         {topSkills.map((s, i) => {
           const y = SKILLS_FIRST_ROW_Y + i * SKILLS_ROW_STEP;
-          const fillW = skills[0] && skills[0].tokenCost > 0 ? (s.tokenCost / skills[0].tokenCost) * 70 : 0;
           return (
-            <g key={s.name} transform={`translate(20, ${y})`} data-testid={`holo-skill-row-${i}`}>
+            <g key={s.name + s.activatedAt} transform={`translate(20, ${y})`} data-testid={`holo-skill-row-${i}`}>
               <text x={0} y={11} className="holo-skill-name">{s.name}</text>
-              <rect x={180} y={3} width={70} height={6} rx={1} fill="var(--holo-bar-bg)" />
-              <rect x={180} y={3} width={fillW} height={6} rx={1} fill="var(--holo-cyan)" />
+              <text x={w - 78} y={11} className="holo-skill-tokens" textAnchor="end">
+                {formatTokens(s.tokenCost)}
+              </text>
               <text x={w - 30} y={11} className="holo-skill-tokens" textAnchor="end">
-                ~{formatTokens(s.tokenCost)}
+                {pctOfTotal(s.tokenCost)}
               </text>
             </g>
           );
@@ -187,7 +178,7 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
             </text>
             {hiddenSum > 0 && (
               <text x={w - 50} y={10} className="holo-skill-tokens" textAnchor="end">
-                ~{formatTokens(hiddenSum)}
+                {formatTokens(hiddenSum)}
               </text>
             )}
           </g>
@@ -198,19 +189,13 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '490ms' }}>
         <text x={20} y={CACHE_Y} className="holo-label">CACHE EFFICIENCY</text>
-        <text x={240} y={CACHE_Y} className="holo-value" textAnchor="end">{fmtPct(metrics.cacheEfficiency)}</text>
-        <g transform={`translate(250, ${CACHE_Y - 6})`}>
-          {Array.from({ length: 10 }, (_, i) => (
-            <rect key={i} x={i * 11} y={0} width={9} height={9}
-                  fill={i < cellsFilled ? 'var(--holo-cyan)' : 'rgba(0,229,255,0.12)'} />
-          ))}
-        </g>
-        <text x={20} y={CACHE_Y + 20} className="holo-value-sub">
+        <text x={w - 10} y={CACHE_Y} className="holo-value" textAnchor="end">{fmtPct(metrics.cacheEfficiency)}</text>
+        <text x={20} y={CACHE_Y + 16} className="holo-value-sub">
           {metrics.cacheReads !== null
             ? `cache reads ${formatTokens(metrics.cacheReads)} · misses ${formatTokens(metrics.cacheMisses ?? 0)}`
             : '—'}
         </text>
-        <line x1={10} y1={CACHE_Y + 32} x2={w - 10} y2={CACHE_Y + 32} className="holo-divider" />
+        <line x1={10} y1={CACHE_Y + 26} x2={w - 10} y2={CACHE_Y + 26} className="holo-divider" />
       </g>
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '550ms' }}>
@@ -225,17 +210,33 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
       </g>
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '610ms' }}>
-        <text x={20} y={TOKENS_LABEL_Y} className="holo-label">TOKENS · IN · CR · CW · OUT</text>
-        {metrics.tokens && (
-          <g transform={`translate(20, ${TOKENS_LABEL_Y + 8})`}>
-            <rect x={0} y={0} width={w - 30} height={6} fill="rgba(0,229,255,0.06)" />
-            <rect x={0} y={0} width={tokenWidth('input')} height={6} fill="#5cf2ff" />
-            <rect x={tokenWidth('input')} y={0} width={tokenWidth('cacheRead')} height={6} fill="#00e5ff" />
-            <rect x={tokenWidth('input') + tokenWidth('cacheRead')} y={0} width={tokenWidth('cacheCreation')} height={6} fill="#7fffd4" />
-            <rect x={tokenWidth('input') + tokenWidth('cacheRead') + tokenWidth('cacheCreation')} y={0} width={tokenWidth('output')} height={6} fill="#9d6cff" />
-          </g>
-        )}
-        <text x={20} y={TOKENS_LABEL_Y + 28} className="holo-value-sub">{tokensTextLine}</text>
+        <text x={20} y={TOKENS_LABEL_Y} className="holo-label">TOKENS</text>
+        {metrics.tokens && (() => {
+          // Four labeled values spaced evenly across the row after the label.
+          const labels: Array<['IN', keyof NonNullable<typeof metrics.tokens>]
+                            | ['CR', keyof NonNullable<typeof metrics.tokens>]
+                            | ['CW', keyof NonNullable<typeof metrics.tokens>]
+                            | ['OUT', keyof NonNullable<typeof metrics.tokens>]> = [
+            ['IN', 'input'],
+            ['CR', 'cacheRead'],
+            ['CW', 'cacheCreation'],
+            ['OUT', 'output'],
+          ];
+          const startX = 80;
+          const span = (w - 20) - startX;
+          const step = span / labels.length;
+          return labels.map(([label, key], i) => {
+            const cx = startX + i * step;
+            return (
+              <g key={label}>
+                <text x={cx} y={TOKENS_LABEL_Y} className="holo-label-dim">{label}</text>
+                <text x={cx + 22} y={TOKENS_LABEL_Y} className="holo-skill-tokens">
+                  {formatTokens(metrics.tokens![key])}
+                </text>
+              </g>
+            );
+          });
+        })()}
       </g>
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '670ms' }}>

@@ -19,6 +19,18 @@ function findToolResultText(events: RawEvent[], toolUseId: string): string | nul
   return null;
 }
 
+// The Skill tool's tool_result is often just a short acknowledgement (e.g.
+// "Skill X loaded") rather than the full skill content. When that happens,
+// fall back to the activating turn's cache_creation_input_tokens — an
+// over-estimate that shares one number across all skills loaded in the same
+// turn, but lands in the right order of magnitude.
+const SHORT_RESULT_THRESHOLD = 200;
+
+function cacheCreationOf(ev: RawEvent): number {
+  const usage = (ev.message as { usage?: { cache_creation_input_tokens?: number } } | undefined)?.usage;
+  return usage?.cache_creation_input_tokens ?? 0;
+}
+
 export function extractSkillTrack(events: RawEvent[]): SkillTrack {
   const activations: SkillActivation[] = [];
   for (const ev of events) {
@@ -31,7 +43,11 @@ export function extractSkillTrack(events: RawEvent[]): SkillTrack {
       const skill = (block.input as { skill?: string } | undefined)?.skill;
       if (!skill || typeof skill !== 'string') continue;
       const resultText = findToolResultText(events, block.id);
-      const tokenCost = Math.ceil((resultText?.length ?? 0) / 4);
+      const fromResultText = Math.ceil((resultText?.length ?? 0) / 4);
+      const cacheCreate = cacheCreationOf(ev);
+      const tokenCost = fromResultText >= SHORT_RESULT_THRESHOLD
+        ? fromResultText
+        : (cacheCreate > 0 ? cacheCreate : fromResultText);
       activations.push({
         name: skill,
         activatedAt: ev.timestamp,
