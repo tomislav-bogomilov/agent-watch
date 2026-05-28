@@ -1,6 +1,7 @@
-import { promises as fs } from 'node:fs';
+import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import readline from 'node:readline';
 import type { Plugin, Connect } from 'vite';
 import { aggregateTokenUsage } from './aggregate-token-usage';
 
@@ -100,6 +101,27 @@ function sendJson(res: Parameters<Connect.NextHandleFunction>[1], status: number
   res.end(JSON.stringify(body));
 }
 
+// True iff the .jsonl contains at least one assistant turn. Sessions without one
+// would render as a single root-prompt node (just /model, /voice, or an
+// interrupted start) and are filtered out of both /api/sessions and /api/prompts.
+async function hasAssistantTurn(filePath: string): Promise<boolean> {
+  const stream = createReadStream(filePath, { encoding: 'utf8' });
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  try {
+    for await (const line of rl) {
+      if (!line) continue;
+      let ev: unknown;
+      try { ev = JSON.parse(line); } catch { continue; }
+      const e = ev as { type?: string; message?: { role?: string } };
+      if (e.type === 'assistant' && e.message?.role === 'assistant') return true;
+    }
+    return false;
+  } finally {
+    rl.close();
+    stream.destroy();
+  }
+}
+
 async function listSessions(root: string): Promise<SessionMeta[]> {
   let projects: string[];
   try {
@@ -126,6 +148,7 @@ async function listSessions(root: string): Promise<SessionMeta[]> {
         continue;
       }
       if (!stat.isFile()) continue;
+      if (!(await hasAssistantTurn(full))) continue;
       const sessionId = name.replace(/\.jsonl$/, '');
       const title = await extractTitle(full);
       out.push({
@@ -271,6 +294,7 @@ async function listPrompts(root: string): Promise<PromptMeta[]> {
       let stat;
       try { stat = await fs.stat(full); } catch { continue; }
       if (!stat.isFile()) continue;
+      if (!(await hasAssistantTurn(full))) continue;
       const sessionId = name.replace(/\.jsonl$/, '');
       const prompts = await extractPrompts(full, projectId, sessionId);
       out.push(...prompts);
