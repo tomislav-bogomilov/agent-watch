@@ -436,7 +436,7 @@ export function GraphCanvas({
           detailPanelWidth={detailPanelWidth}
         />
       )}
-      {hover && hover.milestone.id !== pinnedId && (
+      {hover && !presentedId && (
         <NodeTooltip milestone={hover.milestone} screenX={hover.screenX} screenY={hover.screenY} />
       )}
     </div>
