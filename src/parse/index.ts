@@ -3,6 +3,7 @@ import { computeSuccessPath, countMilestones } from './failure';
 import { filterNoise } from './filter';
 import { buildMilestones } from './milestones';
 import { attachSubagents } from './subagents';
+import { extractSkillTrack } from './skills';
 import type { RawEvent, Session, SessionPayload } from './types';
 
 function parseJsonl(jsonl: string): RawEvent[] {
@@ -25,6 +26,7 @@ export function parseSession(payload: SessionPayload): Session {
   const chain = buildChain(clean);
   const root = buildMilestones(chain);
   attachSubagents(root, payload.subagents);
+  const skillTrack = extractSkillTrack(events);
   const successPath = computeSuccessPath(root);
   const subagentMtimes: Record<string, string> = {};
   for (const sa of payload.subagents) {
@@ -38,6 +40,7 @@ export function parseSession(payload: SessionPayload): Session {
     successPath,
     totalMilestones: countMilestones(root),
     subagentMtimes,
+    skillTrack,
   };
 }
 

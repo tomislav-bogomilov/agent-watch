@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Milestone } from '../parse/types';
 
-export type Speed = 0.25 | 0.5 | 1 | 2 | 4;
+export type Speed = 0.1 | 0.25 | 0.5 | 1 | 2 | 4;
 
 export function flattenDFS(root: Milestone): Milestone[] {
   const out: Milestone[] = [];
@@ -68,7 +68,7 @@ export function usePlayback(root: Milestone | null): { state: PlaybackState; con
   // two, skipping every other node. One state, pure updater, no skipping.
   const [position, setPosition] = useState<Position>({ index: 0, edgeProgress: 0 });
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<Speed>(0.25);
+  const [speed, setSpeed] = useState<Speed>(0.1);
   const lastTickRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 

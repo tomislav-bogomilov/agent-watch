@@ -83,7 +83,6 @@ export const NodeShape = memo(function NodeShape({ node, state, inSubagent, pinn
 
   return (
     <g transform={`translate(${node.x - W / 2}, ${node.y - H / 2})`} data-id={node.id} data-state={state} data-kind={node.milestone.kind}>
-      <title>{node.milestone.label}</title>
       <path
         d={d}
         fill={colors.fill}
