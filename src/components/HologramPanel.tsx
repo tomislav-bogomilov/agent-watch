@@ -52,7 +52,7 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
   const topSkills = expanded ? skills : skills.slice(0, 5);
   const hiddenSkills = skills.slice(5);
   const hiddenSum = hiddenSkills.reduce((s, x) => s + x.tokenCost, 0);
-  const idText = milestone.id;
+  const idText = milestone.id.slice(0, 8).toUpperCase();
   const kindText = `// ${milestone.kind.toUpperCase()}`;
   const modeText = mode === 'live' ? 'LIVE' : 'PLAYBACK';
 
@@ -117,7 +117,7 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose }:
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '250ms' }}>
         <rect x={10} y={HEADER_Y} width={w - 20} height={26} fill="rgba(0,229,255,0.10)" />
         <text x={20} y={HEADER_Y + 18} className="holo-id" data-testid="holo-id">{idText}</text>
-        <text x={80} y={HEADER_Y + 18} className="holo-kind" data-testid="holo-kind">{kindText}</text>
+        <text x={120} y={HEADER_Y + 18} className="holo-kind" data-testid="holo-kind">{kindText}</text>
         <rect x={w - 80} y={HEADER_Y + 5} width={62} height={16} rx={2} className="holo-mode-chip" />
         <text x={w - 49} y={HEADER_Y + 16} className="holo-mode-text" textAnchor="middle" data-testid="holo-mode-chip">{modeText}</text>
         <g
