@@ -312,7 +312,20 @@ export function GraphCanvas({
     (nodeFilterCohort(state) === 'glow' ? renderedNodesGlow : renderedNodesPlain).push(elem);
   }
 
-  const hologramView: HologramView | null = useMemo(() => {
+  const strictVisibleRect = useMemo(
+    () => visibleLayoutRect(
+      { k: transform.k, x: transform.x, y: transform.y },
+      { width: viewport.width, height: viewport.height },
+      0
+    ),
+    [transform.k, transform.x, transform.y, viewport.width, viewport.height]
+  );
+
+  // Local type — combines the HologramView data with the resolved LaidOutNode
+  // so hologramPlacement can reuse it without a second layout.nodes.find.
+  type PinnedComputed = { view: HologramView; node: LaidOutNode };
+
+  const hologramPinned: PinnedComputed | null = useMemo(() => {
     if (!pinnedId) return null;
     const node = layout.nodes.find((n) => n.id === pinnedId);
     if (!node) return null;
@@ -324,26 +337,27 @@ export function GraphCanvas({
       : [];
     const totalTokens = skills.reduce((s, sk) => s + sk.tokenCost, 0);
     return {
-      milestone: node.milestone,
-      mode: liveEngaged ? 'live' : 'playback',
-      metrics,
-      skills,
-      skillsTotal: { count: skills.length, totalTokens },
+      view: {
+        milestone: node.milestone,
+        mode: liveEngaged ? 'live' : 'playback',
+        metrics,
+        skills,
+        skillsTotal: { count: skills.length, totalTokens },
+      },
+      node,
     };
   }, [pinnedId, layout.nodes, playback.order, session, liveEngaged]);
 
   const hologramPlacement = useMemo(() => {
-    if (!hologramView) return null;
-    const node = layout.nodes.find((n) => n.id === pinnedId);
-    if (!node) return null;
+    if (!hologramPinned) return null;
     const hologramRect = {
-      x: visibleRect.minX,
-      y: visibleRect.minY,
-      w: visibleRect.maxX - visibleRect.minX,
-      h: visibleRect.maxY - visibleRect.minY,
+      x: strictVisibleRect.minX,
+      y: strictVisibleRect.minY,
+      w: strictVisibleRect.maxX - strictVisibleRect.minX,
+      h: strictVisibleRect.maxY - strictVisibleRect.minY,
     };
-    return layoutHologram(node, layout.nodes, hologramRect, HOLOGRAM_PANEL_SIZE);
-  }, [hologramView, pinnedId, layout.nodes, visibleRect]);
+    return layoutHologram(hologramPinned.node, layout.nodes, hologramRect, HOLOGRAM_PANEL_SIZE);
+  }, [hologramPinned, layout.nodes, strictVisibleRect]);
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} onMouseLeave={() => setHover(null)}>
@@ -374,10 +388,10 @@ export function GraphCanvas({
           <g data-cohort="nodes-plain">{renderedNodesPlain}</g>
           <g data-cohort="nodes-glow" filter="url(#tg-glow)">{renderedNodesGlow}</g>
 
-          {hologramView && hologramPlacement && (
+          {hologramPinned && hologramPlacement && (
             <HologramPanel
               key={pinnedId ?? 'none'}
-              view={hologramView}
+              view={hologramPinned.view}
               panelRect={hologramPlacement.panelRect}
               connectorPath={hologramPlacement.connectorPath}
               open={!!pinnedId}
