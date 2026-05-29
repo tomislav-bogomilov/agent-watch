@@ -164,3 +164,45 @@ describe('readMemoryStore', () => {
     expect(out).toEqual({ memories: [], indexes: [] });
   });
 });
+
+import { createMemory, updateMemory, deleteMemory } from '../../../server/memory-store';
+
+describe('write operations', () => {
+  it('creates a file, syncs the index, and rejects duplicates', async () => {
+    const projects = await makeStore();
+    const rec = await createMemory(projects, 'C--demo', {
+      name: 'gamma', description: 'Gamma desc.', type: 'reference', body: 'Body [[alpha]]',
+    });
+    expect(rec.name).toBe('gamma');
+    const dir = memoryDirFor(projects, 'C--demo');
+    const written = await fs.readFile(path.join(dir, 'gamma.md'), 'utf8');
+    expect(parseMemoryFile(written).frontmatter.type).toBe('reference');
+    const index = await fs.readFile(path.join(dir, 'MEMORY.md'), 'utf8');
+    expect(index).toContain('gamma.md');
+    await expect(createMemory(projects, 'C--demo', {
+      name: 'gamma', description: 'x', type: 'project', body: 'y',
+    })).rejects.toThrow(/exists/);
+  });
+
+  it('updates body + type, preserves originSessionId, and backs up the prior file', async () => {
+    const projects = await makeStore();
+    const dir = memoryDirFor(projects, 'C--demo');
+    await fs.writeFile(path.join(dir, 'alpha.md'),
+      `---\nname: alpha\ndescription: "A"\nmetadata:\n  type: project\n  originSessionId: keep-me\n---\n\nold\n`);
+    const rec = await updateMemory(projects, 'C--demo', 'alpha', { description: 'A2', type: 'feedback', body: 'new body' });
+    expect(rec.type).toBe('feedback');
+    expect(rec.originSessionId).toBe('keep-me');
+    const written = await fs.readFile(path.join(dir, 'alpha.md'), 'utf8');
+    expect(written).toContain('new body');
+    const backups = await fs.readdir(path.join(dir, '.backups'));
+    expect(backups.some((b) => b.startsWith('alpha.'))).toBe(true);
+  });
+
+  it('delete removes the file + index line and reports broken backlinks', async () => {
+    const projects = await makeStore();
+    const res = await deleteMemory(projects, 'C--demo', 'beta');
+    const dir = memoryDirFor(projects, 'C--demo');
+    await expect(fs.stat(path.join(dir, 'beta.md'))).rejects.toThrow();
+    expect(res.brokenBacklinks).toContain('alpha'); // alpha links to beta
+  });
+});

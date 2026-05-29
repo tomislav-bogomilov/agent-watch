@@ -262,3 +262,83 @@ export async function readMemoryStore(projectsRoot: string): Promise<MemoryRespo
   memories.sort((a, b) => a.name.localeCompare(b.name));
   return { memories, indexes };
 }
+
+async function backupFile(filePath: string): Promise<void> {
+  try {
+    const stat = await fs.stat(filePath);
+    const dir = path.join(path.dirname(filePath), '.backups');
+    await fs.mkdir(dir, { recursive: true });
+    const base = path.basename(filePath, '.md');
+    await fs.copyFile(filePath, path.join(dir, `${base}.${Math.round(stat.mtimeMs)}.md`));
+  } catch { /* nothing to back up */ }
+}
+
+async function readRecord(projectsRoot: string, scopeKey: string, name: string): Promise<MemoryRecord> {
+  const file = resolveMemoryFile(projectsRoot, scopeKey, name);
+  const stat = await fs.stat(file);
+  const parsed = parseMemoryFile(await fs.readFile(file, 'utf8'));
+  const scope: MemoryScope = scopeKey === 'global'
+    ? { kind: 'global' }
+    : { kind: 'project', projectId: scopeKey, cwd: decodeProjectId(scopeKey) };
+  const indexRaw = await fs.readFile(path.join(memoryDirFor(projectsRoot, scopeKey), 'MEMORY.md'), 'utf8').catch(() => '');
+  const inIndex = parseIndex(indexRaw).some((e) => e.name === name);
+  return {
+    scopeKey, scope, name,
+    description: parsed.frontmatter.description ?? '',
+    type: parsed.frontmatter.type ?? null,
+    originSessionId: parsed.frontmatter.originSessionId ?? null,
+    links: parsed.links, body: parsed.body, mtimeMs: stat.mtimeMs, inIndex,
+    parseError: parsed.parseError,
+  };
+}
+
+async function writeIndex(projectsRoot: string, scopeKey: string, mutate: (raw: string) => string): Promise<void> {
+  const indexPath = path.join(memoryDirFor(projectsRoot, scopeKey), 'MEMORY.md');
+  const raw = await fs.readFile(indexPath, 'utf8').catch(() => '');
+  await backupFile(indexPath);
+  await fs.writeFile(indexPath, mutate(raw), 'utf8');
+}
+
+export async function createMemory(
+  projectsRoot: string, scopeKey: string,
+  input: { name: string; description: string; type: MemoryType; body: string },
+): Promise<MemoryRecord> {
+  const file = resolveMemoryFile(projectsRoot, scopeKey, input.name);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  try { await fs.access(file); throw new Error(`memory exists: ${input.name}`); }
+  catch (e) { if ((e as Error).message.startsWith('memory exists')) throw e; }
+  await fs.writeFile(file, serializeMemory({ ...input }), 'utf8');
+  const e = deriveIndexEntry(input.name, input.description);
+  await writeIndex(projectsRoot, scopeKey, (raw) => upsertIndexLine(raw, e.name, e.title, e.hook));
+  return readRecord(projectsRoot, scopeKey, input.name);
+}
+
+export async function updateMemory(
+  projectsRoot: string, scopeKey: string, name: string,
+  patch: { description: string; type: MemoryType; body: string },
+): Promise<MemoryRecord> {
+  const file = resolveMemoryFile(projectsRoot, scopeKey, name);
+  const prior = parseMemoryFile(await fs.readFile(file, 'utf8'));
+  await backupFile(file);
+  await fs.writeFile(file, serializeMemory({
+    name, description: patch.description, type: patch.type,
+    originSessionId: prior.frontmatter.originSessionId ?? null, body: patch.body,
+  }), 'utf8');
+  const e = deriveIndexEntry(name, patch.description);
+  await writeIndex(projectsRoot, scopeKey, (raw) => upsertIndexLine(raw, e.name, e.title, e.hook));
+  return readRecord(projectsRoot, scopeKey, name);
+}
+
+export async function deleteMemory(
+  projectsRoot: string, scopeKey: string, name: string,
+): Promise<{ brokenBacklinks: string[] }> {
+  const file = resolveMemoryFile(projectsRoot, scopeKey, name);
+  const store = await readMemoryStore(projectsRoot);
+  const brokenBacklinks = store.memories
+    .filter((m) => m.name !== name && m.links.includes(name))
+    .map((m) => m.name);
+  await backupFile(file);
+  await fs.rm(file);
+  await writeIndex(projectsRoot, scopeKey, (raw) => removeIndexLine(raw, name));
+  return { brokenBacklinks };
+}
