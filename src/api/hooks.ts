@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { fetchPromptList, fetchSessionList, fetchSessionPayload, fetchTokenUsage } from './client';
-import type { TokenUsageResponse } from './client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchPromptList, fetchSessionList, fetchSessionPayload, fetchTokenUsage, fetchMemory, createMemory, updateMemory, deleteMemory } from './client';
+import type { TokenUsageResponse, MemoryResponse, MemoryType } from './client';
 import { parseSession } from '../parse';
 import type { Session } from '../parse/types';
 import { POLL_MS } from '../components/live/liveness';
@@ -49,3 +49,33 @@ export function useSession(projectId: string | null, sessionId: string | null, l
 }
 
 export { isLiveMeta } from '../components/live/liveness';
+
+export function useMemoryList() {
+  return useQuery<MemoryResponse>({ queryKey: ['memory'], queryFn: fetchMemory });
+}
+
+export function useCreateMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { scopeKey: string; name: string; description: string; type: MemoryType; body: string }) =>
+      createMemory(v.scopeKey, { name: v.name, description: v.description, type: v.type, body: v.body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['memory'] }),
+  });
+}
+
+export function useUpdateMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { scopeKey: string; name: string; description: string; type: MemoryType; body: string }) =>
+      updateMemory(v.scopeKey, v.name, { description: v.description, type: v.type, body: v.body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['memory'] }),
+  });
+}
+
+export function useDeleteMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { scopeKey: string; name: string }) => deleteMemory(v.scopeKey, v.name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['memory'] }),
+  });
+}
