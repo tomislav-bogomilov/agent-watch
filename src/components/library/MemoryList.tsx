@@ -32,14 +32,13 @@ export function MemoryList({ query, selectedKey, onSelect, onCreate }: Props) {
     return [...map.entries()].map(([scopeKey, g]) => ({ scopeKey, ...g }));
   }, [data, query]);
 
-  if (isLoading) return <div style={styles.muted}>scanning…</div>;
-  if (error) return <div style={styles.error}>error: {(error as Error).message}</div>;
-  if (groups.length === 0) return <div style={styles.muted}>(no memories)</div>;
-
   return (
     <div data-testid="memory-list">
       <button data-testid="memory-create" style={styles.create}
         onClick={() => onCreate(groups[0]?.scopeKey ?? 'global')}>+ NEW MEMORY</button>
+      {isLoading && <div style={styles.muted}>scanning…</div>}
+      {error && <div style={styles.error}>error: {(error as Error).message}</div>}
+      {!isLoading && !error && groups.length === 0 && <div style={styles.muted}>(no memories)</div>}
       {groups.map((g) => (
         <div key={g.scopeKey} style={styles.group}>
           <div style={styles.groupHeader}>{g.label} <span style={styles.count}>({g.items.length})</span></div>

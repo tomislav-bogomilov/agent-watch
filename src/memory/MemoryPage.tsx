@@ -61,8 +61,10 @@ export function MemoryPage({ selected, onSelectMemory, onJumpToSession, creating
                   onCancel={onCreateDone}
                   onSave={async (v) => {
                     await create.mutateAsync({ scopeKey: creatingScope, name: v.name, description: v.description, type: v.type, body: v.body });
-                    onCreateDone();
+                    // select first, then clear creatingScope, so the detail view
+                    // lands on the new memory without a "SELECT A MEMORY" flash
                     onSelectMemory(creatingScope, v.name);
+                    onCreateDone();
                   }}
                 />
               : selectedMemory

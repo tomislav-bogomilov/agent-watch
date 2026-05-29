@@ -4,11 +4,8 @@ test('memory page: create a memory then delete it', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('library-mode').selectOption('memory');
 
-  // No "create" affordance is on the page by default for an unselected state;
-  // create is triggered from the editor opened via the (existing) detail edit
-  // flow only for edits. For create, the test drives the API-backed flow by
-  // opening an existing memory and saving a NEW one is not possible — so we
-  // assert create via the dedicated create button.
+  // Create a new memory via the dedicated sidebar button, then delete it,
+  // leaving the fixture store in its original state.
   await page.getByTestId('memory-create').click();
   await page.getByTestId('editor-name').fill('e2e-temp');
   await page.getByTestId('editor-description').fill('temp e2e memory');
