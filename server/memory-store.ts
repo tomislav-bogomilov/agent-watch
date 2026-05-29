@@ -21,18 +21,20 @@ export type ParsedMemory = {
 const LINK_RE = /\[\[([a-z0-9][a-z0-9-]*)\]\]/g;
 
 export function extractLinks(body: string): string[] {
+  const seen = new Set<string>();
   const out: string[] = [];
   for (const m of body.matchAll(LINK_RE)) {
-    if (!out.includes(m[1])) out.push(m[1]);
+    if (!seen.has(m[1])) { seen.add(m[1]); out.push(m[1]); }
   }
   return out;
 }
 
 function unquote(v: string): string {
   const t = v.trim();
-  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
-    return t.slice(1, -1);
+  if (t.startsWith('"') && t.endsWith('"') && t.length >= 2) {
+    try { return JSON.parse(t) as string; } catch { return t.slice(1, -1); }
   }
+  if (t.startsWith("'") && t.endsWith("'") && t.length >= 2) return t.slice(1, -1);
   return t;
 }
 
@@ -41,7 +43,16 @@ export function parseMemoryFile(raw: string): ParsedMemory {
   if (!normalized.startsWith('---\n')) {
     return { frontmatter: {}, body: normalized, links: [], parseError: 'missing frontmatter' };
   }
-  const end = normalized.indexOf('\n---', 3);
+  // find a standalone closing fence line: \n--- followed by \n or EOF
+  let end = -1;
+  let from = 3;
+  while (true) {
+    const idx = normalized.indexOf('\n---', from);
+    if (idx === -1) break;
+    const after = idx + 4;
+    if (after >= normalized.length || normalized[after] === '\n') { end = idx; break; }
+    from = idx + 1;
+  }
   if (end === -1) {
     return { frontmatter: {}, body: normalized, links: [], parseError: 'unterminated frontmatter' };
   }

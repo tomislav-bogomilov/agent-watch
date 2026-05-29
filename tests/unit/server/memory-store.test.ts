@@ -43,4 +43,17 @@ describe('parseMemoryFile', () => {
     expect(p.frontmatter.originSessionId).toBe('sess-1');
     expect(p.body.trim()).toBe('Hello [[a-memory]]');
   });
+
+  it('round-trips a description containing double-quotes', () => {
+    const text = serializeMemory({ name: 'q', description: 'She said "hi"', type: 'user', originSessionId: null, body: '' });
+    expect(parseMemoryFile(text).frontmatter.description).toBe('She said "hi"');
+  });
+
+  it('does not terminate frontmatter on a body line that starts with ---', () => {
+    const raw = `---\nname: t\ndescription: "d"\nmetadata:\n  type: project\n---\n\nintro\n--- a horizontal rule ---\nmore\n`;
+    const p = parseMemoryFile(raw);
+    expect(p.parseError).toBeUndefined();
+    expect(p.frontmatter.name).toBe('t');
+    expect(p.body).toContain('--- a horizontal rule ---');
+  });
 });
