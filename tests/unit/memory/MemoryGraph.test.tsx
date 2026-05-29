@@ -11,13 +11,29 @@ function rec(name: string, links: string[] = []): MemoryRecord {
   };
 }
 
+const graphProps = {
+  getBacklinks: () => [] as string[],
+  knownSessionIds: new Set<string>(),
+  onJumpToSession: () => {},
+  now: 0,
+};
+
 describe('MemoryGraph', () => {
   it('renders one node per memory and one edge per valid link, and selects on click', () => {
     const onSelect = vi.fn();
-    render(<MemoryGraph memories={[rec('a', ['b', 'ghost']), rec('b')]} selectedName={null} onSelect={onSelect} />);
+    render(<MemoryGraph memories={[rec('a', ['b', 'ghost']), rec('b')]} selectedName={null} onSelect={onSelect} {...graphProps} />);
     expect(screen.getAllByTestId(/^graph-node-/)).toHaveLength(2);
     expect(screen.getAllByTestId(/^graph-edge-/)).toHaveLength(1); // a->b valid; a->ghost dropped
     fireEvent.click(screen.getByTestId('graph-node-a'));
     expect(onSelect).toHaveBeenCalledWith('a');
+  });
+
+  it('opens a hologram for the clicked node and closes it via ×', () => {
+    render(<MemoryGraph memories={[rec('a', ['b']), rec('b')]} selectedName={null} onSelect={() => {}} {...graphProps} />);
+    expect(screen.queryByTestId('memory-hologram')).toBeNull();
+    fireEvent.click(screen.getByTestId('graph-node-a'));
+    expect(screen.getByTestId('memory-hologram')).toBeDefined();
+    fireEvent.click(screen.getByTestId('hologram-close'));
+    expect(screen.queryByTestId('memory-hologram')).toBeNull();
   });
 });

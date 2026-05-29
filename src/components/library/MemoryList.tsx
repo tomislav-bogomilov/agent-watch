@@ -76,7 +76,7 @@ const styles = {
   count: { color: 'var(--text-dim)' },
   item: { display: 'flex' as const, alignItems: 'center' as const, gap: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 11 },
   itemSel: { background: 'rgba(255,157,0,0.08)', borderLeft: '2px solid #ff9d00' },
-  badge: { fontSize: 8, padding: '1px 5px', borderRadius: 8, border: '1px solid', textTransform: 'uppercase' as const },
+  badge: { fontSize: 8, padding: '1px 5px', borderRadius: 8, borderWidth: 1, borderStyle: 'solid' as const, textTransform: 'uppercase' as const },
   name: { color: 'var(--text)', fontFamily: 'ui-monospace, monospace', overflow: 'hidden' as const, textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
   warn: { color: 'var(--node-failed)', marginLeft: 'auto' as const },
   muted: { padding: '0 12px', color: 'var(--text-dim)', fontSize: 12 },

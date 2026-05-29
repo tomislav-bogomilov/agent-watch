@@ -90,6 +90,10 @@ export function MemoryPage({ selected, onSelectMemory, onJumpToSession, creating
                 const target = memories.find((m) => m.name === name);
                 if (target) onSelectMemory(target.scopeKey, target.name);
               }}
+              getBacklinks={(name: string) => insights.backlinks.get(name) ?? []}
+              knownSessionIds={knownSessionIds}
+              onJumpToSession={onJumpToSession}
+              now={Date.now()}
             />
           )}
           {view === 'stats' && <MemoryStats insights={insights} />}
@@ -104,7 +108,7 @@ const styles = {
   chrome: { display: 'flex' as const, alignItems: 'center' as const, gap: 12, flexShrink: 0 },
   title: { fontSize: 11, letterSpacing: 3, color: 'var(--edge-trail)', fontFamily: 'ui-monospace, monospace' },
   tabs: { display: 'flex' as const, gap: 6, marginLeft: 'auto' as const },
-  tab: { background: 'rgba(5,8,13,0.85)', border: '1px solid rgba(110,224,238,0.6)', color: 'var(--text)', fontSize: 10, letterSpacing: 2, padding: '4px 12px', fontFamily: 'ui-monospace, monospace', cursor: 'pointer' as const },
+  tab: { background: 'rgba(5,8,13,0.85)', borderWidth: 1, borderStyle: 'solid' as const, borderColor: 'rgba(110,224,238,0.6)', color: 'var(--text)', fontSize: 10, letterSpacing: 2, padding: '4px 12px', fontFamily: 'ui-monospace, monospace', cursor: 'pointer' as const },
   tabOn: { background: 'rgba(0,229,255,0.10)', color: 'var(--edge-trail)', borderColor: 'var(--edge-trail)' },
   body: { flex: 1, minHeight: 0, overflow: 'auto' as const, border: '1px solid rgba(0,229,255,0.55)', background: 'rgba(5,8,13,0.6)' },
   muted: { padding: 24, color: 'var(--text-dim)', letterSpacing: 4, fontFamily: 'ui-monospace, monospace' },
