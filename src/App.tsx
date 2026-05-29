@@ -10,6 +10,7 @@ import { DetailPanel } from './components/DetailPanel';
 import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
 import { TokensPage } from './tokens/TokensPage';
+import { MemoryPage } from './memory/MemoryPage';
 import { useTokenUsage } from './api/hooks';
 import { presetCutoff, type RangePreset } from './tokens/aggregate';
 import { CopyCwdButton } from './components/CopyCwdButton';
@@ -47,7 +48,7 @@ function readPreset(): RangePreset {
 function readMode(): LibraryMode {
   try {
     const raw = localStorage.getItem(STORAGE_MODE);
-    if (raw === 'prompts' || raw === 'usage') return raw;
+    if (raw === 'prompts' || raw === 'usage' || raw === 'memory') return raw;
     return 'sessions';
   } catch {
     return 'sessions';
@@ -134,7 +135,7 @@ export default function App() {
   const usageCutoffDay = presetCutoff(preset, today);
   const sessionsQuery = useSessionList();
   const selectedMeta = useMemo(() => {
-    if (!selected || !sessionsQuery.data) return null;
+    if (!selected || selected.kind === 'memory' || !sessionsQuery.data) return null;
     return sessionsQuery.data.find(
       (s) => s.projectId === selected.projectId && s.sessionId === selected.sessionId
     ) ?? null;
@@ -142,8 +143,9 @@ export default function App() {
   const sessionIsLive = selectedMeta ? isLiveMeta(selectedMeta) : false;
   const [liveEngaged, setLiveEngaged] = useState(false);
   const { data: rawSession, isLoading, error } = useSession(
-    selected?.projectId ?? null,
-    selected?.sessionId ?? null,
+    selected?.kind === 'session' || selected?.kind === 'prompt' ? selected.projectId : null,
+    selected?.kind === 'session' ? selected.sessionId
+      : selected?.kind === 'prompt' ? selected.sessionId : null,
     sessionIsLive || liveEngaged,
   );
   const promptsQuery = usePromptList();
@@ -180,7 +182,7 @@ export default function App() {
   useEffect(() => { setPinnedId(null); setPanelDismissed(false); }, [selected]);
   const lastAutoEngagedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!selected || !selectedMeta) {
+    if (!selected || selected.kind === 'memory' || !selectedMeta) {
       lastAutoEngagedRef.current = null;
       return;
     }
@@ -260,6 +262,13 @@ export default function App() {
 
   const isMissingSlice = !!rawSession && selected?.kind === 'prompt' && effectiveSession === null;
 
+  function handleJumpToSession(sessionId: string): void {
+    const meta = sessionsQuery.data?.find((s) => s.sessionId === sessionId);
+    if (!meta) return;
+    setSelected({ kind: 'session', projectId: meta.projectId, sessionId: meta.sessionId });
+    setMode('sessions');
+  }
+
   return (
     <div style={styles.shell}>
       <AppHeader />
@@ -281,7 +290,14 @@ export default function App() {
       />
       <main style={styles.main}>
         <div style={styles.contentFrame}>
-          {mode === 'usage' ? <TokensPage family={family} preset={preset} onPresetChange={setPreset} /> : (<>
+          {mode === 'usage' ? <TokensPage family={family} preset={preset} onPresetChange={setPreset} />
+           : mode === 'memory' ? (
+             <MemoryPage
+               selected={selected}
+               onSelectMemory={(scopeKey, name) => setSelected({ kind: 'memory', scopeKey, name })}
+               onJumpToSession={handleJumpToSession}
+             />
+           ) : (<>
           {!selected && <div style={styles.empty}>SELECT A SESSION</div>}
           {selected && isLoading && <div style={styles.empty}>LOADING…</div>}
           {selected && error && <div style={styles.error}>error: {(error as Error).message}</div>}
