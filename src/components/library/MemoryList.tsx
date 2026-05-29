@@ -24,7 +24,7 @@ export function MemoryList({ query, selectedKey, onSelect }: Props) {
     const map = new Map<string, { label: string; items: MemoryRecord[] }>();
     for (const m of memories) {
       const label = m.scope.kind === 'global' ? 'GLOBAL'
-        : m.scope.cwd.replace(/\\/g, '/').split('/').filter(Boolean).slice(-1)[0].toUpperCase();
+        : (m.scope.cwd.replace(/\\/g, '/').split('/').filter(Boolean).slice(-1)[0] ?? m.scopeKey).toUpperCase();
       if (!map.has(m.scopeKey)) map.set(m.scopeKey, { label, items: [] });
       map.get(m.scopeKey)!.items.push(m);
     }
