@@ -20,7 +20,9 @@ export function deriveInsights(memories: MemoryRecord[], now: number): Insights 
   const brokenLinks: { from: string; to: string }[] = [];
 
   for (const m of memories) {
-    for (const target of m.links) {
+    // dedupe per-record links so a body containing [[x]] twice doesn't inflate
+    // backlink/broken-link counts (extractLinks already dedupes, but be robust)
+    for (const target of new Set(m.links)) {
       if (names.has(target)) {
         backlinks.set(target, [...(backlinks.get(target) ?? []), m.name]);
       } else {
