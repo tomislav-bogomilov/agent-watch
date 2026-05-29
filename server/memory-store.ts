@@ -106,7 +106,9 @@ export function parseIndex(raw: string): MemoryIndexEntry[] {
   for (const line of raw.replace(/\r\n/g, '\n').split('\n')) {
     const m = line.trim().match(INDEX_LINE_RE);
     if (!m) continue;
-    out.push({ title: m[1].trim(), name: m[2].trim(), hook: m[3]?.trim() || undefined, filePresent: false });
+    const name = m[2].trim();
+    if (!isMemoryName(name)) continue;
+    out.push({ title: m[1].trim(), name, hook: m[3]?.trim() || undefined, filePresent: false });
   }
   return out;
 }

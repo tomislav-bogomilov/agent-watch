@@ -102,6 +102,12 @@ not-an-entry-line
     expect(memoryDirFor(root, 'C--demo')).toBe(path.join(root, 'C--demo', 'memory'));
   });
 
+  it('parseIndex skips entries with unsafe names', () => {
+    const raw = `- [Good](good-name.md) — ok\n- [Bad](../escape.md) — nope\n`;
+    const names = parseIndex(raw).map((e) => e.name);
+    expect(names).toEqual(['good-name']);
+  });
+
   it('resolveMemoryFile rejects names that escape the scope dir', () => {
     const root = path.join('C:', 'home', '.claude', 'projects');
     expect(() => resolveMemoryFile(root, 'global', '../escape')).toThrow();
