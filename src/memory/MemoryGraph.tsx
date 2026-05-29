@@ -1,8 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide,
-  type SimulationNodeDatum,
-} from 'd3-force';
 import { zoom as d3zoom, zoomIdentity, type D3ZoomEvent } from 'd3-zoom';
 import { select } from 'd3-selection';
 import type { MemoryRecord, MemoryType } from '../api/client';
@@ -22,7 +18,6 @@ const PROJ_BORDER = 'rgba(0,229,255,0.55)', PROJ_HEADER = 'rgba(0,229,255,0.12)'
 
 type Transform = { k: number; x: number; y: number };
 type Box = { x: number; y: number; w: number; h: number };
-type SimNode = SimulationNodeDatum & { id: string };
 
 type LaidNode = { id: string; type: MemoryType | null; scopeKey: string; x: number; y: number };
 type Panel = { scopeKey: string; label: string; count: number; isGlobal: boolean; x: number; y: number; w: number; h: number };
@@ -39,27 +34,26 @@ function fitTransform(box: Box, vp: { w: number; h: number }): Transform {
   return { k, x: (vp.w - k * box.w) / 2 - k * box.x, y: (vp.h - k * box.h) / 2 - k * box.y };
 }
 
-/** Force-layout one project's nodes in local space, returning positions and the
- *  content bounding box (including node radius + right-extending labels). */
-function layoutGroup(ids: string[], intra: { source: string; target: string }[]) {
-  const nodes: SimNode[] = ids.map((id) => ({ id }));
-  const sim = forceSimulation(nodes)
-    .force('link', forceLink(intra.map((l) => ({ ...l }))).id((d: any) => d.id).distance(70))
-    .force('charge', forceManyBody().strength(-150))
-    .force('center', forceCenter(0, 0))
-    .force('collide', forceCollide(24))
-    .stop();
-  for (let i = 0; i < 160; i++) sim.tick();
-  const pos = new Map(nodes.map((n) => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }]));
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const n of nodes) {
-    const p = pos.get(n.id)!;
-    minX = Math.min(minX, p.x - NODE_R);
-    minY = Math.min(minY, p.y - NODE_R);
-    maxX = Math.max(maxX, p.x + 16 + n.id.length * CHAR_W);
-    maxY = Math.max(maxY, p.y + NODE_R);
-  }
-  return { pos, bbox: { x: minX, y: minY, w: Math.max(40, maxX - minX), h: Math.max(20, maxY - minY) } };
+/** Lay a project's nodes out on an even grid that fills the panel uniformly.
+ *  Most memories aren't linked to each other, so a force sim just clumps them
+ *  and overlaps their long labels; a grid distributes evenly and guarantees no
+ *  label collision. Column width is sized to the widest label in the group, and
+ *  the column count targets a roughly 1.3:1 panel so it isn't a thin strip. */
+const CELL_H = 48;
+function layoutGroup(ids: string[]) {
+  const n = ids.length;
+  const labelW = Math.max(40, ...ids.map((id) => 16 + id.length * CHAR_W));
+  const cellW = labelW + 26;
+  const cols = Math.max(1, Math.min(n, Math.ceil(Math.sqrt((n * CELL_H * 1.3) / cellW))));
+  const rows = Math.ceil(n / cols);
+  const pos = new Map<string, { x: number; y: number }>();
+  ids.forEach((id, i) => {
+    pos.set(id, { x: (i % cols) * cellW, y: Math.floor(i / cols) * CELL_H + CELL_H / 2 });
+  });
+  return {
+    pos,
+    bbox: { x: -NODE_R, y: 0, w: (cols - 1) * cellW + labelW + NODE_R, h: rows * CELL_H },
+  };
 }
 
 export function MemoryGraph({ memories, selectedName, onSelect, getBacklinks, knownSessionIds, onJumpToSession, now }: {
@@ -96,7 +90,6 @@ export function MemoryGraph({ memories, selectedName, onSelect, getBacklinks, kn
   const { nodes, panels, edges, box } = useMemo(() => {
     const visible = memories.filter((m) => !hidden.has(m.scopeKey));
     const names = new Set(visible.map((m) => m.name));
-    const groupOf = new Map(visible.map((m) => [m.name, m.scopeKey]));
 
     // group members
     const members = new Map<string, MemoryRecord[]>();
@@ -114,11 +107,7 @@ export function MemoryGraph({ memories, selectedName, onSelect, getBacklinks, kn
     for (const key of orderedKeys) {
       const recs = members.get(key)!;
       const ids = recs.map((r) => r.name);
-      const intra = visible.flatMap((m) =>
-        m.scopeKey === key
-          ? m.links.filter((tt) => names.has(tt) && groupOf.get(tt) === key).map((tt) => ({ source: m.name, target: tt }))
-          : []);
-      const { pos, bbox } = layoutGroup(ids, intra);
+      const { pos, bbox } = layoutGroup(ids);
       const w = bbox.w + PAD * 2;
       const h = bbox.h + HEADER_H + PAD * 2;
       if (cx > 0 && cx + w > targetRowW) { cx = 0; cy += rowH + GAP; rowH = 0; }
