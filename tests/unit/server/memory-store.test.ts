@@ -57,3 +57,56 @@ describe('parseMemoryFile', () => {
     expect(p.body).toContain('--- a horizontal rule ---');
   });
 });
+
+import {
+  parseIndex, upsertIndexLine, removeIndexLine, deriveIndexEntry,
+  isMemoryName, memoryDirFor, resolveMemoryFile,
+} from '../../../server/memory-store';
+import path from 'node:path';
+
+describe('index + safety', () => {
+  const INDEX = `- [Visual Direction](thoughtgraph-visual-direction.md) — TRON aesthetic
+- [Git Workflow](git-workflow.md)
+not-an-entry-line
+`;
+
+  it('parses index entries with optional hook', () => {
+    const entries = parseIndex(INDEX);
+    expect(entries.map((e) => e.name)).toEqual(['thoughtgraph-visual-direction', 'git-workflow']);
+    expect(entries[0].hook).toBe('TRON aesthetic');
+    expect(entries[1].hook).toBeUndefined();
+  });
+
+  it('upsert replaces an existing line and appends a new one', () => {
+    const e = deriveIndexEntry('git-workflow', 'A clear git workflow. More text.');
+    const next = upsertIndexLine(INDEX, e.name, e.title, e.hook);
+    expect(next.match(/git-workflow\.md/g)).toHaveLength(1);
+    const added = upsertIndexLine(next, 'new-one', 'New One', 'hook');
+    expect(added).toContain('- [New One](new-one.md) — hook');
+  });
+
+  it('removeIndexLine drops the matching line', () => {
+    expect(removeIndexLine(INDEX, 'git-workflow')).not.toContain('git-workflow.md');
+  });
+
+  it('isMemoryName rejects separators and traversal', () => {
+    expect(isMemoryName('good-name-1')).toBe(true);
+    expect(isMemoryName('Bad_Name')).toBe(false);
+    expect(isMemoryName('..')).toBe(false);
+    expect(isMemoryName('a/b')).toBe(false);
+  });
+
+  it('memoryDirFor puts global as a sibling of the projects root', () => {
+    const root = path.join('C:', 'home', '.claude', 'projects');
+    expect(memoryDirFor(root, 'global')).toBe(path.join('C:', 'home', '.claude', 'memory'));
+    expect(memoryDirFor(root, 'C--demo')).toBe(path.join(root, 'C--demo', 'memory'));
+  });
+
+  it('resolveMemoryFile rejects names that escape the scope dir', () => {
+    const root = path.join('C:', 'home', '.claude', 'projects');
+    expect(() => resolveMemoryFile(root, 'global', '../escape')).toThrow();
+    expect(resolveMemoryFile(root, 'global', 'ok-name')).toBe(
+      path.join(memoryDirFor(root, 'global'), 'ok-name.md')
+    );
+  });
+});

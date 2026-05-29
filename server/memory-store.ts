@@ -1,4 +1,6 @@
 // server/memory-store.ts
+import path from 'node:path';
+
 export type MemoryType = 'user' | 'feedback' | 'project' | 'reference';
 
 const MEMORY_TYPES: readonly MemoryType[] = ['user', 'feedback', 'project', 'reference'];
@@ -93,4 +95,66 @@ export function serializeMemory(input: {
   if (input.originSessionId) lines.push(`  originSessionId: ${input.originSessionId}`);
   lines.push('---', '', input.body.replace(/\r\n/g, '\n').replace(/\s+$/, ''), '');
   return lines.join('\n');
+}
+
+export type MemoryIndexEntry = { name: string; title: string; hook?: string; filePresent: boolean };
+
+const INDEX_LINE_RE = /^-\s*\[([^\]]+)\]\(([^)]+)\.md\)(?:\s*[—-]\s*(.*))?$/;
+
+export function parseIndex(raw: string): MemoryIndexEntry[] {
+  const out: MemoryIndexEntry[] = [];
+  for (const line of raw.replace(/\r\n/g, '\n').split('\n')) {
+    const m = line.trim().match(INDEX_LINE_RE);
+    if (!m) continue;
+    out.push({ title: m[1].trim(), name: m[2].trim(), hook: m[3]?.trim() || undefined, filePresent: false });
+  }
+  return out;
+}
+
+export function indexLineFor(name: string, title: string, hook?: string): string {
+  return hook ? `- [${title}](${name}.md) — ${hook}` : `- [${title}](${name}.md)`;
+}
+
+export function upsertIndexLine(raw: string, name: string, title: string, hook?: string): string {
+  const line = indexLineFor(name, title, hook);
+  const lines = raw.replace(/\r\n/g, '\n').split('\n');
+  const idx = lines.findIndex((l) => {
+    const m = l.trim().match(INDEX_LINE_RE);
+    return m?.[2].trim() === name;
+  });
+  if (idx >= 0) { lines[idx] = line; return lines.join('\n'); }
+  const trimmed = raw.replace(/\s*$/, '');
+  return trimmed ? `${trimmed}\n${line}\n` : `${line}\n`;
+}
+
+export function removeIndexLine(raw: string, name: string): string {
+  const kept = raw.replace(/\r\n/g, '\n').split('\n').filter((l) => {
+    const m = l.trim().match(INDEX_LINE_RE);
+    return m?.[2].trim() !== name;
+  });
+  return kept.join('\n');
+}
+
+export function deriveIndexEntry(name: string, description: string): { name: string; title: string; hook: string } {
+  const title = name.split('-').map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ');
+  const firstSentence = description.split(/(?<=[.!?])\s/)[0] ?? description;
+  const hook = firstSentence.length > 70 ? `${firstSentence.slice(0, 67)}…` : firstSentence;
+  return { name, title, hook };
+}
+
+export function isMemoryName(name: string): boolean {
+  return /^[a-z0-9][a-z0-9-]*$/.test(name);
+}
+
+export function memoryDirFor(projectsRoot: string, scopeKey: string): string {
+  if (scopeKey === 'global') return path.join(projectsRoot, '..', 'memory');
+  return path.join(projectsRoot, scopeKey, 'memory');
+}
+
+export function resolveMemoryFile(projectsRoot: string, scopeKey: string, name: string): string {
+  // isMemoryName already forbids separators, dots, and traversal, so a simple
+  // join cannot escape the scope dir. We avoid path.resolve here so the result
+  // is independent of process.cwd() (keeps tests deterministic across OSes).
+  if (!isMemoryName(name)) throw new Error(`invalid memory name: ${name}`);
+  return path.join(memoryDirFor(projectsRoot, scopeKey), `${name}.md`);
 }
