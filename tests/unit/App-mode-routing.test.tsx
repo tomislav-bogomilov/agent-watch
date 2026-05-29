@@ -13,6 +13,20 @@ vi.mock('../../src/api/hooks', async () => {
     useTokenUsage:  () => ({ data: { projects: [], rows: [] }, isLoading: false, error: null }),
     useSession:     () => ({ data: null, isLoading: false, error: null }),
     isLiveMeta:     () => false,
+    useMemoryList: () => ({
+      data: {
+        memories: [
+          { scopeKey: 'C--demo', scope: { kind: 'project', projectId: 'C--demo', cwd: 'C:/demo' },
+            name: 'alpha', description: 'A', type: 'feedback', originSessionId: null,
+            links: [], body: 'body', mtimeMs: 0, inIndex: true },
+        ],
+        indexes: [],
+      },
+      isLoading: false, error: null,
+    }),
+    useCreateMemory: () => ({ mutateAsync: async () => {}, isPending: false }),
+    useUpdateMemory: () => ({ mutateAsync: async () => {}, isPending: false }),
+    useDeleteMemory: () => ({ mutateAsync: async () => ({ brokenBacklinks: [] }), isPending: false }),
   };
 });
 
@@ -62,5 +76,12 @@ describe('App: mode-driven routing + #/tokens shim', () => {
   it('does NOT render TokensPage by default', () => {
     renderApp();
     expect(screen.queryByTestId('tokens-page')).toBeNull();
+  });
+
+  it('renders the MemoryPage and sidebar list when mode is "memory"', () => {
+    localStorage.setItem('tg.library.mode', 'memory');
+    renderApp();
+    expect(screen.getByTestId('memory-page')).toBeDefined();
+    expect(screen.getByTestId('memory-item-C--demo-alpha')).toBeDefined();
   });
 });
