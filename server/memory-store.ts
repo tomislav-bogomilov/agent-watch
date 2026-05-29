@@ -113,8 +113,17 @@ export function parseIndex(raw: string): MemoryIndexEntry[] {
   return out;
 }
 
+// Collapse all whitespace (incl. newlines) to single spaces. An index line is
+// single-line by definition; allowing raw newlines from a memory's description
+// would let crafted input inject fabricated entries into MEMORY.md.
+function oneLine(s: string): string {
+  return s.replace(/\s+/g, ' ').trim();
+}
+
 export function indexLineFor(name: string, title: string, hook?: string): string {
-  return hook ? `- [${title}](${name}.md) — ${hook}` : `- [${title}](${name}.md)`;
+  const t = oneLine(title);
+  const h = hook ? oneLine(hook) : '';
+  return h ? `- [${t}](${name}.md) — ${h}` : `- [${t}](${name}.md)`;
 }
 
 export function upsertIndexLine(raw: string, name: string, title: string, hook?: string): string {

@@ -85,6 +85,17 @@ not-an-entry-line
     expect(added).toContain('- [New One](new-one.md) — hook');
   });
 
+  it('collapses newlines in the hook so a crafted description cannot inject index lines', () => {
+    const e = deriveIndexEntry('safe-note', 'line one\n- [Injected](secret.md) — pwned\nmore');
+    const index = upsertIndexLine('', e.name, e.title, e.hook);
+    // the whole entry is a single physical line — no embedded newlines
+    expect(index.trim().split('\n')).toHaveLength(1);
+    // and it parses back as exactly ONE entry (the fabricated one is inert hook text)
+    const parsed = parseIndex(index);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].name).toBe('safe-note');
+  });
+
   it('removeIndexLine drops the matching line', () => {
     expect(removeIndexLine(INDEX, 'git-workflow')).not.toContain('git-workflow.md');
   });
