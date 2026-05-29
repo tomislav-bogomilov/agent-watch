@@ -134,6 +134,10 @@ export default function App() {
   const today = new Date().toISOString().slice(0, 10);
   const usageCutoffDay = presetCutoff(preset, today);
   const sessionsQuery = useSessionList();
+  const knownSessionIds = useMemo(
+    () => new Set((sessionsQuery.data ?? []).map((s) => s.sessionId)),
+    [sessionsQuery.data]
+  );
   const selectedMeta = useMemo(() => {
     if (!selected || selected.kind === 'memory' || !sessionsQuery.data) return null;
     return sessionsQuery.data.find(
@@ -300,6 +304,7 @@ export default function App() {
                onJumpToSession={handleJumpToSession}
                creatingScope={creatingScope}
                onCreateDone={() => setCreatingScope(null)}
+               knownSessionIds={knownSessionIds}
              />
            ) : (<>
           {!selected && <div style={styles.empty}>SELECT A SESSION</div>}

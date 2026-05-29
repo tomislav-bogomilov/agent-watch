@@ -14,9 +14,10 @@ type Props = {
   backlinks: string[];
   onNavigate: (name: string) => void;
   onJumpToSession: (sessionId: string) => void;
+  knownSessionIds: Set<string>;
 };
 
-export function MemoryDetail({ memory, knownNames, backlinks, onNavigate, onJumpToSession }: Props) {
+export function MemoryDetail({ memory, knownNames, backlinks, onNavigate, onJumpToSession, knownSessionIds }: Props) {
   const [editing, setEditing] = useState(false);
   const update = useUpdateMemory();
   const del = useDeleteMemory();
@@ -64,10 +65,19 @@ export function MemoryDetail({ memory, knownNames, backlinks, onNavigate, onJump
           <button key={b} data-testid={`conn-back-${b}`} style={styles.pill} onClick={() => onNavigate(b)}>← {b}</button>
         ))}
         {memory.links.length === 0 && backlinks.length === 0 && <span style={styles.dim}>no links</span>}
-        {memory.originSessionId && (
-          <button data-testid="conn-session" style={{ ...styles.pill, ...styles.sessionPill }}
-            onClick={() => onJumpToSession(memory.originSessionId!)}>⏱ jump to origin session →</button>
-        )}
+        {memory.originSessionId && (() => {
+          const canJump = knownSessionIds.has(memory.originSessionId);
+          return (
+            <button
+              data-testid="conn-session"
+              style={{ ...styles.pill, ...(canJump ? styles.sessionPill : styles.sessionPillDisabled) }}
+              disabled={!canJump}
+              data-disabled={!canJump ? 'true' : undefined}
+              title={canJump ? undefined : 'origin session not found'}
+              onClick={canJump ? () => onJumpToSession(memory.originSessionId!) : undefined}
+            >⏱ jump to origin session →</button>
+          );
+        })()}
       </div>
 
       {confirmDelete && (
@@ -102,6 +112,7 @@ const styles = {
   sec: { fontSize: 9, letterSpacing: 1, color: 'var(--text-dim)', marginBottom: 6 },
   pill: { display: 'inline-block', fontSize: 10, padding: '3px 8px', borderRadius: 10, border: '1px solid rgba(0,229,255,0.4)', color: 'var(--edge-trail)', background: 'transparent', margin: '2px 4px 2px 0', cursor: 'pointer' },
   sessionPill: { borderColor: '#4dffa6', color: '#4dffa6' },
+  sessionPillDisabled: { borderColor: 'rgba(77,255,166,0.25)', color: 'rgba(77,255,166,0.35)', cursor: 'not-allowed' as const },
   dim: { color: 'var(--text-dim)', fontSize: 11 },
   warn: { color: 'var(--node-failed)', fontSize: 11, margin: '4px 0' },
   confirm: { marginTop: 14, padding: 12, border: '1px solid var(--node-failed)', borderRadius: 3, color: 'var(--text)', fontSize: 12 },

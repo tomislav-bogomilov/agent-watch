@@ -15,9 +15,10 @@ type Props = {
   onJumpToSession: (sessionId: string) => void;
   creatingScope: string | null;
   onCreateDone: () => void;
+  knownSessionIds: Set<string>;
 };
 
-export function MemoryPage({ selected, onSelectMemory, onJumpToSession, creatingScope, onCreateDone }: Props) {
+export function MemoryPage({ selected, onSelectMemory, onJumpToSession, creatingScope, onCreateDone, knownSessionIds }: Props) {
   const { data, isLoading, error } = useMemoryList();
   const [view, setView] = useState<View>('detail');
   const create = useCreateMemory();
@@ -77,6 +78,7 @@ export function MemoryPage({ selected, onSelectMemory, onJumpToSession, creating
                     if (target) onSelectMemory(target.scopeKey, target.name);
                   }}
                   onJumpToSession={onJumpToSession}
+                  knownSessionIds={knownSessionIds}
                 />
               : <div style={styles.muted}>SELECT A MEMORY</div>
           )}

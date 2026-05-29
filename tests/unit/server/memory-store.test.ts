@@ -216,4 +216,26 @@ describe('write operations', () => {
     await expect(fs.stat(path.join(dir, 'beta.md'))).rejects.toThrow();
     expect(res.brokenBacklinks).toContain('alpha'); // alpha links to beta
   });
+
+  it('createMemory rejects with /unknown scope/ for a nonexistent project scope', async () => {
+    const projects = await makeStore();
+    await expect(
+      createMemory(projects, 'C--does-not-exist', {
+        name: 'test-note', description: 'Test', type: 'project', body: '',
+      })
+    ).rejects.toThrow(/unknown scope/);
+  });
+
+  it('createMemory global scope works even without a project dir', async () => {
+    const projects = await makeStore();
+    // global dir = sibling ../memory of projects root; makeStore already creates it
+    const rec = await createMemory(projects, 'global', {
+      name: 'global-note', description: 'A global note', type: 'user', body: 'Hello',
+    });
+    expect(rec.name).toBe('global-note');
+    expect(rec.scopeKey).toBe('global');
+    const globalDir = memoryDirFor(projects, 'global');
+    const files = await fs.readdir(globalDir);
+    expect(files).toContain('global-note.md');
+  });
 });

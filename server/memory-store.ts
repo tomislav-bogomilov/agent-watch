@@ -312,6 +312,12 @@ export async function createMemory(
   projectsRoot: string, scopeKey: string,
   input: { name: string; description: string; type: MemoryType; body: string },
 ): Promise<MemoryRecord> {
+  if (scopeKey !== 'global') {
+    const projectDir = path.join(projectsRoot, scopeKey);
+    let stat: import('node:fs').Stats | null = null;
+    try { stat = await fs.stat(projectDir); } catch { /* not found */ }
+    if (!stat?.isDirectory()) throw new Error('unknown scope: ' + scopeKey);
+  }
   const file = resolveMemoryFile(projectsRoot, scopeKey, input.name);
   await fs.mkdir(path.dirname(file), { recursive: true });
   try { await fs.access(file); throw new Error(`memory exists: ${input.name}`); }

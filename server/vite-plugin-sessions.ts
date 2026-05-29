@@ -430,6 +430,7 @@ export function sessionsPlugin(): Plugin {
               sendJson(res, 201, rec);
             } catch (e) {
               if ((e as Error).message.startsWith('memory exists')) { sendJson(res, 409, { error: 'exists' }); return; }
+              if ((e as Error).message.startsWith('unknown scope')) { sendJson(res, 404, { error: 'unknown project scope' }); return; }
               throw e;
             }
             return;
