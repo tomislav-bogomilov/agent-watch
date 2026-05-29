@@ -34,10 +34,15 @@ export function MemoryList({ query, selectedKey, onSelect, onCreate }: Props) {
 
   return (
     <div data-testid="memory-list">
-      <button data-testid="memory-create" style={styles.create}
-        onClick={() => onCreate(groups[0]?.scopeKey ?? 'global')}>+ NEW MEMORY</button>
       {isLoading && <div style={styles.muted}>scanning…</div>}
       {error && <div style={styles.error}>error: {(error as Error).message}</div>}
+      {/* Only offer "new memory" once data has loaded — before then `groups` is
+          empty and we'd pick the wrong default scope. On a loaded-but-empty
+          store the fallback to 'global' is correct. */}
+      {!isLoading && !error && (
+        <button data-testid="memory-create" style={styles.create}
+          onClick={() => onCreate(groups[0]?.scopeKey ?? 'global')}>+ NEW MEMORY</button>
+      )}
       {!isLoading && !error && groups.length === 0 && <div style={styles.muted}>(no memories)</div>}
       {groups.map((g) => (
         <div key={g.scopeKey} style={styles.group}>
