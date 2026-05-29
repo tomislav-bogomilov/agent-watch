@@ -168,7 +168,87 @@ leave the live view at any time by toggling the **LIVE** button in the top-right
 
 ---
 
-## 8. The Token Usage page
+## 8. The Memory page
+
+Choose **MEMORY** in the sidebar dropdown to browse, read, and edit the memory store that
+Claude Code keeps about your projects. ClaudeWatch shows all your memories — both the
+global ones (shared across every project) and the per-project ones — in one place.
+
+### Browsing memories
+
+The sidebar groups memories by scope: **GLOBAL** first, then one group per project. Each
+item shows a color-coded type badge — **feedback** (amber), **project** (cyan),
+**reference** (violet), **user** (green) — followed by the memory's slug name. Use the
+filter box at the top of the sidebar to search by name or description.
+
+Click any memory to select it. The main area then shows its reading view.
+
+### Reading a memory (DETAIL view)
+
+The default view shows the memory's name, its type and scope, and the markdown body.
+`[[wikilinks]]` in the body are clickable and navigate to the linked memory. Below the
+body is a **CONNECTIONS** section that lists:
+
+- **Outgoing links** (`→ name`) — every `[[name]]` the memory contains. Click to jump to
+  that memory.
+- **Backlinks** (`← name`) — every other memory that links to this one.
+- **Jump to origin session** — if this memory was created during a Claude Code session,
+  a button switches the sidebar back to **SESSIONS** mode and selects that session, so
+  you can replay the conversation that produced the memory.
+
+If no matching session is found (deleted or compacted), the button is absent.
+
+You can also edit or delete from the DETAIL view (see below).
+
+### GRAPH view
+
+Click **GRAPH** in the top-right toggle to see the whole store as a force-directed
+constellation. Each node is a memory (colored by type), and lines connect memories that
+link to each other. Click any node to select that memory and switch to the DETAIL view.
+
+### STATS view
+
+Click **STATS** to see four panels side by side:
+
+- **Composition** — total count, a bar per type showing relative volume, and a per-scope
+  breakdown.
+- **Health** — counts of orphans (memories with no links in or out), broken links
+  (`[[name]]` that points to a missing memory), memories absent from the `MEMORY.md`
+  index, and frontmatter parse errors.
+- **Stale (>14d)** — memories whose file hasn't been modified in over 14 days.
+- **Provenance** — which origin sessions produced the most memories.
+
+### Creating a memory
+
+Click **+ NEW MEMORY** at the top of the sidebar while in MEMORY mode. A form appears:
+fill in a slug name (lowercase letters, digits, and hyphens only), a description, a type,
+and the markdown body. You can type `[[` in the body field and a suggestion list will
+appear with matching memory names. Click **SAVE** to write the memory to disk.
+
+The new memory is automatically added to the scope's `MEMORY.md` index.
+
+### Editing a memory
+
+With a memory selected, click **✎ edit** in the DETAIL view to open the same form
+pre-filled. You can change the description, type, and body. The slug cannot be changed
+(rename is not yet supported). Click **SAVE** to write the changes.
+
+Before overwriting, ClaudeWatch backs up the previous version to
+`memory/.backups/<name>.<mtime>.md` inside the same scope directory, so your edits are
+recoverable.
+
+> **Note:** edits write directly to your real `~/.claude` — the same location Claude Code
+> reads. Changes are reflected the next time Claude Code runs.
+
+### Deleting a memory
+
+Click **🗑 delete** in the DETAIL view and confirm. If other memories link to this one,
+a warning lists them so you know which `[[links]]` will become broken. The deleted file is
+backed up to `memory/.backups/` before removal, and its line is removed from `MEMORY.md`.
+
+---
+
+## 9. The Token Usage page
 
 Choose **USAGE** in the sidebar dropdown (or use the Token Usage link) to see how many
 tokens your Claude Code sessions have used across your whole machine. It shows:
@@ -182,7 +262,7 @@ This is about **token counts**, not dollar costs — it doesn't estimate spend i
 
 ---
 
-## 9. Tips & FAQ
+## 10. Tips & FAQ
 
 **Why is part of the graph dark/faded?**
 That's a *pruned* branch — a path the agent started down but abandoned (often because

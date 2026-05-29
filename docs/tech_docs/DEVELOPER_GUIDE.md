@@ -89,13 +89,15 @@ keeps them unit-testable in isolation.
 |---|---|
 | `server/vite-plugin-sessions.ts` | Vite plugin: HTTP endpoints, directory listing, JSONL streaming, path validation against `CLAUDE_HOME/projects` |
 | `server/aggregate-token-usage.ts` | Walks all sessions, sums per-model token usage for the Token Usage page |
+| `server/memory-store.ts` | Memory file parsing, serialization, index reconciliation, path safety, and read/write operations |
 | `src/api/` | Typed fetch helpers (`client.ts`) + TanStack Query hooks (`hooks.ts`) |
 | `src/parse/` | JSONL → semantic `Milestone` tree. Pure functions, no React, no D3 |
 | `src/graph/` | D3 tree layout, viewport math, camera (`useCamera`). Pure inputs → laid-out nodes |
 | `src/playback/` | `usePlayback()` animation clock + `useKeyboard()` shortcuts |
 | `src/components/` | React UI: graph canvas, controls, HUD, minimap, detail panel |
 | `src/components/live/` | Live multi-pane view for in-progress sessions |
-| `src/components/library/` | Left sidebar: Sessions / Prompts / Usage modes |
+| `src/components/library/` | Left sidebar: Sessions / Prompts / Usage / Memory modes |
+| `src/memory/` | Memory page: detail view, editor, graph, stats, insights derivation |
 | `src/tokens/` | Token Usage page (chart, spend list, aggregation) |
 | `src/theme/` | TRON color tokens + shared SVG glow filters |
 | `src/util/` | Display helpers (`formatPath`, `formatTokens`) |
@@ -304,22 +306,23 @@ rect; click to jump, drag to pan, wheel to zoom.
 
 ---
 
-## 7. The four feature areas
+## 7. The feature areas
 
 ```mermaid
 flowchart TD
     APP["src/App.tsx<br/>shell + hash routing"]
     APP --> LIB["LibraryPanel (left sidebar)"]
-    APP --> VIEW{"mode === 'usage'?"}
-    VIEW -->|yes| TOK["TokensPage"]
-    VIEW -->|no| LIVE{"liveEngaged?"}
+    APP --> VIEW{"mode?"}
+    VIEW -->|usage| TOK["TokensPage"]
+    VIEW -->|memory| MEM["MemoryPage"]
+    VIEW -->|sessions/prompts| LIVE{"liveEngaged?"}
     LIVE -->|yes| LP["LivePanes (multi-pane)"]
     LIVE -->|no| GC["GraphCanvas (single playback)"]
 ```
 
 `App.tsx` is the shell. View switching is **hash-based** (`#/tokens` ⇒ Token Usage),
-hand-rolled with no router. Sidebar `mode` (`sessions` / `prompts` / `usage`) and several
-UI preferences persist to `localStorage`.
+hand-rolled with no router. Sidebar `mode` (`sessions` / `prompts` / `usage` / `memory`) and
+several UI preferences persist to `localStorage`.
 
 ### 7.1 Graph view
 The default view. `GraphCanvas` renders the laid-out tree; `usePlayback` drives the
@@ -355,6 +358,101 @@ Shared: substring filter, draggable/collapsible project groups (order + expansio
 
 ### 7.4 Token Usage page (`src/tokens/`)
 See §8.
+
+### 7.5 Memory page (`src/memory/`, `server/memory-store.ts`)
+
+The Memory page lets users browse, read, and edit Claude Code's memory store. It is the
+app's first feature with **write endpoints**, so the architecture has an explicit safety
+layer described below.
+
+**Data source.** Memory files are markdown-with-YAML-frontmatter under the Claude home
+directory (`CLAUDE_HOME`, default `~/.claude`):
+
+- **Per-project**: `projects/<projectId>/memory/<name>.md`
+- **Global**: `memory/<name>.md` — note this is a sibling of `projects/`, not inside it.
+  `CLAUDE_HOME` points at the `projects/` directory, so `memoryDirFor('global')` resolves
+  one level up.
+
+Each scope also contains a `MEMORY.md` index file listing its memories one per line:
+`- [Title](file.md) — hook`.
+
+**Server: `server/memory-store.ts`.** All filesystem access for memories is in this
+module. Key exports:
+
+- `parseMemoryFile(raw)` — extracts frontmatter fields (`name`, `description`, `type`,
+  `originSessionId`) + body + deduplicated `[[name]]` links. Tolerant: a malformed
+  frontmatter produces a `parseError` rather than throwing.
+- `serializeMemory({ name, description, type, originSessionId, body })` — writes the
+  canonical frontmatter + body, preserving `node_type` and `originSessionId`.
+- `parseIndex(raw)` / `upsertIndexLine` / `removeIndexLine` — read and reconcile the
+  `MEMORY.md` index.
+- `isMemoryName(name)` — validates a slug against `^[a-z0-9][a-z0-9-]*$`; rejects any
+  separator or traversal attempt.
+- `resolveMemoryFile(projectsRoot, scopeKey, name)` — builds the absolute path to a
+  memory file. Calls `isMemoryName` first so the result can never escape the scope
+  directory — no `path.resolve` needed to contain it.
+- `readMemoryStore(projectsRoot)` — aggregates every memory across global + all project
+  scopes, returning `MemoryResponse` (`memories: MemoryRecord[]` + `indexes`). Returns
+  empty when the directory does not exist.
+- `createMemory` / `updateMemory` / `deleteMemory` — the three write operations. All
+  three backup the prior file to `memory/.backups/<name>.<mtime>.md` before modifying
+  or deleting, and call `upsertIndexLine`/`removeIndexLine` to keep `MEMORY.md` in sync.
+  `createMemory` returns `409` (via a thrown error caught by the endpoint) when the file
+  already exists.
+
+**Endpoints (registered in `server/vite-plugin-sessions.ts`):**
+
+| Method + path | Action |
+|---|---|
+| `GET /api/memory` | Read the full store — all memories + index entries |
+| `POST /api/memory/:scopeKey` | Create; body `{ name, description, type, body }` |
+| `PUT /api/memory/:scopeKey/:name` | Update; body `{ description, type, body }` |
+| `DELETE /api/memory/:scopeKey/:name` | Delete; response includes `brokenBacklinks[]` |
+
+`scopeKey` is validated with the existing `isSafeId`; `name` is validated with
+`isMemoryName`. These are the app's only write endpoints.
+
+**Frontend data layer.** `src/api/client.ts` exports `fetchMemory`, `createMemory`,
+`updateMemory`, and `deleteMemory`. `src/api/hooks.ts` exposes `useMemoryList`
+(key `['memory']`), `useCreateMemory`, `useUpdateMemory`, and `useDeleteMemory` — each
+mutation invalidates `['memory']` on success.
+
+**Components (`src/memory/`)**:
+
+- `MemoryPage.tsx` — main pane. Owns the **DETAIL / GRAPH / STATS** tab toggle and the
+  selected memory. Rendered by `App.tsx` when `mode === 'memory'`; bypasses the
+  session-loading machinery entirely. Also handles the create flow: when `creatingScope`
+  is set (triggered by the sidebar's **+ NEW MEMORY** button) it renders `MemoryEditor`
+  in create mode instead of the detail/empty state.
+- `MemoryDetail.tsx` — reading view: name, type badge, scope/cwd, body (via
+  `renderBody`), and a **CONNECTIONS** section with outgoing links, backlinks, and a
+  "jump to origin session" button. Hosts edit and delete actions. Delete shows a
+  confirmation with a broken-backlinks warning.
+- `MemoryEditor.tsx` — hybrid form used for both create and edit: a description text
+  input, a `type` dropdown (enum-safe — no free-text), and a markdown body textarea with
+  lightweight `[[` autocomplete (up to 6 suggestions from the loaded memory names).
+- `MemoryGraph.tsx` — d3-force constellation. Runs 220 force-simulation ticks
+  synchronously (no animation loop) and renders a static SVG. Nodes are colored by type;
+  edges are `[[link]]` relationships. Clicking a node selects that memory in App state.
+- `MemoryStats.tsx` — four panels: composition (type bars + scope counts), health
+  (orphans, broken links, missing-from-index, parse errors), stale memories (mtime > 14
+  days), and provenance (top sessions by `originSessionId` count).
+- `insights.ts` — pure derivation over `MemoryRecord[]`. Computes backlinks map, orphans,
+  broken links, missing-from-index, parse errors, stale list, composition by type/scope,
+  and provenance by session. No React, no side effects — unit-testable in isolation.
+- `renderBody.tsx` — minimal markdown renderer: `**bold**` → `<strong>`, `[[name]]` →
+  clickable spans (broken links rendered in failure color).
+
+**Sidebar.** `src/components/library/MemoryList.tsx` renders in the left sidebar when
+`mode === 'memory'`. Groups are `GLOBAL` then one group per project (label = the last
+path segment of `cwd`). Each item shows a type badge + name. A **+ NEW MEMORY** button
+at the top calls `onCreate(scopeKey)`, which propagates through `LibraryPanel` to
+`App.tsx` to set `creatingScope` and switch `mode` to `'memory'`.
+
+**Origin-session jump.** `handleJumpToSession` in `App.tsx` receives a `sessionId`,
+finds the matching `SessionMeta` in the sessions list, and sets `selected` to
+`{ kind: 'session', projectId, sessionId }` while switching `mode` to `'sessions'`. If
+no matching session is found (deleted or compacted), the `MemoryDetail` button is absent.
 
 ---
 
