@@ -36,4 +36,23 @@ describe('MemoryGraph', () => {
     fireEvent.click(screen.getByTestId('hologram-close'));
     expect(screen.queryByTestId('memory-hologram')).toBeNull();
   });
+
+  it('renders one framed panel per scope and hides a project via the filter chips', () => {
+    const proj: MemoryRecord = { ...rec('p1'), scopeKey: 'C--proj', scope: { kind: 'project', projectId: 'C--proj', cwd: 'C:/proj' } };
+    const glob: MemoryRecord = { ...rec('g1'), scopeKey: 'global', scope: { kind: 'global' } };
+    render(<MemoryGraph memories={[proj, glob]} selectedName={null} onSelect={() => {}} {...graphProps} />);
+
+    // one panel per scope, both nodes present
+    expect(screen.getAllByTestId(/^graph-panel-/)).toHaveLength(2);
+    expect(screen.getByTestId('graph-node-p1')).toBeDefined();
+    expect(screen.getByTestId('graph-node-g1')).toBeDefined();
+
+    // collapsed filter shows visible/total, expands into chips, toggling hides a group
+    expect(screen.getByTestId('graph-filter').textContent).toContain('2/2');
+    fireEvent.click(screen.getByTestId('graph-filter'));
+    fireEvent.click(screen.getByTestId('graph-filter-chip-C--proj'));
+    expect(screen.queryByTestId('graph-node-p1')).toBeNull();
+    expect(screen.getByTestId('graph-node-g1')).toBeDefined();
+    expect(screen.getAllByTestId(/^graph-panel-/)).toHaveLength(1);
+  });
 });
