@@ -167,6 +167,7 @@ export default function App() {
   const currentMilestone = playback.order[playback.index] ?? null;
   const inSubagent = currentMilestone ? subagentIds.has(currentMilestone.id) : false;
 
+  const [creatingScope, setCreatingScope] = useState<string | null>(null);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filters, setFilters] = useState<Filters>({
@@ -275,18 +276,19 @@ export default function App() {
       <div style={styles.body}>
         <LibraryPanel
         selected={selected}
-        onSelect={setSelected}
+        onSelect={(s) => { setSelected(s); setCreatingScope(null); }}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
         width={sidebarWidth}
         onResize={(d) => setSidebarWidth((w) => w + d)}
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={(m) => { setMode(m); setCreatingScope(null); }}
         usageRows={usageQuery.data?.rows ?? []}
         usageProjectId={usageProjectId}
         usageCutoffDay={usageCutoffDay}
         usageFamily={family}
         onUsageFamilyChange={setFamily}
+        onCreateMemory={(scopeKey) => { setMode('memory'); setCreatingScope(scopeKey); }}
       />
       <main style={styles.main}>
         <div style={styles.contentFrame}>
@@ -294,8 +296,10 @@ export default function App() {
            : mode === 'memory' ? (
              <MemoryPage
                selected={selected}
-               onSelectMemory={(scopeKey, name) => setSelected({ kind: 'memory', scopeKey, name })}
+               onSelectMemory={(scopeKey, name) => { setSelected({ kind: 'memory', scopeKey, name }); setCreatingScope(null); }}
                onJumpToSession={handleJumpToSession}
+               creatingScope={creatingScope}
+               onCreateDone={() => setCreatingScope(null)}
              />
            ) : (<>
           {!selected && <div style={styles.empty}>SELECT A SESSION</div>}

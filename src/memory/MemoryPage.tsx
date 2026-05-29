@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { useMemoryList } from '../api/hooks';
+import { useMemoryList, useCreateMemory } from '../api/hooks';
 import type { Selection } from '../components/library/LibraryPanel';
 import { MemoryDetail } from './MemoryDetail';
 import { MemoryStats } from './MemoryStats';
 import { MemoryGraph } from './MemoryGraph';
+import { MemoryEditor } from './MemoryEditor';
 import { deriveInsights } from './insights';
 
 type View = 'detail' | 'graph' | 'stats';
@@ -12,11 +13,14 @@ type Props = {
   selected: Selection | null;
   onSelectMemory: (scopeKey: string, name: string) => void;
   onJumpToSession: (sessionId: string) => void;
+  creatingScope: string | null;
+  onCreateDone: () => void;
 };
 
-export function MemoryPage({ selected, onSelectMemory, onJumpToSession }: Props) {
+export function MemoryPage({ selected, onSelectMemory, onJumpToSession, creatingScope, onCreateDone }: Props) {
   const { data, isLoading, error } = useMemoryList();
   const [view, setView] = useState<View>('detail');
+  const create = useCreateMemory();
 
   const memories = data?.memories ?? [];
   const selectedMemory = selected?.kind === 'memory'
@@ -48,7 +52,20 @@ export function MemoryPage({ selected, onSelectMemory, onJumpToSession }: Props)
       {!isLoading && !error && (
         <div style={styles.body}>
           {view === 'detail' && (
-            selectedMemory
+            creatingScope
+              ? <MemoryEditor
+                  mode="create"
+                  initial={{ name: '', description: '', type: 'project', body: '' }}
+                  knownNames={memories.map((m) => m.name)}
+                  pending={create.isPending}
+                  onCancel={onCreateDone}
+                  onSave={async (v) => {
+                    await create.mutateAsync({ scopeKey: creatingScope, name: v.name, description: v.description, type: v.type, body: v.body });
+                    onCreateDone();
+                    onSelectMemory(creatingScope, v.name);
+                  }}
+                />
+              : selectedMemory
               ? <MemoryDetail
                   memory={selectedMemory}
                   knownNames={new Set(memories.map((m) => m.name))}

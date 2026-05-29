@@ -10,9 +10,10 @@ type Props = {
   query: string;
   selectedKey: string | null; // `${scopeKey}/${name}`
   onSelect: (scopeKey: string, name: string) => void;
+  onCreate: (scopeKey: string) => void;
 };
 
-export function MemoryList({ query, selectedKey, onSelect }: Props) {
+export function MemoryList({ query, selectedKey, onSelect, onCreate }: Props) {
   const { data, isLoading, error } = useMemoryList();
 
   const groups = useMemo(() => {
@@ -37,6 +38,8 @@ export function MemoryList({ query, selectedKey, onSelect }: Props) {
 
   return (
     <div data-testid="memory-list">
+      <button data-testid="memory-create" style={styles.create}
+        onClick={() => onCreate(groups[0]?.scopeKey ?? 'global')}>+ NEW MEMORY</button>
       {groups.map((g) => (
         <div key={g.scopeKey} style={styles.group}>
           <div style={styles.groupHeader}>{g.label} <span style={styles.count}>({g.items.length})</span></div>
@@ -63,6 +66,7 @@ export function MemoryList({ query, selectedKey, onSelect }: Props) {
 }
 
 const styles = {
+  create: { margin: '0 12px 8px', width: 'calc(100% - 24px)', background: 'rgba(0,229,255,0.08)', border: '1px solid var(--edge-trail)', color: 'var(--edge-trail)', padding: '5px', cursor: 'pointer', fontSize: 10, letterSpacing: 2, fontFamily: 'ui-monospace, monospace' },
   group: { marginBottom: 8 },
   groupHeader: { padding: '6px 12px 2px', fontSize: 10, letterSpacing: 2, color: 'var(--edge-trail)', fontFamily: 'ui-monospace, monospace' },
   count: { color: 'var(--text-dim)' },

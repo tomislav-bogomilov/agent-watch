@@ -31,6 +31,8 @@ type Props = {
   usageCutoffDay: string;
   usageFamily: Family;
   onUsageFamilyChange: (f: Family) => void;
+  // Memory-mode props (consumed only when mode === 'memory')
+  onCreateMemory?: (scopeKey: string) => void;
 };
 
 const STORAGE_EXPANDED = 'tg.projects.expanded';
@@ -63,7 +65,7 @@ function reorderArray<T>(arr: T[], from: number, to: number): T[] {
   return next;
 }
 
-export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize, mode, onModeChange, usageRows, usageProjectId, usageCutoffDay, usageFamily, onUsageFamilyChange }: Props) {
+export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize, mode, onModeChange, usageRows, usageProjectId, usageCutoffDay, usageFamily, onUsageFamilyChange, onCreateMemory }: Props) {
   const sessionsQuery = useSessionList();
   const promptsQuery = usePromptList();
 
@@ -265,6 +267,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
             query={query}
             selectedKey={selected?.kind === 'memory' ? `${selected.scopeKey}/${selected.name}` : null}
             onSelect={(scopeKey, name) => onSelect({ kind: 'memory', scopeKey, name })}
+            onCreate={(scopeKey) => onCreateMemory?.(scopeKey)}
           />
         ) : (
         groups.map((g) => {
