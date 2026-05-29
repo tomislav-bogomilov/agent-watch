@@ -160,3 +160,105 @@ export function resolveMemoryFile(projectsRoot: string, scopeKey: string, name: 
   if (!isMemoryName(name)) throw new Error(`invalid memory name: ${name}`);
   return path.join(memoryDirFor(projectsRoot, scopeKey), `${name}.md`);
 }
+
+import { promises as fs } from 'node:fs';
+
+export type MemoryScope =
+  | { kind: 'global' }
+  | { kind: 'project'; projectId: string; cwd: string };
+
+export type MemoryRecord = {
+  scopeKey: string;
+  scope: MemoryScope;
+  name: string;
+  description: string;
+  type: MemoryType | null;
+  originSessionId: string | null;
+  links: string[];
+  body: string;
+  mtimeMs: number;
+  inIndex: boolean;
+  parseError?: string;
+};
+
+export type MemoryResponse = {
+  memories: MemoryRecord[];
+  indexes: { scopeKey: string; entries: MemoryIndexEntry[] }[];
+};
+
+// Mirrors decodeProjectId in vite-plugin-sessions.ts.
+function decodeProjectId(id: string): string {
+  if (/^[A-Za-z]--/.test(id)) {
+    const driveLetter = id[0];
+    const rest = id.slice(3).replace(/-/g, '/');
+    return `${driveLetter}:/${rest}`;
+  }
+  return id.replace(/-/g, '/');
+}
+
+async function listSafe(p: string): Promise<string[]> {
+  try { return await fs.readdir(p); } catch { return []; }
+}
+
+async function readScope(
+  projectsRoot: string, scopeKey: string, scope: MemoryScope,
+  out: MemoryRecord[], indexes: MemoryResponse['indexes'],
+): Promise<void> {
+  const dir = memoryDirFor(projectsRoot, scopeKey);
+  const files = await listSafe(dir);
+  if (files.length === 0) return;
+
+  let indexEntries: MemoryIndexEntry[] = [];
+  if (files.includes('MEMORY.md')) {
+    const raw = await fs.readFile(path.join(dir, 'MEMORY.md'), 'utf8').catch(() => '');
+    indexEntries = parseIndex(raw);
+  }
+  const indexNames = new Set(indexEntries.map((e) => e.name));
+
+  for (const f of files) {
+    if (!f.endsWith('.md') || f === 'MEMORY.md') continue;
+    const full = path.join(dir, f);
+    let stat;
+    try { stat = await fs.stat(full); } catch { continue; }
+    if (!stat.isFile()) continue;
+    const raw = await fs.readFile(full, 'utf8').catch(() => '');
+    const parsed = parseMemoryFile(raw);
+    const name = parsed.frontmatter.name ?? f.replace(/\.md$/, '');
+    out.push({
+      scopeKey, scope, name,
+      description: parsed.frontmatter.description ?? '',
+      type: parsed.frontmatter.type ?? null,
+      originSessionId: parsed.frontmatter.originSessionId ?? null,
+      links: parsed.links,
+      body: parsed.body,
+      mtimeMs: stat.mtimeMs,
+      inIndex: indexNames.has(name),
+      parseError: parsed.parseError,
+    });
+  }
+
+  const fileNames = new Set(
+    files.filter((f) => f.endsWith('.md') && f !== 'MEMORY.md').map((f) => f.replace(/\.md$/, ''))
+  );
+  indexes.push({
+    scopeKey,
+    entries: indexEntries.map((e) => ({ ...e, filePresent: fileNames.has(e.name) })),
+  });
+}
+
+export async function readMemoryStore(projectsRoot: string): Promise<MemoryResponse> {
+  const memories: MemoryRecord[] = [];
+  const indexes: MemoryResponse['indexes'] = [];
+  await readScope(projectsRoot, 'global', { kind: 'global' }, memories, indexes);
+  for (const projectId of await listSafe(projectsRoot)) {
+    const stat = await fs.stat(path.join(projectsRoot, projectId)).catch(() => null);
+    if (!stat?.isDirectory()) continue;
+    await readScope(
+      projectsRoot, projectId,
+      { kind: 'project', projectId, cwd: decodeProjectId(projectId) },
+      memories, indexes,
+    );
+  }
+  memories.sort((a, b) => a.name.localeCompare(b.name));
+  return { memories, indexes };
+}

@@ -116,3 +116,51 @@ not-an-entry-line
     );
   });
 });
+
+import { readMemoryStore } from '../../../server/memory-store';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+
+async function makeStore(): Promise<string> {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'mem-'));
+  const projects = path.join(tmp, 'projects');
+  const projMem = path.join(projects, 'C--demo', 'memory');
+  const globalMem = path.join(tmp, 'memory');
+  await fs.mkdir(projMem, { recursive: true });
+  await fs.mkdir(globalMem, { recursive: true });
+  await fs.writeFile(path.join(projMem, 'alpha.md'),
+    `---\nname: alpha\ndescription: "A"\nmetadata:\n  type: project\n---\n\nLinks to [[beta]].\n`);
+  await fs.writeFile(path.join(projMem, 'beta.md'),
+    `---\nname: beta\ndescription: "B"\nmetadata:\n  type: feedback\n---\n\nNo links.\n`);
+  await fs.writeFile(path.join(projMem, 'MEMORY.md'), `- [Alpha](alpha.md) — a hook\n`);
+  await fs.writeFile(path.join(globalMem, 'g1.md'),
+    `---\nname: g1\ndescription: "G"\nmetadata:\n  type: user\n---\n\nGlobal.\n`);
+  return projects;
+}
+
+describe('readMemoryStore', () => {
+  it('reads global + project memories with scope, links, and index flags', async () => {
+    const projects = await makeStore();
+    const out = await readMemoryStore(projects);
+    const names = out.memories.map((m) => m.name).sort();
+    expect(names).toEqual(['alpha', 'beta', 'g1']);
+
+    const alpha = out.memories.find((m) => m.name === 'alpha')!;
+    expect(alpha.scopeKey).toBe('C--demo');
+    expect(alpha.scope.kind).toBe('project');
+    expect(alpha.links).toEqual(['beta']);
+    expect(alpha.inIndex).toBe(true);
+
+    const beta = out.memories.find((m) => m.name === 'beta')!;
+    expect(beta.inIndex).toBe(false);
+
+    const g1 = out.memories.find((m) => m.name === 'g1')!;
+    expect(g1.scopeKey).toBe('global');
+    expect(g1.type).toBe('user');
+  });
+
+  it('returns empty when the root does not exist', async () => {
+    const out = await readMemoryStore(path.join(os.tmpdir(), 'nope-xyz'));
+    expect(out).toEqual({ memories: [], indexes: [] });
+  });
+});
