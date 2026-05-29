@@ -119,6 +119,10 @@ function isMemoryType(v: unknown): v is MemoryType {
   return typeof v === 'string' && MEMORY_TYPES.includes(v);
 }
 
+function isSafeScopeKey(s: string): boolean {
+  return isSafeId(s) && s !== '.' && s !== '..';
+}
+
 // True iff the .jsonl contains at least one assistant turn. Sessions without one
 // would render as a single root-prompt node (just /model, /voice, or an
 // interrupted start) and are filtered out of both /api/sessions and /api/prompts.
@@ -410,13 +414,18 @@ export function sessionsPlugin(): Plugin {
           const createMatch = url.match(/^\/([^/]+)$/);
           if (method === 'POST' && createMatch) {
             const scopeKey = decodeURIComponent(createMatch[1]);
-            if (!isSafeId(scopeKey)) { sendJson(res, 400, { error: 'invalid scope' }); return; }
-            const b = JSON.parse(await readBody(req)) as { name?: string; description?: string; type?: unknown; body?: string };
+            if (!isSafeScopeKey(scopeKey)) { sendJson(res, 400, { error: 'invalid scope' }); return; }
+            let b: { name?: string; description?: string; type?: unknown; body?: string };
+            try { b = JSON.parse(await readBody(req)); }
+            catch { sendJson(res, 400, { error: 'invalid JSON' }); return; }
             if (!b.name || !isMemoryName(b.name)) { sendJson(res, 400, { error: 'invalid name' }); return; }
             if (!isMemoryType(b.type)) { sendJson(res, 400, { error: 'invalid type' }); return; }
             try {
               const rec = await createMemory(root, scopeKey, {
-                name: b.name, description: b.description ?? '', type: b.type, body: b.body ?? '',
+                name: b.name,
+                description: typeof b.description === 'string' ? b.description : '',
+                type: b.type,
+                body: typeof b.body === 'string' ? b.body : '',
               });
               sendJson(res, 201, rec);
             } catch (e) {
@@ -431,13 +440,17 @@ export function sessionsPlugin(): Plugin {
           if (itemMatch) {
             const scopeKey = decodeURIComponent(itemMatch[1]);
             const name = decodeURIComponent(itemMatch[2]);
-            if (!isSafeId(scopeKey) || !isMemoryName(name)) { sendJson(res, 400, { error: 'invalid id' }); return; }
+            if (!isSafeScopeKey(scopeKey) || !isMemoryName(name)) { sendJson(res, 400, { error: 'invalid id' }); return; }
 
             if (method === 'PUT') {
-              const b = JSON.parse(await readBody(req)) as { description?: string; type?: unknown; body?: string };
+              let b: { description?: string; type?: unknown; body?: string };
+              try { b = JSON.parse(await readBody(req)); }
+              catch { sendJson(res, 400, { error: 'invalid JSON' }); return; }
               if (!isMemoryType(b.type)) { sendJson(res, 400, { error: 'invalid type' }); return; }
               const rec = await updateMemory(root, scopeKey, name, {
-                description: b.description ?? '', type: b.type, body: b.body ?? '',
+                description: typeof b.description === 'string' ? b.description : '',
+                type: b.type,
+                body: typeof b.body === 'string' ? b.body : '',
               });
               sendJson(res, 200, rec);
               return;
