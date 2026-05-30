@@ -46,3 +46,7 @@ tg-*.png
 /*.png
 .playwright-mcp/
 .superpowers/
+
+# Memory store backups created by the app / e2e write tests
+tests/fixtures/**/memory/.backups/
+tests/fixtures/**/memory/e2e-*.md

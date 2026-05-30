@@ -4,6 +4,10 @@ import os from 'node:os';
 import readline from 'node:readline';
 import type { Plugin, Connect } from 'vite';
 import { aggregateTokenUsage } from './aggregate-token-usage';
+import {
+  readMemoryStore, createMemory, updateMemory, deleteMemory,
+  isMemoryName, type MemoryType,
+} from './memory-store';
 
 type SessionMeta = {
   projectId: string;
@@ -99,6 +103,24 @@ function sendJson(res: Parameters<Connect.NextHandleFunction>[1], status: number
   res.statusCode = status;
   res.setHeader('content-type', 'application/json');
   res.end(JSON.stringify(body));
+}
+
+function readBody(req: Parameters<Connect.NextHandleFunction>[0]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (c) => { data += c; });
+    req.on('end', () => resolve(data));
+    req.on('error', reject);
+  });
+}
+
+const MEMORY_TYPES = ['user', 'feedback', 'project', 'reference'];
+function isMemoryType(v: unknown): v is MemoryType {
+  return typeof v === 'string' && MEMORY_TYPES.includes(v);
+}
+
+function isSafeScopeKey(s: string): boolean {
+  return isSafeId(s) && s !== '.' && s !== '..';
 }
 
 // True iff the .jsonl contains at least one assistant turn. Sessions without one
@@ -374,6 +396,75 @@ export function sessionsPlugin(): Plugin {
           const payload = await aggregateTokenUsage(root);
           sendJson(res, 200, payload);
         } catch (err) {
+          next(err as Error);
+        }
+      });
+
+      server.middlewares.use('/api/memory', async (req, res, next) => {
+        try {
+          const url = (req.url ?? '/').split('?')[0];
+          const method = req.method ?? 'GET';
+
+          if (method === 'GET' && (url === '/' || url === '')) {
+            sendJson(res, 200, await readMemoryStore(root));
+            return;
+          }
+
+          // POST /:scopeKey  (create)
+          const createMatch = url.match(/^\/([^/]+)$/);
+          if (method === 'POST' && createMatch) {
+            const scopeKey = decodeURIComponent(createMatch[1]);
+            if (!isSafeScopeKey(scopeKey)) { sendJson(res, 400, { error: 'invalid scope' }); return; }
+            let b: { name?: string; description?: string; type?: unknown; body?: string };
+            try { b = JSON.parse(await readBody(req)); }
+            catch { sendJson(res, 400, { error: 'invalid JSON' }); return; }
+            if (!b.name || !isMemoryName(b.name)) { sendJson(res, 400, { error: 'invalid name' }); return; }
+            if (!isMemoryType(b.type)) { sendJson(res, 400, { error: 'invalid type' }); return; }
+            try {
+              const rec = await createMemory(root, scopeKey, {
+                name: b.name,
+                description: typeof b.description === 'string' ? b.description : '',
+                type: b.type,
+                body: typeof b.body === 'string' ? b.body : '',
+              });
+              sendJson(res, 201, rec);
+            } catch (e) {
+              if ((e as Error).message.startsWith('memory exists')) { sendJson(res, 409, { error: 'exists' }); return; }
+              if ((e as Error).message.startsWith('unknown scope')) { sendJson(res, 404, { error: 'unknown project scope' }); return; }
+              throw e;
+            }
+            return;
+          }
+
+          // PUT / DELETE /:scopeKey/:name
+          const itemMatch = url.match(/^\/([^/]+)\/([^/]+)$/);
+          if (itemMatch) {
+            const scopeKey = decodeURIComponent(itemMatch[1]);
+            const name = decodeURIComponent(itemMatch[2]);
+            if (!isSafeScopeKey(scopeKey) || !isMemoryName(name)) { sendJson(res, 400, { error: 'invalid id' }); return; }
+
+            if (method === 'PUT') {
+              let b: { description?: string; type?: unknown; body?: string };
+              try { b = JSON.parse(await readBody(req)); }
+              catch { sendJson(res, 400, { error: 'invalid JSON' }); return; }
+              if (!isMemoryType(b.type)) { sendJson(res, 400, { error: 'invalid type' }); return; }
+              const rec = await updateMemory(root, scopeKey, name, {
+                description: typeof b.description === 'string' ? b.description : '',
+                type: b.type,
+                body: typeof b.body === 'string' ? b.body : '',
+              });
+              sendJson(res, 200, rec);
+              return;
+            }
+            if (method === 'DELETE') {
+              sendJson(res, 200, await deleteMemory(root, scopeKey, name));
+              return;
+            }
+          }
+
+          sendJson(res, 405, { error: 'method not allowed' });
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code === 'ENOENT') { sendJson(res, 404, { error: 'not found' }); return; }
           next(err as Error);
         }
       });

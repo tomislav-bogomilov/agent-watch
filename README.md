@@ -5,8 +5,10 @@ your machine and turns each session into a navigable graph: every node is a **Th
 prompt, a decision, a tool call, a subagent spawn, a completion — and edges link each
 Thought to the ones that followed. A glowing playhead retraces the agent's path, lighting
 up the trail it took, with failures in red, abandoned branches dimmed, and the winning path
-brightened. It also shows in-progress sessions live and aggregates token usage across all
-your sessions.
+brightened. It also shows in-progress sessions live, aggregates token usage across all your
+sessions, and lets you browse and edit Claude Code's memory store (global + per-project)
+with a force-directed graph view, health analysis, and an editor that keeps `MEMORY.md` in
+sync automatically.
 
 No recording or instrumentation needed — run Claude Code as usual, then point ClaudeWatch
 at the logs it already wrote.
@@ -24,9 +26,9 @@ sessions appear in the left sidebar automatically.
 ## Documentation
 
 - **[User Guide](docs/tech_docs/USER_GUIDE.md)** — for anyone using the app: reading the
-  graph, playback, live sessions, the Token Usage page. No coding required.
+  graph, playback, live sessions, the Token Usage page, and the Memory page. No coding required.
 - **[Developer Guide](docs/tech_docs/DEVELOPER_GUIDE.md)** — architecture, the parsing
-  pipeline, the data model, rendering/playback, and how to extend it.
+  pipeline, the data model, rendering/playback, the memory store, and how to extend it.
 - **[`PRD.md`](PRD.md)** — product requirements. **[`docs/superpowers/`](docs/superpowers/)** —
   design specs and implementation plans, by feature.
 

@@ -5,14 +5,16 @@ import { ResizeHandle } from '../ResizeHandle';
 import { PromptsList } from './PromptsList';
 import { SessionsList } from './SessionsList';
 import { UsageCardsList } from './UsageCardsList';
+import { MemoryList } from './MemoryList';
 import type { TokenUsageRow } from '../../api/client';
 import type { Family } from '../../tokens/family';
 
-export type LibraryMode = 'sessions' | 'prompts' | 'usage';
+export type LibraryMode = 'sessions' | 'prompts' | 'usage' | 'memory';
 
 export type Selection =
   | { kind: 'session'; projectId: string; sessionId: string }
-  | { kind: 'prompt'; projectId: string; sessionId: string; promptId: string };
+  | { kind: 'prompt'; projectId: string; sessionId: string; promptId: string }
+  | { kind: 'memory'; scopeKey: string; name: string };
 
 type Props = {
   selected: Selection | null;
@@ -29,6 +31,8 @@ type Props = {
   usageCutoffDay: string;
   usageFamily: Family;
   onUsageFamilyChange: (f: Family) => void;
+  // Memory-mode props (consumed only when mode === 'memory')
+  onCreateMemory?: (scopeKey: string) => void;
 };
 
 const STORAGE_EXPANDED = 'tg.projects.expanded';
@@ -61,7 +65,7 @@ function reorderArray<T>(arr: T[], from: number, to: number): T[] {
   return next;
 }
 
-export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize, mode, onModeChange, usageRows, usageProjectId, usageCutoffDay, usageFamily, onUsageFamilyChange }: Props) {
+export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize, mode, onModeChange, usageRows, usageProjectId, usageCutoffDay, usageFamily, onUsageFamilyChange, onCreateMemory }: Props) {
   const sessionsQuery = useSessionList();
   const promptsQuery = usePromptList();
 
@@ -221,6 +225,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
             <option value="sessions">SESSIONS</option>
             <option value="prompts">PROMPTS</option>
             <option value="usage">USAGE</option>
+            <option value="memory">MEMORY</option>
           </select>
         </span>
         <button
@@ -241,7 +246,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
           data-testid="session-filter"
         />
       )}
-      {mode !== 'usage' && (
+      {(mode === 'sessions' || mode === 'prompts') && (
         <>
           {isLoading && <div style={styles.muted}>scanning…</div>}
           {error && <div style={styles.error}>error: {(error as Error).message}</div>}
@@ -256,6 +261,13 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
             cutoffDay={usageCutoffDay}
             selected={usageFamily}
             onSelect={onUsageFamilyChange}
+          />
+        ) : mode === 'memory' ? (
+          <MemoryList
+            query={query}
+            selectedKey={selected?.kind === 'memory' ? `${selected.scopeKey}/${selected.name}` : null}
+            onSelect={(scopeKey, name) => onSelect({ kind: 'memory', scopeKey, name })}
+            onCreate={(scopeKey) => onCreateMemory?.(scopeKey)}
           />
         ) : (
         groups.map((g) => {
