@@ -6,15 +6,16 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
-  font-size: 11px;
-  letter-spacing: 2px;
+  font-size: 9px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--text-dim);
   background: rgba(110, 224, 238, 0.04);
   border: 1px solid rgba(110, 224, 238, 0.22);
-  padding: 7px 14px;
+  /* slightly more bottom padding than top so the tabs read as hanging from the bar */
+  padding: 3px 10px 5px;
   cursor: pointer;
   overflow: hidden;
   /* explicit list (not `all`) so the static clip-path is never accidentally transitioned */
@@ -23,8 +24,8 @@
 }
 
 .tg-modetab svg {
-  width: 14px;
-  height: 14px;
+  width: 11px;
+  height: 11px;
   flex-shrink: 0;
   display: block;
 }
@@ -84,7 +85,7 @@
 }
 @keyframes tg-tab-scanline {
   0%   { transform: translateY(0);    opacity: 0.9; }
-  50%  { transform: translateY(28px); opacity: 0.2; }
+  50%  { transform: translateY(16px); opacity: 0.2; }
   100% { transform: translateY(0);    opacity: 0.9; }
 }
 
