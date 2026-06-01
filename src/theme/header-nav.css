@@ -1,0 +1,101 @@
+/* Center-mounted mode switcher tabs (header nav).
+   Inline style objects can't express :hover / ::before / ::after / @keyframes,
+   so the chamfered-HUD tab look lives here. Palette matches src/theme/tokens.css. */
+
+.tg-modetab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(110, 224, 238, 0.04);
+  border: 1px solid rgba(110, 224, 238, 0.22);
+  padding: 7px 14px;
+  cursor: pointer;
+  overflow: hidden;
+  /* explicit list (not `all`) so the static clip-path is never accidentally transitioned */
+  transition: color 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.tg-modetab svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.tg-modetab:hover {
+  color: var(--text);
+  border-color: var(--edge-idle);
+  background: rgba(110, 224, 238, 0.08);
+}
+
+/* hover light-sweep */
+.tg-modetab::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.35), transparent);
+  pointer-events: none;
+}
+.tg-modetab:hover::after {
+  animation: tg-tab-scan 0.9s ease;
+}
+@keyframes tg-tab-scan {
+  from { left: -120%; }
+  to   { left: 160%; }
+}
+
+/* active state */
+.tg-modetab--active {
+  color: #04222a;
+  font-weight: 700;
+  border-color: var(--edge-trail);
+  background: linear-gradient(180deg, #5cf2ff, #00b3c8);
+  /* static glow doubles as the reduced-motion fallback (the breathe animation is disabled there) */
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.55);
+  animation: tg-tab-breathe 3s ease-in-out infinite;
+}
+@keyframes tg-tab-breathe {
+  0%, 100% { box-shadow: 0 0 12px rgba(0, 229, 255, 0.45); }
+  50%      { box-shadow: 0 0 20px rgba(0, 229, 255, 0.8); }
+}
+
+/* active top scanline */
+.tg-modetab--active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #eafdff;
+  box-shadow: 0 0 8px #fff;
+  pointer-events: none;
+  animation: tg-tab-scanline 2.4s linear infinite;
+}
+@keyframes tg-tab-scanline {
+  0%   { transform: translateY(0);    opacity: 0.9; }
+  50%  { transform: translateY(28px); opacity: 0.2; }
+  100% { transform: translateY(0);    opacity: 0.9; }
+}
+
+/* hide the tagline on narrow screens so it never collides with the centered tabs */
+@media (max-width: 720px) {
+  [data-testid="app-tagline"] { display: none; }
+}
+
+/* respect reduced-motion: keep the static active fill, drop looping motion */
+@media (prefers-reduced-motion: reduce) {
+  .tg-modetab--active { animation: none; }
+  .tg-modetab--active::before { animation: none; opacity: 0.6; }
+  .tg-modetab:hover::after { animation: none; }
+}
