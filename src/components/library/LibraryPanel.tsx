@@ -213,24 +213,24 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
     <aside style={{ ...styles.aside, width }} data-testid="session-list">
       <ResizeHandle side="right" onResize={onResize} testId="sidebar-resize" />
       <div style={styles.header}>
+        {mode !== 'usage' && (
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="filter…"
+            style={styles.filter}
+            data-testid="session-filter"
+          />
+        )}
         <button
           onClick={onToggleCollapsed}
-          style={styles.collapseBtn}
+          style={{ ...styles.collapseBtn, flexShrink: 0, alignSelf: 'stretch' }}
           aria-label="collapse sidebar"
           data-testid="sidebar-toggle"
           title="collapse (\)"
         >«</button>
       </div>
-      {mode !== 'usage' && (
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="filter…"
-          style={styles.filter}
-          data-testid="session-filter"
-        />
-      )}
       {(mode === 'sessions' || mode === 'prompts') && (
         <>
           {isLoading && <div style={styles.muted}>scanning…</div>}
@@ -326,7 +326,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    padding: '0 12px 6px',
+    padding: '0 12px 8px',
     gap: 6,
   },
   collapseBtn: {
@@ -339,7 +339,10 @@ const styles = {
     fontFamily: 'ui-monospace, monospace',
   },
   filter: {
-    margin: '0 12px 8px',
+    // shares the header row with the collapse button: take the leftover width,
+    // allow shrinking so the button always fits.
+    flex: 1,
+    minWidth: 0,
     padding: '4px 6px',
     background: 'rgba(5,8,13,0.85)',
     border: '1px solid var(--edge-idle)',
