@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-test('prompts mode: dropdown switches the list, clicking a prompt opens a scoped graph', async ({ page }) => {
+test('prompts mode: header tab switches the list, clicking a prompt opens a scoped graph', async ({ page }) => {
   await page.goto('/');
 
   // Default Sessions mode renders a list with 4 fixture projects (happy/fail/sub/live).
   await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(6);
 
-  // Switch to Prompts mode via the dropdown.
-  await page.locator('[data-testid="library-mode"]').selectOption('prompts');
+  // Switch to Prompts mode via the header tab.
+  await page.getByTestId('mode-tab-prompts').click();
 
   // Demo-happy fixture has 2 prompts (root + follow-up); the other fixtures
   // each contribute at least 1 prompt. So we expect >= 4 prompt rows total.
@@ -27,8 +27,8 @@ test('prompts mode: dropdown switches the list, clicking a prompt opens a scoped
   // The canvas mounts; the slice contains 3 nodes (prompt + tool + completion).
   await expect(page.locator('svg g[data-id]')).toHaveCount(3, { timeout: 5_000 });
 
-  // Now switch back to Sessions mode and verify the dropdown remains
+  // Now switch back to Sessions mode and verify the tab remains
   // functional and the session list reappears.
-  await page.locator('[data-testid="library-mode"]').selectOption('sessions');
+  await page.getByTestId('mode-tab-sessions').click();
   await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(6);
 });

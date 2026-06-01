@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 
 test('memory page: browse, connections, graph, stats', async ({ page }) => {
   await page.goto('/');
-  await page.getByTestId('library-mode').selectOption('memory');
+  await page.getByTestId('mode-tab-memory').click();
 
   await expect(page.getByTestId('memory-page')).toBeVisible();
   // Sidebar lists fixture memories grouped under the project.
@@ -30,8 +30,8 @@ test('memory page: browse, connections, graph, stats', async ({ page }) => {
 
 test('memory page: jump to origin session switches to sessions mode', async ({ page }) => {
   await page.goto('/');
-  await page.getByTestId('library-mode').selectOption('memory');
+  await page.getByTestId('mode-tab-memory').click();
   await page.getByTestId('memory-item-C--demo-mem-alpha-note').click();
   await page.getByTestId('conn-session').click();
-  await expect(page.getByTestId('library-mode')).toHaveValue('sessions');
+  await expect(page.getByTestId('mode-tab-sessions')).toHaveAttribute('aria-selected', 'true');
 });
