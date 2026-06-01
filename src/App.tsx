@@ -286,7 +286,6 @@ export default function App() {
         width={sidebarWidth}
         onResize={(d) => setSidebarWidth((w) => w + d)}
         mode={mode}
-        onModeChange={(m) => { setMode(m); setCreatingScope(null); }}
         usageRows={usageQuery.data?.rows ?? []}
         usageProjectId={usageProjectId}
         usageCutoffDay={usageCutoffDay}
