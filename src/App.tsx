@@ -276,7 +276,7 @@ export default function App() {
 
   return (
     <div style={styles.shell}>
-      <AppHeader />
+      <AppHeader mode={mode} onModeChange={(m) => { setMode(m); setCreatingScope(null); }} />
       <div style={styles.body}>
         <LibraryPanel
         selected={selected}
