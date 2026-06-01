@@ -276,7 +276,7 @@ export default function App() {
 
   return (
     <div style={styles.shell}>
-      <AppHeader />
+      <AppHeader mode={mode} onModeChange={(m) => { setMode(m); setCreatingScope(null); }} />
       <div style={styles.body}>
         <LibraryPanel
         selected={selected}
@@ -286,7 +286,6 @@ export default function App() {
         width={sidebarWidth}
         onResize={(d) => setSidebarWidth((w) => w + d)}
         mode={mode}
-        onModeChange={(m) => { setMode(m); setCreatingScope(null); }}
         usageRows={usageQuery.data?.rows ?? []}
         usageProjectId={usageProjectId}
         usageCutoffDay={usageCutoffDay}

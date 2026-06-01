@@ -24,7 +24,6 @@ type Props = {
   width: number;
   onResize: (delta: number) => void;
   mode: LibraryMode;
-  onModeChange: (m: LibraryMode) => void;
   // Usage-mode props (consumed only when mode === 'usage')
   usageRows: TokenUsageRow[];
   usageProjectId: string | 'all';
@@ -65,7 +64,7 @@ function reorderArray<T>(arr: T[], from: number, to: number): T[] {
   return next;
 }
 
-export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize, mode, onModeChange, usageRows, usageProjectId, usageCutoffDay, usageFamily, onUsageFamilyChange, onCreateMemory }: Props) {
+export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed, width, onResize, mode, usageRows, usageProjectId, usageCutoffDay, usageFamily, onUsageFamilyChange, onCreateMemory }: Props) {
   const sessionsQuery = useSessionList();
   const promptsQuery = usePromptList();
 
@@ -214,38 +213,24 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
     <aside style={{ ...styles.aside, width }} data-testid="session-list">
       <ResizeHandle side="right" onResize={onResize} testId="sidebar-resize" />
       <div style={styles.header}>
-        <span style={styles.dropdownWrap}>
-          <select
-            value={mode}
-            onChange={(e) => onModeChange(e.target.value as LibraryMode)}
-            style={styles.dropdown}
-            data-testid="library-mode"
-            aria-label="library mode"
-          >
-            <option value="sessions">SESSIONS</option>
-            <option value="prompts">PROMPTS</option>
-            <option value="usage">USAGE</option>
-            <option value="memory">MEMORY</option>
-          </select>
-        </span>
+        {mode !== 'usage' && (
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="filter…"
+            style={styles.filter}
+            data-testid="session-filter"
+          />
+        )}
         <button
           onClick={onToggleCollapsed}
-          style={styles.collapseBtn}
+          style={{ ...styles.collapseBtn, flexShrink: 0, alignSelf: 'stretch' }}
           aria-label="collapse sidebar"
           data-testid="sidebar-toggle"
           title="collapse (\)"
         >«</button>
       </div>
-      {mode !== 'usage' && (
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="filter…"
-          style={styles.filter}
-          data-testid="session-filter"
-        />
-      )}
       {(mode === 'sessions' || mode === 'prompts') && (
         <>
           {isLoading && <div style={styles.muted}>scanning…</div>}
@@ -340,25 +325,9 @@ const styles = {
   header: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0 12px 6px',
+    justifyContent: 'flex-end',
+    padding: '0 12px 8px',
     gap: 6,
-  },
-  dropdownWrap: { position: 'relative' as const, display: 'inline-block' },
-  dropdown: {
-    appearance: 'none' as const,
-    background: 'transparent',
-    border: '1px solid var(--edge-trail)',
-    color: 'var(--edge-trail)',
-    fontFamily: 'ui-monospace, monospace',
-    fontSize: 11,
-    letterSpacing: 3,
-    padding: '4px 22px 4px 8px',
-    cursor: 'pointer',
-    backgroundImage: 'linear-gradient(45deg, transparent 50%, var(--edge-trail) 50%), linear-gradient(135deg, var(--edge-trail) 50%, transparent 50%)',
-    backgroundPosition: 'calc(100% - 11px) 50%, calc(100% - 7px) 50%',
-    backgroundSize: '4px 4px',
-    backgroundRepeat: 'no-repeat',
   },
   collapseBtn: {
     background: 'transparent',
@@ -370,7 +339,10 @@ const styles = {
     fontFamily: 'ui-monospace, monospace',
   },
   filter: {
-    margin: '0 12px 8px',
+    // shares the header row with the collapse button: take the leftover width,
+    // allow shrinking so the button always fits.
+    flex: 1,
+    minWidth: 0,
     padding: '4px 6px',
     background: 'rgba(5,8,13,0.85)',
     border: '1px solid var(--edge-idle)',

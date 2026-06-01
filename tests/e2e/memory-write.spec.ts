@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('memory page: create a memory then delete it', async ({ page }) => {
   await page.goto('/');
-  await page.getByTestId('library-mode').selectOption('memory');
+  await page.getByTestId('mode-tab-memory').click();
 
   // Create a new memory via the dedicated sidebar button, then delete it,
   // leaving the fixture store in its original state.
