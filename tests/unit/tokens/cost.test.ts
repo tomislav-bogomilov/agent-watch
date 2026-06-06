@@ -79,6 +79,9 @@ describe('costOfRow', () => {
   it('returns null for unpriced models', () => {
     expect(costOfRow(row({ modelId: 'claude-fake', input: 5 }), {}, BUNDLED)).toBeNull();
   });
+  it('returns null when token fields are non-finite (hand-edited history)', () => {
+    expect(costOfRow(row({ input: Number.NaN, output: 5 }), {}, BUNDLED)).toBeNull();
+  });
 });
 
 describe('costSummary', () => {
@@ -94,6 +97,17 @@ describe('costSummary', () => {
     expect(s.byModel.get('claude-opus-4-8|sub')!.total).toBeCloseTo(5, 10);
     expect(s.unpricedTokens).toBe(18);
     expect(s.unpricedModels).toEqual(['claude-fake']);
+  });
+  it('keeps all aggregates finite when a row carries non-finite tokens', () => {
+    const rows = [
+      row({ input: 1_000_000 }),
+      row({ day: '2026-06-02', input: Number.NaN }),
+    ];
+    const s = costSummary(rows, {}, BUNDLED);
+    expect(Number.isFinite(s.total.total)).toBe(true);
+    expect(s.total.total).toBeCloseTo(5, 10);
+    expect(Number.isFinite(s.unpricedTokens)).toBe(true);
+    expect(s.unpricedModels).toEqual(['claude-opus-4-8']);
   });
 });
 

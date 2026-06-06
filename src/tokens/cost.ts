@@ -56,6 +56,8 @@ export function costOfRow(
 ): CostSplit | null {
   const p = priceFor(row.modelId, row.day.slice(0, 7), prices, bundled);
   if (!p) return null;
+  const tokenSum = row.input + row.output + row.cacheRead + row.cacheWrite5m + row.cacheWrite1h;
+  if (!Number.isFinite(tokenSum)) return null; // hand-edited NaN/string token — don't poison totals
   const input = (row.input * p.input) / 1e6;
   const output = (row.output * p.output) / 1e6;
   const cacheRead = (row.cacheRead * p.cacheRead) / 1e6;
@@ -82,7 +84,8 @@ export function costSummary(
   for (const r of rows) {
     const c = costOfRow(r, prices, bundled);
     if (!c) {
-      unpricedTokens += r.input + r.output + r.cacheRead + r.cacheWrite5m + r.cacheWrite1h;
+      const t = r.input + r.output + r.cacheRead + r.cacheWrite5m + r.cacheWrite1h;
+      unpricedTokens += Number.isFinite(t) ? t : 0;
       unpriced.add(r.modelId);
       continue;
     }
