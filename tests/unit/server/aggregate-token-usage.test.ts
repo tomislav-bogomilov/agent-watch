@@ -63,6 +63,15 @@ describe('aggregateTokenUsage', () => {
     expect(row.cacheWrite1h).toBe(300);
   });
 
+  it('zero-fills the missing TTL field when the detail object is partial', async () => {
+    const out = await aggregateTokenUsage(FIXTURE_ROOT);
+    const row = out.rows.find(
+      (r) => r.modelId === 'claude-opus-4-8' && r.day === '2026-05-26'
+    )!;
+    expect(row.cacheWrite5m).toBe(0);     // detail branch taken; 5m absent -> 0, legacy 700 ignored
+    expect(row.cacheWrite1h).toBe(300);
+  });
+
   it('skips <synthetic> model events', async () => {
     const out = await aggregateTokenUsage(FIXTURE_ROOT);
     expect(out.rows.some((r) => r.modelId === '<synthetic>')).toBe(false);
