@@ -1,5 +1,9 @@
 import type { TokenUsageRow } from '../api/client';
 
+export function cachedOf(r: TokenUsageRow): number {
+  return r.cacheRead + r.cacheWrite5m + r.cacheWrite1h;
+}
+
 export type RangePreset = '7d' | '30d' | '90d' | 'all';
 export type Metric = 'total' | 'input' | 'output' | 'cached';
 
@@ -43,7 +47,7 @@ export function modelKeysSorted(rows: TokenUsageRow[]): string[] {
   const totals = new Map<string, number>();
   for (const r of rows) {
     const k = modelKey(r.modelId, r.isSubagent);
-    totals.set(k, (totals.get(k) ?? 0) + r.input + r.output + r.cached);
+    totals.set(k, (totals.get(k) ?? 0) + r.input + r.output + cachedOf(r));
   }
   return Array.from(totals.entries())
     .sort((a, b) => b[1] - a[1])
@@ -53,8 +57,8 @@ export function modelKeysSorted(rows: TokenUsageRow[]): string[] {
 function metricValue(r: TokenUsageRow, m: Metric): number {
   if (m === 'input') return r.input;
   if (m === 'output') return r.output;
-  if (m === 'cached') return r.cached;
-  return r.input + r.output + r.cached;
+  if (m === 'cached') return cachedOf(r);
+  return r.input + r.output + cachedOf(r);
 }
 
 export type DayRow = { day: string; values: Record<string, number> };
@@ -98,7 +102,7 @@ export function summariesPerModel(rows: TokenUsageRow[]): ModelSummary[] {
     if (prev) {
       prev.input += r.input;
       prev.output += r.output;
-      prev.cached += r.cached;
+      prev.cached += cachedOf(r);
       prev.total = prev.input + prev.output + prev.cached;
     } else {
       acc.set(k, {
@@ -106,8 +110,8 @@ export function summariesPerModel(rows: TokenUsageRow[]): ModelSummary[] {
         isSubagent: r.isSubagent,
         input: r.input,
         output: r.output,
-        cached: r.cached,
-        total: r.input + r.output + r.cached,
+        cached: cachedOf(r),
+        total: r.input + r.output + cachedOf(r),
       });
     }
   }

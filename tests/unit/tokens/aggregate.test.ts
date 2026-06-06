@@ -7,14 +7,15 @@ import {
   modelKey,
   stackData,
   summariesPerModel,
+  cachedOf,
 } from '../../../src/tokens/aggregate';
 import type { TokenUsageRow } from '../../../src/api/client';
 
 const rows: TokenUsageRow[] = [
-  { projectId: 'p1', modelId: 'opus', isSubagent: false, day: '2026-05-20', input: 100, output: 50, cached: 200 },
-  { projectId: 'p1', modelId: 'opus', isSubagent: false, day: '2026-05-22', input: 10, output: 5, cached: 0 },
-  { projectId: 'p2', modelId: 'sonnet', isSubagent: false, day: '2026-05-21', input: 7, output: 3, cached: 0 },
-  { projectId: 'p1', modelId: 'opus', isSubagent: true, day: '2026-05-21', input: 2, output: 1, cached: 10 },
+  { projectId: 'p1', modelId: 'opus', isSubagent: false, day: '2026-05-20', input: 100, output: 50, cacheRead: 200, cacheWrite5m: 0, cacheWrite1h: 0 },
+  { projectId: 'p1', modelId: 'opus', isSubagent: false, day: '2026-05-22', input: 10, output: 5, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 },
+  { projectId: 'p2', modelId: 'sonnet', isSubagent: false, day: '2026-05-21', input: 7, output: 3, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 },
+  { projectId: 'p1', modelId: 'opus', isSubagent: true, day: '2026-05-21', input: 2, output: 1, cacheRead: 10, cacheWrite5m: 0, cacheWrite1h: 0 },
 ];
 
 describe('presetCutoff', () => {
@@ -102,5 +103,14 @@ describe('summariesPerModel', () => {
       { modelId: 'opus', isSubagent: true,  input: 2,   output: 1,  cached: 10,  total: 13 },
       { modelId: 'sonnet', isSubagent: false, input: 7, output: 3,  cached: 0,   total: 10 },
     ]);
+  });
+});
+
+describe('cachedOf', () => {
+  it('sums cacheRead + cacheWrite5m + cacheWrite1h', () => {
+    expect(cachedOf({
+      projectId: 'p', modelId: 'm', isSubagent: false, day: '2026-06-01',
+      input: 0, output: 0, cacheRead: 100, cacheWrite5m: 30, cacheWrite1h: 20,
+    })).toBe(150);
   });
 });

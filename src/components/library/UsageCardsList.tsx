@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { TokenUsageRow } from '../../api/client';
+import { cachedOf } from '../../tokens/aggregate';
 import { familyOf, type Family, type ModelFamily } from '../../tokens/family';
 import { formatTokens } from '../../util/formatTokens';
 
@@ -20,7 +21,7 @@ function passes(row: TokenUsageRow, projectId: string | 'all', cutoffDay: string
 }
 
 function totalOf(row: TokenUsageRow): number {
-  return row.input + row.output + row.cached;
+  return row.input + row.output + cachedOf(row);
 }
 
 function versionLabel(modelId: string): string | null {

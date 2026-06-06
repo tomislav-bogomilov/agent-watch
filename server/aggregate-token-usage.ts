@@ -8,7 +8,9 @@ export type TokenUsageRow = {
   day: string; // YYYY-MM-DD (UTC)
   input: number;
   output: number;
-  cached: number; // cache_read + cache_creation
+  cacheRead: number;     // cache_read_input_tokens
+  cacheWrite5m: number;  // cache_creation.ephemeral_5m_input_tokens (or legacy total)
+  cacheWrite1h: number;  // cache_creation.ephemeral_1h_input_tokens
 };
 
 export type TokenUsageProject = {
@@ -41,6 +43,10 @@ type AssistantEvent = {
       output_tokens?: number;
       cache_read_input_tokens?: number;
       cache_creation_input_tokens?: number;
+      cache_creation?: {
+        ephemeral_5m_input_tokens?: number;
+        ephemeral_1h_input_tokens?: number;
+      };
     };
   };
 };
@@ -87,18 +93,32 @@ function accumulate(
     const model = ev.message?.model;
     const u = ev.message?.usage;
     if (!model || !u) continue;
+    if (model === '<synthetic>') continue; // API-error placeholder events carry no real usage
     const input = Number(u.input_tokens ?? 0);
     const output = Number(u.output_tokens ?? 0);
-    const cached = Number(u.cache_read_input_tokens ?? 0) + Number(u.cache_creation_input_tokens ?? 0);
-    if (!Number.isFinite(input + output + cached)) continue;
+    const cacheRead = Number(u.cache_read_input_tokens ?? 0);
+    const cc = u.cache_creation;
+    let cacheWrite5m: number;
+    let cacheWrite1h: number;
+    if (cc && (cc.ephemeral_5m_input_tokens !== undefined || cc.ephemeral_1h_input_tokens !== undefined)) {
+      cacheWrite5m = Number(cc.ephemeral_5m_input_tokens ?? 0);
+      cacheWrite1h = Number(cc.ephemeral_1h_input_tokens ?? 0);
+    } else {
+      // Older log lines lack the TTL split — count everything as the default 5-minute TTL.
+      cacheWrite5m = Number(u.cache_creation_input_tokens ?? 0);
+      cacheWrite1h = 0;
+    }
+    if (!Number.isFinite(input + output + cacheRead + cacheWrite5m + cacheWrite1h)) continue;
     const key = `${projectId}|${model}|${isSubagent ? 1 : 0}|${day}`;
     const prev = acc.get(key);
     if (prev) {
       prev.input += input;
       prev.output += output;
-      prev.cached += cached;
+      prev.cacheRead += cacheRead;
+      prev.cacheWrite5m += cacheWrite5m;
+      prev.cacheWrite1h += cacheWrite1h;
     } else {
-      acc.set(key, { projectId, modelId: model, isSubagent, day, input, output, cached });
+      acc.set(key, { projectId, modelId: model, isSubagent, day, input, output, cacheRead, cacheWrite5m, cacheWrite1h });
     }
   }
 }

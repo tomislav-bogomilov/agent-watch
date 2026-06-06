@@ -37,16 +37,35 @@ describe('aggregateTokenUsage', () => {
       day: '2026-05-20',
       input: 110,
       output: 55,
-      cached: 500,
+      cacheRead: 200,
+      cacheWrite5m: 300,
+      cacheWrite1h: 0,
     });
   });
 
-  it('sums cache_read + cache_creation into a single cached bucket', async () => {
+  it('counts legacy cache_creation (no detail object) as 5m writes', async () => {
     const out = await aggregateTokenUsage(FIXTURE_ROOT);
     const row = out.rows.find(
       (r) => r.projectId === 'C--demo-a' && !r.isSubagent && r.day === '2026-05-20'
     )!;
-    expect(row.cached).toBe(500); // 200 read + 300 creation
+    expect(row.cacheRead).toBe(200);
+    expect(row.cacheWrite5m).toBe(300);
+    expect(row.cacheWrite1h).toBe(0);
+  });
+
+  it('uses the cache_creation detail split when present', async () => {
+    const out = await aggregateTokenUsage(FIXTURE_ROOT);
+    const row = out.rows.find(
+      (r) => r.modelId === 'claude-opus-4-8' && r.day === '2026-05-25'
+    )!;
+    expect(row.cacheRead).toBe(1000);
+    expect(row.cacheWrite5m).toBe(400);   // from detail, not the 700 legacy total
+    expect(row.cacheWrite1h).toBe(300);
+  });
+
+  it('skips <synthetic> model events', async () => {
+    const out = await aggregateTokenUsage(FIXTURE_ROOT);
+    expect(out.rows.some((r) => r.modelId === '<synthetic>')).toBe(false);
   });
 
   it('marks subagent file rows with isSubagent=true', async () => {

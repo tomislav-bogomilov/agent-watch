@@ -4,9 +4,9 @@ import { UsageCardsList } from '../../../src/components/library/UsageCardsList';
 import type { TokenUsageRow } from '../../../src/api/client';
 
 const rows: TokenUsageRow[] = [
-  { projectId: 'p1', modelId: 'claude-opus-4-7',    isSubagent: false, day: '2026-05-20', input: 100, output: 50, cached: 50 },
-  { projectId: 'p1', modelId: 'claude-opus-4-6',    isSubagent: false, day: '2026-05-20', input: 10,  output: 5,  cached: 5 },
-  { projectId: 'p1', modelId: 'claude-sonnet-4-6',  isSubagent: false, day: '2026-05-20', input: 20,  output: 10, cached: 0 },
+  { projectId: 'p1', modelId: 'claude-opus-4-7',    isSubagent: false, day: '2026-05-20', input: 100, output: 50, cacheRead: 50, cacheWrite5m: 0, cacheWrite1h: 0 },
+  { projectId: 'p1', modelId: 'claude-opus-4-6',    isSubagent: false, day: '2026-05-20', input: 10,  output: 5,  cacheRead: 5,  cacheWrite5m: 0, cacheWrite1h: 0 },
+  { projectId: 'p1', modelId: 'claude-sonnet-4-6',  isSubagent: false, day: '2026-05-20', input: 20,  output: 10, cacheRead: 0,  cacheWrite5m: 0, cacheWrite1h: 0 },
 ];
 
 describe('UsageCardsList', () => {
