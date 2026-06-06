@@ -13,29 +13,46 @@ type Props = {
   bundled: PriceTable;
 };
 
+function keyLabel(k: string): string {
+  return `${modelLabel(k.replace(/\|sub$/, ''))}${k.endsWith('|sub') ? ' · sub' : ''}`;
+}
+
 export function SpendBars({ rows, prices, bundled }: Props) {
   const months = useMemo(() => costByMonth(rows, prices, bundled), [rows, prices, bundled]);
   const summary = useMemo(() => costSummary(rows, prices, bundled), [rows, prices, bundled]);
   const keys = useMemo(() => modelKeysByCost(months), [months]);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [width, setWidth] = useState(600);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (!r) return;
+      setWidth(Math.max(200, Math.floor(r.width)));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const svg = svgRef.current;
     const host = hostRef.current;
     if (!svg || !host) return;
-    const width = host.clientWidth || 600;
+    const w = width || 600;
     const height = 180;
     const margin = { top: 8, right: 12, bottom: 22, left: 52 };
     const sel = d3.select(svg);
     sel.selectAll('*').remove();
-    sel.attr('width', width).attr('height', height);
+    sel.attr('width', w).attr('height', height);
     if (months.length === 0) return;
 
     const x = d3.scaleBand<string>()
       .domain(months.map((m) => m.month))
-      .range([margin.left, width - margin.right])
+      .range([margin.left, w - margin.right])
       .padding(0.35);
     const yMax = d3.max(months, (m) => m.total.total) ?? 0;
     const y = d3.scaleLinear()
@@ -55,7 +72,7 @@ export function SpendBars({ rows, prices, bundled }: Props) {
           .attr('height', Math.max(1, y(y0) - y(y0 + v)))
           .attr('fill', colorFor(k, keys))
           .append('title')
-          .text(`${m.month} · ${modelLabel(k.replace(/\|sub$/, ''))}${k.endsWith('|sub') ? ' · sub' : ''}: ${formatUsd(v)}`);
+          .text(`${m.month} · ${keyLabel(k)}: ${formatUsd(v)}`);
         y0 += v;
       }
       sel.append('text')
@@ -77,7 +94,7 @@ export function SpendBars({ rows, prices, bundled }: Props) {
         .attr('font-family', 'ui-monospace, monospace')
         .text(formatUsd(t));
     }
-  }, [months, keys]);
+  }, [months, keys, width]);
 
   if (months.length === 0) {
     return <div style={styles.empty}>NO PRICED USAGE IN RANGE</div>;
@@ -152,9 +169,9 @@ function MonthRows({ m, keys, expanded, onToggle }: {
       {expanded && keys.filter((k) => m.byModel.has(k)).map((k) => {
         const c = m.byModel.get(k)!;
         return (
-          <tr key={k} data-testid={`spend-month-detail-${m.month}-${k}`} style={styles.detailRow}>
+          <tr key={k} data-testid={`spend-month-detail-${m.month}-${k}`}>
             <td style={styles.tdLeftDetail}>
-              ↳ {modelLabel(k.replace(/\|sub$/, ''))}{k.endsWith('|sub') ? ' · sub' : ''}
+              ↳ {keyLabel(k)}
             </td>
             <td style={styles.td}>{formatUsd(c.input)}</td>
             <td style={styles.td}>{formatUsd(c.output)}</td>
@@ -181,7 +198,6 @@ const styles = {
   th: { textAlign: 'right' as const, padding: '5px 8px', color: 'var(--text-dim)', fontWeight: 400, letterSpacing: 1, borderBottom: '1px solid rgba(110,224,238,0.18)' },
   thRight: { textAlign: 'right' as const, padding: '5px 8px', color: 'var(--edge-trail)', fontWeight: 400, letterSpacing: 1, borderBottom: '1px solid rgba(110,224,238,0.18)' },
   bodyRow: { cursor: 'pointer' as const },
-  detailRow: {},
   tdLeft: { textAlign: 'left' as const, padding: '5px 8px', color: 'var(--text)' },
   tdLeftDetail: { textAlign: 'left' as const, padding: '3px 8px 3px 20px', color: 'var(--text-dim)' },
   td: { textAlign: 'right' as const, padding: '5px 8px', color: 'var(--text-dim)' },

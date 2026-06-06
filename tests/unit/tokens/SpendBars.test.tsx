@@ -55,4 +55,11 @@ describe('SpendBars', () => {
     render(<SpendBars rows={[row({ modelId: 'claude-fake', input: 5 })]} prices={{}} bundled={BUNDLED} />);
     expect(screen.getByText('NO PRICED USAGE IN RANGE')).toBeTruthy();
   });
+
+  it('labels each bar segment with a month/model/$ tooltip', () => {
+    const { container } = render(<SpendBars rows={ROWS} prices={{}} bundled={BUNDLED} />);
+    const titles = Array.from(container.querySelectorAll('[data-role="spend-bar"] title')).map((t) => t.textContent);
+    expect(titles).toContain('2026-05 · Opus 4.8: $5.00');
+    expect(titles).toContain('2026-06 · Sonnet 4.6: $3.00');
+  });
 });
