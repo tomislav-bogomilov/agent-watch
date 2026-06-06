@@ -90,6 +90,16 @@ describe('readHistory / writeHistory', () => {
     expect(names.some((n) => n.startsWith('usage-history.corrupt-'))).toBe(true);
   });
 
+  it('treats valid-JSON-but-wrong-shape live files as corrupt (recovers from backup)', async () => {
+    await writeHistory(dir, { ...emptyHistory(), lastSyncAt: 'v1' });
+    await writeHistory(dir, { ...emptyHistory(), lastSyncAt: 'v2' });
+    await fs.writeFile(path.join(dir, 'usage-history.json'), JSON.stringify({ version: 0 }), 'utf8');
+    const recovered = await readHistory(dir);
+    expect(recovered.lastSyncAt).toBe('v1');
+    const names = await fs.readdir(dir);
+    expect(names.some((n) => n.startsWith('usage-history.corrupt-'))).toBe(true);
+  });
+
   it('falls back to empty history when live and backup are both unusable', async () => {
     await fs.writeFile(path.join(dir, 'usage-history.json'), '{not json', 'utf8');
     expect(await readHistory(dir)).toEqual(emptyHistory());
