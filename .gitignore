@@ -40,6 +40,9 @@ test-results/
 # Brainstorming mockups (local)
 .superpowers/
 
+# Local usage history and price snapshots
+.local/
+
 # Ad-hoc screenshots
 tg-*.png
 # Local screenshots from playwright/verification runs

@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import readline from 'node:readline';
 import type { Plugin, Connect } from 'vite';
-import { aggregateTokenUsage } from './aggregate-token-usage';
+import { syncTokenUsage } from './usage-sync';
 import {
   readMemoryStore, createMemory, updateMemory, deleteMemory,
   isMemoryName, type MemoryType,
@@ -331,6 +331,14 @@ export function sessionsPlugin(): Plugin {
   return {
     name: 'thoughtgraph:sessions',
     configureServer(server) {
+      const usageDir = process.env.TG_USAGE_DIR
+        ?? path.join(server.config.root, '.local', 'usage');
+      // Boot-time sync: top up history whenever the dev server starts. Fire and
+      // forget — a failure must never block startup.
+      void syncTokenUsage(root, usageDir).catch((err) => {
+        console.warn(`[thoughtgraph] boot usage sync failed: ${(err as Error).message}`);
+      });
+
       server.middlewares.use('/api/sessions', async (req, res, next) => {
         try {
           const url = req.url ?? '/';
@@ -393,7 +401,7 @@ export function sessionsPlugin(): Plugin {
             sendJson(res, 400, { error: 'expected /api/token-usage' });
             return;
           }
-          const payload = await aggregateTokenUsage(root);
+          const payload = await syncTokenUsage(root, usageDir);
           sendJson(res, 200, payload);
         } catch (err) {
           next(err as Error);

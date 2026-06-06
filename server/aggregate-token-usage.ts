@@ -18,7 +18,7 @@ export type TokenUsageProject = {
   cwd: string;
 };
 
-export type TokenUsageResponse = {
+export type AggregateResult = {
   projects: TokenUsageProject[];
   rows: TokenUsageRow[];
 };
@@ -123,7 +123,7 @@ function accumulate(
   }
 }
 
-export async function aggregateTokenUsage(root: string): Promise<TokenUsageResponse> {
+export async function aggregateTokenUsage(root: string): Promise<AggregateResult> {
   const projectDirs = await listDirSafe(root);
   if (projectDirs.length === 0) return { projects: [], rows: [] };
 

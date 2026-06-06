@@ -1,8 +1,10 @@
 import type { PromptMeta, SessionMeta, SessionPayload } from '../parse/types';
-import type { TokenUsageResponse } from '../../server/aggregate-token-usage';
+import type { TokenUsagePayload } from '../../server/usage-sync';
 import type { MemoryResponse, MemoryRecord, MemoryType } from '../../server/memory-store';
 
-export type { TokenUsageResponse, TokenUsageRow, TokenUsageProject } from '../../server/aggregate-token-usage';
+export type { TokenUsageRow, TokenUsageProject } from '../../server/aggregate-token-usage';
+export type { PriceEntry, PriceTable } from '../../server/model-pricing';
+export type TokenUsageResponse = TokenUsagePayload;
 export type { MemoryResponse, MemoryRecord, MemoryType, MemoryScope, MemoryIndexEntry } from '../../server/memory-store';
 
 export async function fetchSessionList(): Promise<SessionMeta[]> {
