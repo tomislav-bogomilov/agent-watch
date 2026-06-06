@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { modelLabel } from '../../../src/tokens/modelLabel';
+import { modelLabel, modelKeyLabel } from '../../../src/tokens/modelLabel';
 
 describe('modelLabel', () => {
   it('claude-opus-4-7 → Opus 4.7', () => {
@@ -16,5 +16,14 @@ describe('modelLabel', () => {
   });
   it('empty string → empty string', () => {
     expect(modelLabel('')).toBe('');
+  });
+});
+
+describe('modelKeyLabel', () => {
+  it('appends · sub for subagent keys', () => {
+    expect(modelKeyLabel('claude-opus-4-8|sub')).toBe('Opus 4.8 · sub');
+  });
+  it('passes plain keys through modelLabel', () => {
+    expect(modelKeyLabel('claude-opus-4-8')).toBe('Opus 4.8');
   });
 });

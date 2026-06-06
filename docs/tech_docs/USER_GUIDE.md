@@ -260,6 +260,21 @@ tokens your Claude Code sessions have used across your whole machine. It shows:
 
 This is about **token counts**, not dollar costs — it doesn't estimate spend in money.
 
+### SPEND view
+
+The USAGE page has a `TOKENS | SPEND` toggle. SPEND estimates what your usage would
+cost at Anthropic's published API list prices (your subscription covers the actual
+usage — no API calls are made; this is local arithmetic). Two sub-views:
+
+- **BARS** — monthly cost as stacked bars per model, with a month-by-month ledger
+  (input / output / cache-read / cache-write columns; click a month for per-model detail).
+- **MATRIX** — stat cards (all-time, this month, avg/month, top model) plus a
+  month × model grid; click a cell for that cell's full cost breakdown.
+
+Token history is stored in `.local/usage/` inside the repo (not committed), so the
+dashboard keeps data older than Claude Code's ~1-month log retention. Delete that
+folder to reset. Monthly price files in `.local/usage/prices/` can be hand-edited.
+
 ---
 
 ## 10. Tips & FAQ

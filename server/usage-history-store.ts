@@ -89,8 +89,13 @@ export async function readHistory(usageDir: string): Promise<UsageHistory> {
 export async function writeHistory(usageDir: string, history: UsageHistory): Promise<void> {
   await fs.mkdir(usageDir, { recursive: true });
   const live = path.join(usageDir, LIVE);
-  const tmp = path.join(usageDir, `${LIVE}.tmp`);
+  const tmp = path.join(usageDir, `${LIVE}.${process.pid}-${Math.random().toString(36).slice(2, 8)}.tmp`);
   await fs.copyFile(live, path.join(usageDir, BAK)).catch(() => undefined); // first run: no live file yet
   await fs.writeFile(tmp, JSON.stringify(history, null, 2), 'utf8');
-  await fs.rename(tmp, live); // atomic replace (Node rename overwrites on Windows too)
+  try {
+    await fs.rename(tmp, live); // atomic replace (Node rename overwrites on Windows too)
+  } catch (err) {
+    await fs.unlink(tmp).catch(() => undefined);
+    throw err;
+  }
 }

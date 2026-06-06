@@ -471,6 +471,24 @@ renders the per-model summary. `family.ts`, `modelLabel.ts`, and `palette.ts` ha
 model-family detection, display labels (`claude-opus-4-7` → `Opus 4.7`), and colors. No
 dollar conversion — tokens only.
 
+### Usage history & pricing (`.local/usage/`)
+
+`/api/token-usage` no longer reads logs only: on dev-server boot and on every request,
+fresh log aggregation is merged (per-key field-wise `max()`) into
+`.local/usage/usage-history.json` (gitignored, atomic write with `.bak`). This preserves
+usage data beyond Claude Code's ~1 month log retention. Cache tokens are split into
+`cacheRead` / `cacheWrite5m` / `cacheWrite1h` for pricing.
+
+Model prices live in `server/model-pricing.ts` (`BUNDLED_PRICES`, USD per MTok) and are
+snapshotted once per month to `.local/usage/prices/YYYY-MM.json` (never overwritten —
+hand-edits are respected). Cost is computed client-side in `src/tokens/cost.ts` as
+`tokens × prices(month-of-row)`; months without a snapshot use the bundled table.
+Unknown models are reported as "unpriced", never silently $0.
+
+- Reset everything: delete `.local/usage/`.
+- Tests/e2e: override the directory with `TG_USAGE_DIR`.
+- When Anthropic changes prices: update `BUNDLED_PRICES`.
+
 ---
 
 ## 9. Conventions & gotchas

@@ -231,7 +231,7 @@ const styles = {
   presetBtnOn: {
     background: 'rgba(0,229,255,0.10)',
     color: 'var(--edge-trail)',
-    borderColor: 'var(--edge-trail)',
+    border: '1px solid var(--edge-trail)',
   },
   panelTop: {
     border: '1px solid rgba(0,229,255,0.55)',
