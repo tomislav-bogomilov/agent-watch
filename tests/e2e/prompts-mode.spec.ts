@@ -4,7 +4,7 @@ test('prompts mode: header tab switches the list, clicking a prompt opens a scop
   await page.goto('/');
 
   // Default Sessions mode renders a list with 4 fixture projects (happy/fail/sub/live).
-  await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(6);
+  await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(7);
 
   // Switch to Prompts mode via the header tab.
   await page.getByTestId('mode-tab-prompts').click();
@@ -30,5 +30,5 @@ test('prompts mode: header tab switches the list, clicking a prompt opens a scop
   // Now switch back to Sessions mode and verify the tab remains
   // functional and the session list reappears.
   await page.getByTestId('mode-tab-sessions').click();
-  await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(6);
+  await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(7);
 });

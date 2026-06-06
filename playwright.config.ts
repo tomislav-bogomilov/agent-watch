@@ -10,6 +10,7 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   reporter: 'list',
+  globalSetup: './tests/e2e/global-setup.ts',
   use: {
     baseURL: 'http://localhost:5174',
     headless: true,
@@ -22,6 +23,7 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       CLAUDE_HOME: fixtureClaudeHome,
+      TG_USAGE_DIR: path.resolve(__dirname, '.local/e2e-usage'),
     },
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
