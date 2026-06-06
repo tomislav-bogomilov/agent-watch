@@ -10,14 +10,13 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   reporter: 'list',
-  globalSetup: './tests/e2e/global-setup.ts',
   use: {
     baseURL: 'http://localhost:5174',
     headless: true,
     viewport: { width: 1600, height: 900 },
   },
   webServer: {
-    command: 'npm run dev -- --port 5174',
+    command: 'node tests/e2e/clean-usage-dir.mjs && npm run dev -- --port 5174',
     url: 'http://localhost:5174',
     timeout: 30_000,
     reuseExistingServer: false,

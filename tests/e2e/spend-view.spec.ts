@@ -11,6 +11,10 @@ test('spend view: $ figures match fixtures and history persists to disk', async 
   await page.getByTestId('mode-tab-usage').click();
   await page.getByTestId('tokens-preset-all').click();
 
+  // $ figures derive from the 2026-05-18 fixture priced at BUNDLED_PRICES in
+  // server/model-pricing.ts (fixture month never gets a snapshot, so bundled
+  // fallback always applies — deterministic regardless of run date).
+
   // TOKENS view: cost chip + breakdown on the opus-4-8 row
   await expect(page.getByTestId('model-cost-claude-opus-4-8')).toHaveText('≈ $26.25');
   await expect(page.getByTestId('model-cost-breakdown-claude-opus-4-8'))
@@ -21,7 +25,7 @@ test('spend view: $ figures match fixtures and history persists to disk', async 
   await expect(page.getByTestId('spend-disclaimer')).toBeVisible();
   await expect(page.getByTestId('spend-chip-total')).toContainText('$26.25');
   await expect(page.getByTestId('spend-chip-cachewrite')).toContainText('$11.25');
-  await expect(page.locator('svg [data-role="spend-bar"]').first()).toBeVisible();
+  await expect.poll(async () => page.locator('svg [data-role="spend-bar"]').count()).toBeGreaterThan(0);
 
   // Ledger month row expands to per-model detail
   await page.getByTestId('spend-month-row-2026-05').click();
