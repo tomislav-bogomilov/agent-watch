@@ -258,7 +258,7 @@ tokens your Claude Code sessions have used across your whole machine. It shows:
 - **A daily chart** — token use per day over time, broken down by model. You can switch the
   time range (e.g. last 7 days, 30 days, or all time).
 
-This is about **token counts**, not dollar costs — it doesn't estimate spend in money.
+Token counts are the primary view; estimated dollar figures (at API list prices) appear as ≈ $ chips, with full cost breakdowns in the SPEND view.
 
 ### SPEND view
 

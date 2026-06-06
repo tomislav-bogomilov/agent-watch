@@ -6,6 +6,7 @@ import {
 } from './cost';
 import { colorFor } from './palette';
 import { modelKeyLabel } from './modelLabel';
+import { modelKeysSorted } from './aggregate';
 
 type Props = {
   rows: TokenUsageRow[];
@@ -25,6 +26,8 @@ export function SpendMatrix({ rows, prices, bundled, todayMonth }: Props) {
   const months = useMemo(() => costByMonth(rows, prices, bundled), [rows, prices, bundled]);
   const summary = useMemo(() => costSummary(rows, prices, bundled), [rows, prices, bundled]);
   const keys = useMemo(() => modelKeysByCost(months), [months]);
+  // color assignment uses the token-volume ordering so a model keeps its color across TOKENS and SPEND views
+  const colorKeys = useMemo(() => modelKeysSorted(rows), [rows]);
   const [pinned, setPinned] = useState<{ key: string; month: string } | null>(null);
 
   const totalsByKey = useMemo(() => {
@@ -90,7 +93,7 @@ export function SpendMatrix({ rows, prices, bundled, todayMonth }: Props) {
             <MatrixRow
               key={k}
               k={k}
-              color={colorFor(k, keys)}
+              color={colorFor(k, colorKeys)}
               months={months}
               maxCell={maxCell}
               rowTotal={totalsByKey.get(k) ?? 0}

@@ -6,6 +6,7 @@ import {
 } from './cost';
 import { colorFor } from './palette';
 import { modelKeyLabel } from './modelLabel';
+import { modelKeysSorted } from './aggregate';
 
 type Props = {
   rows: TokenUsageRow[];
@@ -17,6 +18,8 @@ export function SpendBars({ rows, prices, bundled }: Props) {
   const months = useMemo(() => costByMonth(rows, prices, bundled), [rows, prices, bundled]);
   const summary = useMemo(() => costSummary(rows, prices, bundled), [rows, prices, bundled]);
   const keys = useMemo(() => modelKeysByCost(months), [months]);
+  // color assignment uses the token-volume ordering so a model keeps its color across TOKENS and SPEND views
+  const colorKeys = useMemo(() => modelKeysSorted(rows), [rows]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [width, setWidth] = useState(600);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -66,7 +69,7 @@ export function SpendBars({ rows, prices, bundled }: Props) {
           .attr('width', x.bandwidth())
           .attr('y', y(y0 + v))
           .attr('height', Math.max(1, y(y0) - y(y0 + v)))
-          .attr('fill', colorFor(k, keys))
+          .attr('fill', colorFor(k, colorKeys))
           .append('title')
           .text(`${m.month} · ${modelKeyLabel(k)}: ${formatUsd(v)}`);
         y0 += v;
