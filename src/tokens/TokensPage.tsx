@@ -13,6 +13,8 @@ import { costSummary } from './cost';
 import { DailyUsageChart } from './DailyUsageChart';
 import { formatPath } from '../util/formatPath';
 import type { Family } from './family';
+import { SpendBars } from './SpendBars';
+import { SpendMatrix } from './SpendMatrix';
 
 type Props = {
   family: Family;
@@ -27,6 +29,8 @@ function todayUtc(): string {
 export function TokensPage({ family, preset, onPresetChange }: Props) {
   const [projectId, setProjectId] = useState<string | 'all'>('all');
   const [metric, setMetric] = useState<Metric>('total');
+  const [view, setView] = useState<'tokens' | 'spend'>('tokens');
+  const [spendMode, setSpendMode] = useState<'bars' | 'matrix'>('bars');
   const query = useTokenUsage();
   const today = todayUtc();
 
@@ -49,6 +53,18 @@ export function TokensPage({ family, preset, onPresetChange }: Props) {
     <div style={styles.page} data-testid="tokens-page">
       <div style={styles.chrome}>
         <div style={styles.title}>TOKEN USAGE</div>
+        <div style={styles.presetGroupLeft}>
+          {(['tokens', 'spend'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              data-testid={`usage-view-${v}`}
+              onClick={() => setView(v)}
+              style={{ ...styles.presetBtn, ...(view === v ? styles.presetBtnOn : null) }}
+              aria-pressed={view === v}
+            >{v.toUpperCase()}</button>
+          ))}
+        </div>
         <select
           data-testid="tokens-project-filter"
           value={projectId}
@@ -85,7 +101,7 @@ export function TokensPage({ family, preset, onPresetChange }: Props) {
       {query.data && query.data.projects.length === 0 && (
         <div style={styles.muted}>NO SESSIONS FOUND</div>
       )}
-      {query.data && query.data.projects.length > 0 && (
+      {query.data && query.data.projects.length > 0 && view === 'tokens' && (
         <>
           <div style={styles.panelTop}>
             <OverallSpendList summaries={summaries} costs={costs} />
@@ -118,6 +134,42 @@ export function TokensPage({ family, preset, onPresetChange }: Props) {
             </div>
           </div>
         </>
+      )}
+      {query.data && query.data.projects.length > 0 && view === 'spend' && (
+        <div style={styles.panelBottom}>
+          <div style={styles.subHeader}>
+            <div style={styles.subTitle}>SPEND</div>
+            <div data-testid="spend-disclaimer" style={styles.disclaimer}>
+              EST. AT API LIST PRICES — COVERED BY YOUR SUBSCRIPTION
+            </div>
+            <div style={styles.presetGroup}>
+              {(['bars', 'matrix'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  data-testid={`spend-mode-${m}`}
+                  onClick={() => setSpendMode(m)}
+                  style={{ ...styles.presetBtn, ...(spendMode === m ? styles.presetBtnOn : null) }}
+                  aria-pressed={spendMode === m}
+                >{m.toUpperCase()}</button>
+              ))}
+            </div>
+          </div>
+          {spendMode === 'bars' ? (
+            <SpendBars
+              rows={filtered}
+              prices={query.data.prices}
+              bundled={query.data.bundledPrices}
+            />
+          ) : (
+            <SpendMatrix
+              rows={filtered}
+              prices={query.data.prices}
+              bundled={query.data.bundledPrices}
+              todayMonth={today.slice(0, 7)}
+            />
+          )}
+        </div>
       )}
     </div>
   );
@@ -153,6 +205,11 @@ const styles = {
     fontSize: 11,
     letterSpacing: 1,
     padding: '4px 8px',
+  },
+  presetGroupLeft: {
+    display: 'flex' as const,
+    gap: 6,
+    flexShrink: 0,
   },
   presetGroup: {
     display: 'flex' as const,
@@ -209,4 +266,10 @@ const styles = {
   chartHost: { flex: 1, minHeight: 0 },
   muted: { padding: 24, color: 'var(--text-dim)', letterSpacing: 4, fontFamily: 'ui-monospace, monospace' },
   error: { padding: 24, color: 'var(--node-failed)', fontFamily: 'ui-monospace, monospace' },
+  disclaimer: {
+    fontSize: 9,
+    letterSpacing: 1,
+    color: 'var(--text-dim)',
+    fontFamily: 'ui-monospace, monospace',
+  },
 };

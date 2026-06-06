@@ -9,3 +9,8 @@ export function modelLabel(modelId: string): string {
   const family = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
   return `${family} ${m[2]}.${m[3]}`;
 }
+
+// Display label for a chart/series key ('<modelId>' or '<modelId>|sub').
+export function modelKeyLabel(k: string): string {
+  return `${modelLabel(k.replace(/\|sub$/, ''))}${k.endsWith('|sub') ? ' · sub' : ''}`;
+}

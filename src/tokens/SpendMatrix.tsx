@@ -5,7 +5,7 @@ import {
   type CostSplit, type MonthCost,
 } from './cost';
 import { colorFor } from './palette';
-import { modelLabel } from './modelLabel';
+import { modelKeyLabel } from './modelLabel';
 
 type Props = {
   rows: TokenUsageRow[];
@@ -19,10 +19,6 @@ function hexToRgba(hex: string, alpha: number): string {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
-}
-
-function labelOf(k: string): string {
-  return `${modelLabel(k.replace(/\|sub$/, ''))}${k.endsWith('|sub') ? ' · sub' : ''}`;
 }
 
 export function SpendMatrix({ rows, prices, bundled, todayMonth }: Props) {
@@ -76,7 +72,7 @@ export function SpendMatrix({ rows, prices, bundled, todayMonth }: Props) {
         </div>
         <div style={styles.card} data-testid="spend-card-top">
           <div style={styles.cardLabel}>TOP MODEL</div>
-          <div style={styles.cardValue}>{labelOf(topKey)} <span style={styles.cardShare}>{Math.round(topShare)}%</span></div>
+          <div style={styles.cardValue}>{modelKeyLabel(topKey)} <span style={styles.cardShare}>{Math.round(topShare)}%</span></div>
           <div style={styles.cardSub}>≈ {formatUsd(totalsByKey.get(topKey) ?? 0)} all-time</div>
         </div>
       </div>
@@ -129,7 +125,7 @@ function MatrixRow({ k, color, months, maxCell, rowTotal, pinnedMonth, onCellCli
   return (
     <>
       <tr>
-        <td style={styles.tdLeft}>{labelOf(k)}</td>
+        <td style={styles.tdLeft}>{modelKeyLabel(k)}</td>
         {months.map((m) => {
           const c = m.byModel.get(k);
           if (!c) {

@@ -5,17 +5,13 @@ import {
   costByMonth, costSummary, formatUsd, modelKeysByCost, type MonthCost,
 } from './cost';
 import { colorFor } from './palette';
-import { modelLabel } from './modelLabel';
+import { modelKeyLabel } from './modelLabel';
 
 type Props = {
   rows: TokenUsageRow[];
   prices: Record<string, PriceTable>;
   bundled: PriceTable;
 };
-
-function keyLabel(k: string): string {
-  return `${modelLabel(k.replace(/\|sub$/, ''))}${k.endsWith('|sub') ? ' · sub' : ''}`;
-}
 
 export function SpendBars({ rows, prices, bundled }: Props) {
   const months = useMemo(() => costByMonth(rows, prices, bundled), [rows, prices, bundled]);
@@ -72,7 +68,7 @@ export function SpendBars({ rows, prices, bundled }: Props) {
           .attr('height', Math.max(1, y(y0) - y(y0 + v)))
           .attr('fill', colorFor(k, keys))
           .append('title')
-          .text(`${m.month} · ${keyLabel(k)}: ${formatUsd(v)}`);
+          .text(`${m.month} · ${modelKeyLabel(k)}: ${formatUsd(v)}`);
         y0 += v;
       }
       sel.append('text')
@@ -171,7 +167,7 @@ function MonthRows({ m, keys, expanded, onToggle }: {
         return (
           <tr key={k} data-testid={`spend-month-detail-${m.month}-${k}`}>
             <td style={styles.tdLeftDetail}>
-              ↳ {keyLabel(k)}
+              ↳ {modelKeyLabel(k)}
             </td>
             <td style={styles.td}>{formatUsd(c.input)}</td>
             <td style={styles.td}>{formatUsd(c.output)}</td>
