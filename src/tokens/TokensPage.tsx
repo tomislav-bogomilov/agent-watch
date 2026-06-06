@@ -9,6 +9,7 @@ import {
 } from './aggregate';
 import { familyOf } from './family';
 import { OverallSpendList } from './OverallSpendList';
+import { costSummary } from './cost';
 import { DailyUsageChart } from './DailyUsageChart';
 import { formatPath } from '../util/formatPath';
 import type { Family } from './family';
@@ -38,6 +39,11 @@ export function TokensPage({ family, preset, onPresetChange }: Props) {
   }, [query.data, projectId, preset, family, today]);
 
   const summaries = useMemo(() => summariesPerModel(filtered), [filtered]);
+
+  const costs = useMemo(
+    () => costSummary(filtered, query.data?.prices ?? {}, query.data?.bundledPrices ?? { currency: 'USD' as const, source: 'none', perMTok: {} }),
+    [filtered, query.data],
+  );
 
   return (
     <div style={styles.page} data-testid="tokens-page">
@@ -73,13 +79,16 @@ export function TokensPage({ family, preset, onPresetChange }: Props) {
       {query.error && (
         <div style={styles.error}>FAILED TO LOAD USAGE: {(query.error as Error).message}</div>
       )}
+      {query.data?.unsyncedWarning && (
+        <div data-testid="usage-unsynced-warning" style={styles.muted}>⚠ {query.data.unsyncedWarning}</div>
+      )}
       {query.data && query.data.projects.length === 0 && (
         <div style={styles.muted}>NO SESSIONS FOUND</div>
       )}
       {query.data && query.data.projects.length > 0 && (
         <>
           <div style={styles.panelTop}>
-            <OverallSpendList summaries={summaries} />
+            <OverallSpendList summaries={summaries} costs={costs} />
           </div>
           <div style={styles.panelBottom}>
             <div style={styles.subHeader}>

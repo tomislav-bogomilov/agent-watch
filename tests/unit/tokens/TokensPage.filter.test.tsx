@@ -11,6 +11,8 @@ vi.mock('../../../src/api/hooks', () => ({
         { projectId: 'p1', modelId: 'claude-opus-4-7',   isSubagent: false, day: '2026-05-20', input: 1, output: 1, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 },
         { projectId: 'p1', modelId: 'claude-sonnet-4-6', isSubagent: false, day: '2026-05-20', input: 1, output: 1, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 },
       ],
+      prices: {},
+      bundledPrices: { currency: 'USD', source: 'test', perMTok: {} },
     },
     isLoading: false,
     error: null,
