@@ -5,6 +5,7 @@ import { aggregateTokenUsage } from '../../../server/aggregate-token-usage';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE_ROOT = path.resolve(__dirname, 'fixtures', 'tokens-root');
+const DEDUP_ROOT = path.resolve(__dirname, 'fixtures', 'tokens-dedup-root');
 
 describe('aggregateTokenUsage', () => {
   it('returns empty payload when root does not exist', async () => {
@@ -104,5 +105,40 @@ describe('aggregateTokenUsage', () => {
     const out = await aggregateTokenUsage(FIXTURE_ROOT);
     const b = out.rows.filter((r) => r.projectId === 'C--demo-b' && r.input === 99);
     expect(b).toHaveLength(0);
+  });
+});
+
+describe('aggregateTokenUsage — message.id dedup', () => {
+  // A single assistant turn with N content blocks is logged as N JSONL lines
+  // that each repeat the same turn-level `usage`; resumed sessions re-log the
+  // same message in another file. Usage must be counted once per unique
+  // message.id, not once per line.
+  it('counts a multi-block / re-logged turn (repeated message.id) only once', async () => {
+    const out = await aggregateTokenUsage(DEDUP_ROOT);
+    const row = out.rows.find(
+      (r) =>
+        r.projectId === 'C--demo-dup' &&
+        !r.isSubagent &&
+        r.modelId === 'claude-opus-4-8' &&
+        r.day === '2026-06-01'
+    );
+    expect(row).toBeDefined();
+    // msg_A counted once (5/100/1000/50) + msg_B once (2/10/0/0)
+    expect(row!.input).toBe(7);
+    expect(row!.output).toBe(110);
+    expect(row!.cacheRead).toBe(1000);
+    expect(row!.cacheWrite5m).toBe(50);
+    expect(row!.cacheWrite1h).toBe(0);
+  });
+
+  it('still sums lines that have no message.id (dedup must not swallow them)', async () => {
+    const out = await aggregateTokenUsage(DEDUP_ROOT);
+    const row = out.rows.find(
+      (r) => r.projectId === 'C--demo-dup' && r.modelId === 'claude-sonnet-4-6' && r.day === '2026-06-02'
+    );
+    expect(row).toBeDefined();
+    // two id-less assistant lines (3/4 and 5/6) — summed, not deduped
+    expect(row!.input).toBe(8);
+    expect(row!.output).toBe(10);
   });
 });
