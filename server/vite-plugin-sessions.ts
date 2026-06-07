@@ -188,12 +188,17 @@ async function listSessions(root: string): Promise<SessionMeta[]> {
   return out;
 }
 
-async function readSessionPayload(root: string, projectId: string, sessionId: string) {
+export async function readSessionPayload(root: string, projectId: string, sessionId: string) {
   const projectDir = path.join(root, projectId);
   const sessionPath = path.join(projectDir, `${sessionId}.jsonl`);
+  const subagentDir = path.join(projectDir, sessionId, 'subagents');
+  // Defense in depth: never read outside the sessions root, even if a caller
+  // passed an id that escapes it (e.g. projectId === '..', or a sessionId whose
+  // subagent dir climbs above root). Guard BOTH read targets before any I/O. CWE-22.
+  assertInsideRoot(root, sessionPath);
+  assertInsideRoot(root, subagentDir);
   const jsonl = await fs.readFile(sessionPath, 'utf8');
   const subagents: { id: string; jsonl: string; lastUpdatedAt: string }[] = [];
-  const subagentDir = path.join(projectDir, sessionId, 'subagents');
   try {
     const files = await fs.readdir(subagentDir);
     for (const f of files) {
@@ -221,6 +226,15 @@ async function readSessionPayload(root: string, projectId: string, sessionId: st
 
 function isSafeId(s: string): boolean {
   return /^[A-Za-z0-9._-]+$/.test(s);
+}
+
+// True iff `target` resolves to a path inside `root` (or root itself).
+function assertInsideRoot(root: string, target: string): void {
+  const resolvedRoot = path.resolve(root);
+  const resolvedTarget = path.resolve(target);
+  if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(resolvedRoot + path.sep)) {
+    throw Object.assign(new Error('path escapes root'), { code: 'EOUTSIDE_ROOT' });
+  }
 }
 
 const PROMPT_MAX_CHARS = 140;
@@ -357,14 +371,17 @@ export function sessionsPlugin(): Plugin {
             return;
           }
           const [, projectId, sessionId] = match;
-          if (!isSafeId(projectId) || !isSafeId(sessionId)) {
+          // isSafeScopeKey (not isSafeId) also rejects '.'/'..', matching the
+          // /api/memory route — without this, projectId='..' is a path traversal.
+          if (!isSafeScopeKey(projectId) || !isSafeScopeKey(sessionId)) {
             sendJson(res, 400, { error: 'invalid id' });
             return;
           }
           const payload = await readSessionPayload(root, projectId, sessionId);
           sendJson(res, 200, payload);
         } catch (err) {
-          if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          const code = (err as NodeJS.ErrnoException).code;
+          if (code === 'ENOENT' || code === 'EOUTSIDE_ROOT') {
             sendJson(res, 404, { error: 'not found' });
             return;
           }
