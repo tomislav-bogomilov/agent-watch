@@ -104,4 +104,17 @@ describe('readHistory / writeHistory', () => {
     await fs.writeFile(path.join(dir, 'usage-history.json'), '{not json', 'utf8');
     expect(await readHistory(dir)).toEqual(emptyHistory());
   });
+
+  it('discards a history written under an older schema version (forces a clean rebuild)', async () => {
+    // A pre-fix file recorded inflated per-row maxes under schema v1. Because
+    // mergeHistory keeps the per-field max, those stale highs would otherwise
+    // mask a corrected (lower) aggregation forever. A schema bump must drop them.
+    await fs.writeFile(
+      path.join(dir, 'usage-history.json'),
+      JSON.stringify({ version: 1, lastSyncAt: 'old', projects: { P: 'C:/p' }, rows: [row({ input: 999999 })] }),
+      'utf8',
+    );
+    const h = await readHistory(dir);
+    expect(h.rows).toEqual([]); // stale inflated rows are not loaded
+  });
 });

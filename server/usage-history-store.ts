@@ -2,8 +2,13 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { TokenUsageProject, TokenUsageRow } from './aggregate-token-usage';
 
+// Bump when the meaning of stored token counts changes so a corrected
+// aggregation isn't masked by stale per-field maxes. v2: message.id dedup
+// (counts that were inflated by multi-block/re-logged turns under v1).
+const HISTORY_VERSION = 2;
+
 export type UsageHistory = {
-  version: 1;
+  version: typeof HISTORY_VERSION;
   lastSyncAt: string;
   projects: Record<string, string>; // projectId -> decoded cwd (survives log expiry)
   rows: TokenUsageRow[];
@@ -13,7 +18,7 @@ const LIVE = 'usage-history.json';
 const BAK = 'usage-history.json.bak';
 
 export function emptyHistory(): UsageHistory {
-  return { version: 1, lastSyncAt: '', projects: {}, rows: [] };
+  return { version: HISTORY_VERSION, lastSyncAt: '', projects: {}, rows: [] };
 }
 
 export function rowKey(r: Pick<TokenUsageRow, 'projectId' | 'modelId' | 'isSubagent' | 'day'>): string {
@@ -44,13 +49,13 @@ export function mergeHistory(
   const projects: Record<string, string> = { ...history.projects };
   for (const p of fresh.projects) projects[p.id] = p.cwd;
   const rows = Array.from(byKey.values()).sort((a, b) => rowKey(a).localeCompare(rowKey(b)));
-  return { version: 1, lastSyncAt: nowIso, projects, rows };
+  return { version: HISTORY_VERSION, lastSyncAt: nowIso, projects, rows };
 }
 
 function isUsageHistory(v: unknown): v is UsageHistory {
   if (typeof v !== 'object' || v === null) return false;
   const h = v as UsageHistory;
-  return h.version === 1 && typeof h.projects === 'object' && h.projects !== null && Array.isArray(h.rows);
+  return h.version === HISTORY_VERSION && typeof h.projects === 'object' && h.projects !== null && Array.isArray(h.rows);
 }
 
 /** undefined = file missing; throws on unparseable JSON. */

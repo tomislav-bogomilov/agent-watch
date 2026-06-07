@@ -37,6 +37,7 @@ type AssistantEvent = {
   type?: string;
   timestamp?: string;
   message?: {
+    id?: string;
     model?: string;
     usage?: {
       input_tokens?: number;
@@ -77,6 +78,7 @@ async function readFileSafe(p: string): Promise<string | null> {
 
 function accumulate(
   acc: Map<string, TokenUsageRow>,
+  seenMessageIds: Set<string>,
   projectId: string,
   isSubagent: boolean,
   jsonl: string,
@@ -94,6 +96,15 @@ function accumulate(
     const u = ev.message?.usage;
     if (!model || !u) continue;
     if (model === '<synthetic>') continue; // API-error placeholder events carry no real usage
+    // One assistant turn with N content blocks is logged as N lines that each
+    // repeat the same turn-level usage; resumed/compacted sessions re-log the
+    // same turn in another file. Count each unique message.id once. Lines with
+    // no id (older/synthetic shapes) can't be deduped, so they still sum.
+    const messageId = ev.message?.id;
+    if (messageId) {
+      if (seenMessageIds.has(messageId)) continue;
+      seenMessageIds.add(messageId);
+    }
     const input = Number(u.input_tokens ?? 0);
     const output = Number(u.output_tokens ?? 0);
     const cacheRead = Number(u.cache_read_input_tokens ?? 0);
@@ -129,6 +140,9 @@ export async function aggregateTokenUsage(root: string): Promise<AggregateResult
 
   const projects: TokenUsageProject[] = [];
   const acc = new Map<string, TokenUsageRow>();
+  // Shared across every file in the run so a message re-logged in a resumed
+  // session (a different file) is still counted only once.
+  const seenMessageIds = new Set<string>();
 
   for (const projectId of projectDirs) {
     const projectDir = path.join(root, projectId);
@@ -141,7 +155,7 @@ export async function aggregateTokenUsage(root: string): Promise<AggregateResult
       const full = path.join(projectDir, name);
       if (name.endsWith('.jsonl')) {
         const content = await readFileSafe(full);
-        if (content) accumulate(acc, projectId, false, content);
+        if (content) accumulate(acc, seenMessageIds, projectId, false, content);
         continue;
       }
       // Subagent JSONLs live at <sessionId>/subagents/*.jsonl
@@ -152,7 +166,7 @@ export async function aggregateTokenUsage(root: string): Promise<AggregateResult
       for (const subName of subFiles) {
         if (!subName.endsWith('.jsonl')) continue;
         const content = await readFileSafe(path.join(subagentsDir, subName));
-        if (content) accumulate(acc, projectId, true, content);
+        if (content) accumulate(acc, seenMessageIds, projectId, true, content);
       }
     }
   }
