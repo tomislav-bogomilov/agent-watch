@@ -10,7 +10,7 @@ const pausedRow: ControlRow = {
 };
 const noop = () => {};
 const baseProps = {
-  installed: true, nowMs: 65_000, installing: false,
+  installed: true, nowMs: 65_000, installing: false, allPaused: false,
   onPause: noop, onResume: noop, onPauseAll: noop, onResumeAll: noop, onInstall: noop,
 };
 
@@ -49,6 +49,24 @@ describe('ControlBar', () => {
     fireEvent.change(screen.getByTestId('control-steer-agent-0'), { target: { value: 'use fixtures' } });
     fireEvent.click(screen.getByTestId('control-resume-agent-0'));
     expect(onResume).toHaveBeenCalledWith('agent-0', 'use fixtures');
+  });
+
+  it('under PAUSE ALL, paused rows show held info but no per-row steer/resume', () => {
+    render(<ControlBar rows={[{ ...pausedRow }]} {...baseProps} allPaused={true} />);
+    const row = screen.getByTestId('control-row-agent-0');
+    // held info still visible for inspection
+    expect(row.textContent).toContain('Bash');
+    // but the per-row steer input and resume button are gone (RESUME ALL is the control)
+    expect(screen.queryByTestId('control-steer-agent-0')).toBeNull();
+    expect(screen.queryByTestId('control-resume-agent-0')).toBeNull();
+    // RESUME ALL is present (anyPaused is true)
+    expect(screen.getByTestId('control-resume-all')).toBeTruthy();
+  });
+
+  it('with individual pause (not all), the per-row steer + resume ARE shown', () => {
+    render(<ControlBar rows={[{ ...pausedRow }]} {...baseProps} allPaused={false} />);
+    expect(screen.getByTestId('control-steer-agent-0')).toBeTruthy();
+    expect(screen.getByTestId('control-resume-agent-0')).toBeTruthy();
   });
 
   it('pause buttons are disabled and an install prompt shows when the hook is missing', () => {

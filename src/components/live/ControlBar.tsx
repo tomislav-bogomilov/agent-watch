@@ -5,6 +5,7 @@ type Props = {
   rows: ControlRow[];
   installed: boolean;
   installing: boolean;
+  allPaused: boolean;
   nowMs: number;
   onPause: (target: string) => void;
   onResume: (target: string, note: string | null) => void;
@@ -70,7 +71,7 @@ function fmtElapsed(heldSince: number, nowMs: number): string {
 }
 
 export function ControlBar({
-  rows, installed, installing, nowMs,
+  rows, installed, installing, allPaused, nowMs,
   onPause, onResume, onPauseAll, onResumeAll, onInstall,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -140,23 +141,29 @@ export function ControlBar({
                     ? `holding: ${row.held.toolName}(${row.held.toolInputSummary.slice(0, 60)}) · paused ${fmtElapsed(row.held.heldSince, nowMs)}`
                     : 'engaging… (catches the next tool call)'}
                 </span>
-                <input
-                  data-testid={`control-steer-${row.target}`}
-                  style={steerInputStyle}
-                  placeholder="steer › guidance delivered on resume"
-                  value={notes[row.target] ?? ''}
-                  onChange={(e) => setNotes((n) => ({ ...n, [row.target]: e.target.value }))}
-                />
-                <button
-                  type="button"
-                  data-testid={`control-resume-${row.target}`}
-                  style={btnStyle(AMBER)}
-                  onClick={() => {
-                    const note = (notes[row.target] ?? '').trim();
-                    onResume(row.target, note || null);
-                    setNotes((n) => ({ ...n, [row.target]: '' }));
-                  }}
-                >▶ RESUME</button>
+                {allPaused ? (
+                  <span style={{ color: '#6e95a5', fontSize: 9, flexShrink: 0 }}>· resume all to release</span>
+                ) : (
+                  <>
+                    <input
+                      data-testid={`control-steer-${row.target}`}
+                      style={steerInputStyle}
+                      placeholder="steer › guidance delivered on resume"
+                      value={notes[row.target] ?? ''}
+                      onChange={(e) => setNotes((n) => ({ ...n, [row.target]: e.target.value }))}
+                    />
+                    <button
+                      type="button"
+                      data-testid={`control-resume-${row.target}`}
+                      style={btnStyle(AMBER)}
+                      onClick={() => {
+                        const note = (notes[row.target] ?? '').trim();
+                        onResume(row.target, note || null);
+                        setNotes((n) => ({ ...n, [row.target]: '' }));
+                      }}
+                    >▶ RESUME</button>
+                  </>
+                )}
               </>
             ) : (
               <button

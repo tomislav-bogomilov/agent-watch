@@ -218,6 +218,7 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
         rows={controlRows}
         installed={controlQuery.data?.installed ?? false}
         installing={installMut.isPending}
+        allPaused={snapshot.all}
         nowMs={nowMs}
         onPause={(target) => pauseMut.mutate(target)}
         onResume={(target, note) => resumeMut.mutate({ target, note })}
