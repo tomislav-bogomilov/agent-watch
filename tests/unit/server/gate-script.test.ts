@@ -21,8 +21,8 @@ function runGate(port: number, input: unknown): Promise<{ stdout: string; code: 
   });
 }
 
-/** Serve each canned response once, in order (last one repeats). */
-function serve(responses: unknown[]): Promise<{ port: number; close: () => void; requests: () => number }> {
+/** Serve each canned response once, in order (last one repeats), bound to `host`. */
+function serveOn(host: string, responses: unknown[]): Promise<{ port: number; close: () => void; requests: () => number }> {
   let i = 0;
   const server = http.createServer((_req, res) => {
     const body = JSON.stringify(responses[Math.min(i, responses.length - 1)]);
@@ -31,11 +31,16 @@ function serve(responses: unknown[]): Promise<{ port: number; close: () => void;
     res.end(body);
   });
   return new Promise((resolve) => {
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, host, () => {
       const { port } = server.address() as { port: number };
       resolve({ port, close: () => server.close(), requests: () => i });
     });
   });
+}
+
+/** Serve on IPv4 loopback (the common case). */
+function serve(responses: unknown[]): Promise<{ port: number; close: () => void; requests: () => number }> {
+  return serveOn('127.0.0.1', responses);
 }
 
 async function freePort(): Promise<number> {
@@ -91,5 +96,18 @@ describe('thoughtgraph-gate.mjs', () => {
     srv.close();
     expect(r.code).toBe(0);
     expect(r.stdout.trim()).toBe('');
+  });
+
+  // Regression: on Windows + Node, Vite binds the dev server to IPv6 loopback
+  // (::1) only, but the hook hardcoded http://127.0.0.1 (IPv4). The IPv4 connect
+  // was refused → fail-open → the agent never paused. The hook must fall back
+  // across loopback families. (Requires IPv6 loopback, present on all dev hosts.)
+  it('reaches a server listening only on IPv6 ::1 (loopback family fallback)', async () => {
+    const srv = await serveOn('::1', [{ action: 'deny', reason: 'ipv6 reached' }]);
+    const r = await runGate(srv.port, INPUT);
+    srv.close();
+    expect(r.code).toBe(0);
+    const out = JSON.parse(r.stdout);
+    expect(out.hookSpecificOutput.permissionDecisionReason).toBe('ipv6 reached');
   });
 });

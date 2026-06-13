@@ -14,6 +14,17 @@ const REQUEST_TIMEOUT_MS = 70_000; // server holds ≤55s per poll; leave headro
 const RENEW_REASON =
   'Paused by the user in ThoughtGraph. Re-issue this exact tool call to continue waiting for resume.';
 
+// The dev server binds to whichever loopback family Vite chose. On Windows +
+// Node it's usually IPv6 (::1) ONLY; on other setups it's IPv4 (127.0.0.1).
+// The browser uses `localhost` and resolves correctly, but a hook hardcoded to
+// one family gets ECONNREFUSED on a mismatch and fails open — the agent never
+// pauses. So try both loopback families and remember the one that answers.
+const LOOPBACK_HOSTS = ['127.0.0.1', '[::1]'];
+// Connect-phase errors mean "wrong family / not here" → try the other host.
+// Anything after a successful connect (bad status, slow hold) → fail open.
+const CONNECT_ERROR_CODES = new Set(['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'EADDRNOTAVAIL', 'ENOTFOUND', 'EADDRINUSE']);
+let chosenUrl = null; // memoize the first loopback URL that answers
+
 function argPort() {
   const i = process.argv.indexOf('--port');
   if (i !== -1 && process.argv[i + 1]) {
@@ -44,7 +55,12 @@ function deny(reason) {
   }) + '\n');
 }
 
-/** POST body to url, resolve with parsed JSON or null on any error. */
+/**
+ * POST body to url. Resolves with a discriminated result:
+ *   { ok: true, json }          — HTTP 200 + parsed JSON
+ *   { ok: false, retriable }    — failed; retriable=true means a connect-phase
+ *                                 error (wrong loopback family → try the other host)
+ */
 function httpPost(url, body, timeoutMs) {
   return new Promise((resolve) => {
     const parsed = new URL(url);
@@ -63,16 +79,33 @@ function httpPost(url, body, timeoutMs) {
       res.setEncoding('utf8');
       res.on('data', (c) => { data += c; });
       res.on('end', () => {
-        if (res.statusCode !== 200) { resolve(null); return; }
-        try { resolve(JSON.parse(data)); } catch { resolve(null); }
+        if (res.statusCode !== 200) { resolve({ ok: false, retriable: false }); return; }
+        try { resolve({ ok: true, json: JSON.parse(data) }); }
+        catch { resolve({ ok: false, retriable: false }); }
       });
-      res.on('error', () => resolve(null));
+      res.on('error', () => resolve({ ok: false, retriable: false }));
     });
-    req.on('error', () => resolve(null));
-    req.on('timeout', () => { req.destroy(); resolve(null); });
+    // Connect-phase failure (e.g. ECONNREFUSED on the wrong family) → retriable.
+    req.on('error', (e) => resolve({ ok: false, retriable: CONNECT_ERROR_CODES.has(e && e.code) }));
+    // A timeout fires only after we connected (loopback connect is instant) →
+    // the server is there but holding too long; fail open, don't switch hosts.
+    req.on('timeout', () => { req.destroy(); resolve({ ok: false, retriable: false }); });
     req.write(body);
     req.end();
   });
+}
+
+/** Try the gate across loopback families, sticking to the first that answers. */
+async function gate(port, body, timeoutMs) {
+  const all = LOOPBACK_HOSTS.map((h) => `http://${h}:${port}/api/control/gate`);
+  const urls = chosenUrl ? [chosenUrl, ...all.filter((u) => u !== chosenUrl)] : all;
+  for (const url of urls) {
+    const r = await httpPost(url, body, timeoutMs);
+    if (r.ok) { chosenUrl = url; return r.json; }
+    if (!r.retriable) return null;   // reachable but unhappy, or post-connect timeout → fail open
+    // retriable (couldn't connect on this family) → try the next host
+  }
+  return null;                        // no loopback family answered → fail open
 }
 
 async function main() {
@@ -81,7 +114,7 @@ async function main() {
   try { input = JSON.parse(raw); } catch { return; }
   if (!input || typeof input.session_id !== 'string') return;
 
-  const url = `http://127.0.0.1:${argPort()}/api/control/gate`;
+  const port = argPort();
   const body = JSON.stringify({
     session_id: input.session_id,
     tool_use_id: input.tool_use_id ?? '',
@@ -91,7 +124,7 @@ async function main() {
   const started = Date.now();
 
   while (Date.now() - started < DEADLINE_MS) {
-    const out = await httpPost(url, body, REQUEST_TIMEOUT_MS);
+    const out = await gate(port, body, REQUEST_TIMEOUT_MS);
     if (out === null) return;           // server gone / refused / timed out → allow
     if (out.action === 'deny' && typeof out.reason === 'string') { deny(out.reason); return; }
     if (out.action !== 'poll') return;  // 'allow' or anything unexpected → allow
