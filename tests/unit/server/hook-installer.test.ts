@@ -68,6 +68,50 @@ describe('installGateHook', () => {
     await expect(installGateHook(OPTS())).rejects.toMatchObject({ code: 'EBADSETTINGS' });
     expect(await fs.readFile(settingsPath, 'utf8')).toBe('{ not json');
   });
+
+  it('refuses (EBADSETTINGS) when hooks is an array, leaving the file and writing no backup', async () => {
+    await fs.writeFile(settingsPath, '{"hooks":[]}', 'utf8');
+    await expect(installGateHook(OPTS())).rejects.toMatchObject({ code: 'EBADSETTINGS' });
+    expect(await fs.readFile(settingsPath, 'utf8')).toBe('{"hooks":[]}');
+    const siblings = await fs.readdir(dir);
+    expect(siblings.filter((f) => f.includes('.bak'))).toHaveLength(0);
+  });
+
+  it('refuses (EBADSETTINGS) when hooks is a string', async () => {
+    await fs.writeFile(settingsPath, '{"hooks":"oops"}', 'utf8');
+    await expect(installGateHook(OPTS())).rejects.toMatchObject({ code: 'EBADSETTINGS' });
+    expect(await fs.readFile(settingsPath, 'utf8')).toBe('{"hooks":"oops"}');
+  });
+
+  it('refuses (EBADSETTINGS) when hooks.PreToolUse is not an array, writing no backup', async () => {
+    await fs.writeFile(settingsPath, '{"hooks":{"PreToolUse":"x"}}', 'utf8');
+    await expect(installGateHook(OPTS())).rejects.toMatchObject({ code: 'EBADSETTINGS' });
+    const siblings = await fs.readdir(dir);
+    expect(siblings.filter((f) => f.includes('.bak'))).toHaveLength(0);
+  });
+
+  it('updates an existing gate entry in place when the port changes (no duplicate)', async () => {
+    await installGateHook({ settingsPath, scriptPath: 'C:/tg/hooks/thoughtgraph-gate.mjs', port: 5173 });
+    const res = await installGateHook({ settingsPath, scriptPath: 'C:/tg/hooks/thoughtgraph-gate.mjs', port: 5999 });
+    expect(res.status).toBe('installed');
+    const written = JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+    expect(written.hooks.PreToolUse).toHaveLength(1);
+    expect(written.hooks.PreToolUse[0].hooks[0].command).toContain('--port 5999');
+    expect(written.hooks.PreToolUse[0].hooks[0].command).not.toContain('--port 5173');
+  });
+
+  it('updating the port still preserves unrelated entries', async () => {
+    const existing = { hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo pre' }] }] } };
+    await fs.writeFile(settingsPath, JSON.stringify(existing), 'utf8');
+    await installGateHook({ settingsPath, scriptPath: 'C:/tg/hooks/thoughtgraph-gate.mjs', port: 5173 });
+    await installGateHook({ settingsPath, scriptPath: 'C:/tg/hooks/thoughtgraph-gate.mjs', port: 5999 });
+    const written = JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+    expect(written.hooks.PreToolUse).toHaveLength(2); // echo pre + the single gate entry (updated, not duplicated)
+    expect(written.hooks.PreToolUse.find((e: any) => e.matcher === 'Bash')).toBeTruthy();
+    const gate = written.hooks.PreToolUse.filter((e: any) => e.hooks.some((h: any) => h.command.includes('thoughtgraph-gate.mjs')));
+    expect(gate).toHaveLength(1);
+    expect(gate[0].hooks[0].command).toContain('--port 5999');
+  });
 });
 
 describe('isGateHookInstalled', () => {
