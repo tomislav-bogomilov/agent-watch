@@ -45,5 +45,6 @@ describe('findToolUseOwner', () => {
   it('rejects ids/paths that escape the root', async () => {
     await expect(findToolUseOwner(root, '..', 'sess-1', 'toolu_main_1')).rejects.toThrow(/escapes root/);
     await expect(findToolUseOwner(root, 'C--proj', 'sess-1', 'x"} bad')).resolves.toBeNull();
+    await expect(findToolUseOwner(root, 'C--proj', '../..', 'toolu_main_1')).rejects.toThrow(/escapes root/);
   });
 });
