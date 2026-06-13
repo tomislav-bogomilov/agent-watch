@@ -48,14 +48,14 @@ describe('/api/control middleware', () => {
     expect(await res.json()).toEqual({ action: 'allow' });
   });
 
-  it('pause main → gate holds the main tool call, then polls; resume with note → deny carrying the note', async () => {
+  it('pause main → gate holds the main tool call, then polls; resume with note → allow carrying the note as context', async () => {
     await post('/pause', { projectId: 'C--proj', sessionId: 'sess-1', target: 'main' });
     const d1 = await (await post('/gate', { session_id: 'sess-1', tool_use_id: 'toolu_m1', tool_name: 'Bash', tool_input: {}, holdMs: 100 })).json();
     expect(d1).toEqual({ action: 'poll' });
     await post('/resume', { projectId: 'C--proj', sessionId: 'sess-1', target: 'main', note: 'look at tests first' });
     const d2 = await (await post('/gate', { session_id: 'sess-1', tool_use_id: 'toolu_m1', tool_name: 'Bash', tool_input: {} })).json();
-    expect(d2.action).toBe('deny');
-    expect(d2.reason).toContain('look at tests first');
+    expect(d2.action).toBe('allow');
+    expect(d2.context).toContain('look at tests first');
     const d3 = await (await post('/gate', { session_id: 'sess-1', tool_use_id: 'toolu_m1', tool_name: 'Bash', tool_input: {} })).json();
     expect(d3).toEqual({ action: 'allow' });
   });

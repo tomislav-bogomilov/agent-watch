@@ -81,6 +81,16 @@ describe('thoughtgraph-gate.mjs', () => {
     expect(out.hookSpecificOutput.permissionDecisionReason).toBe('steer note here');
   });
 
+  it('emits allow + additionalContext when the server returns a steer note', async () => {
+    const srv = await serve([{ action: 'allow', context: 'prefer the fixtures dir' }]);
+    const r = await runGate(srv.port, INPUT);
+    srv.close();
+    expect(r.code).toBe(0);
+    const out = JSON.parse(r.stdout);
+    expect(out.hookSpecificOutput.permissionDecision).toBe('allow'); // tool PROCEEDS (agent continues)
+    expect(out.hookSpecificOutput.additionalContext).toBe('prefer the fixtures dir');
+  });
+
   it('loops on poll responses until a terminal answer arrives', async () => {
     const srv = await serve([{ action: 'poll' }, { action: 'poll' }, { action: 'allow' }]);
     const r = await runGate(srv.port, INPUT);

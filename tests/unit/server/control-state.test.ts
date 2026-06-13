@@ -34,16 +34,17 @@ describe('control store — gate decisions', () => {
     await expect(pending).resolves.toEqual({ action: 'allow' });
   });
 
-  it('resume with note releases the held request with deny + the note', async () => {
+  it('resume with note releases the held request with allow + the note as context', async () => {
     const store = createControlStore();
     store.pause('s1', 'proj', 'agent-0');
     const pending = store.gate('s1', 'agent-0', { ...INFO, toolUseId: 'toolu_2' }, 5000);
     await new Promise((r) => setTimeout(r, 10));
     store.resume('s1', 'proj', 'agent-0', 'use the fixtures dir');
     const d = await pending;
-    expect(d.action).toBe('deny');
-    if (d.action === 'deny') expect(d.reason).toContain('use the fixtures dir');
-    if (d.action === 'deny') expect(d.reason).toContain(STEER_PREFIX.trim().slice(0, 10));
+    // allow → the agent CONTINUES; the note rides along as guidance, not a block.
+    expect(d.action).toBe('allow');
+    if (d.action === 'allow') expect(d.context).toContain('use the fixtures dir');
+    if (d.action === 'allow') expect(d.context).toContain(STEER_PREFIX.trim().slice(0, 10));
   });
 
   it('pause-all holds even an unknown owner; targeted pause does not', async () => {
@@ -60,8 +61,9 @@ describe('control store — gate decisions', () => {
     store.pause('s1', 'proj', 'main');
     store.resume('s1', 'proj', 'main', 'check the README first'); // nothing held yet
     const d1 = await store.gate('s1', 'main', INFO);
-    expect(d1.action).toBe('deny');
-    if (d1.action === 'deny') expect(d1.reason).toContain('check the README first');
+    expect(d1.action).toBe('allow');
+    if (d1.action === 'allow') expect(d1.context).toContain('check the README first');
+    // note consumed once → next gate is a plain allow (no context)
     await expect(store.gate('s1', 'main', INFO)).resolves.toEqual({ action: 'allow' });
   });
 

@@ -37,7 +37,7 @@ test.describe('LIVE control bar', () => {
     await fs.writeFile(SETTINGS, JSON.stringify(GATE_SETTINGS, null, 2), 'utf8');
   });
 
-  test('bar renders, expands, and the gate round-trips deny-with-note then allow', async ({ page, request }) => {
+  test('bar renders, expands, and the gate round-trips steer-with-note (allow+context) then allow', async ({ page, request }) => {
     // --- PART A: UI render --------------------------------------------------
     // Make the fixture "live" (fresh mtime) and open it exactly like
     // live-session-tag.spec.ts; LIVE auto-engages and renders the multi-pane grid.
@@ -92,14 +92,15 @@ test.describe('LIVE control bar', () => {
     });
     expect(resumeRes.ok()).toBeTruthy();
 
-    // 4. Gate again → the waiting 'all' note is delivered as a one-shot deny.
-    const denyRes = await request.post('/api/control/gate', { data: gateBody });
-    expect(denyRes.ok()).toBeTruthy();
-    const deny = await denyRes.json();
-    expect(deny.action).toBe('deny');
-    expect(deny.reason).toContain('use the fixtures dir');
+    // 4. Gate again → the waiting 'all' note is delivered ONCE as allow+context.
+    //    allow (not deny) so the agent CONTINUES, with the note as guidance.
+    const steerRes = await request.post('/api/control/gate', { data: gateBody });
+    expect(steerRes.ok()).toBeTruthy();
+    const steer = await steerRes.json();
+    expect(steer.action).toBe('allow');
+    expect(steer.context).toContain('use the fixtures dir');
 
-    // 5. Gate once more → note consumed, nothing paused → allow.
+    // 5. Gate once more → note consumed, nothing paused → plain allow (no context).
     const allowRes = await request.post('/api/control/gate', { data: gateBody });
     expect(allowRes.ok()).toBeTruthy();
     expect(await allowRes.json()).toEqual({ action: 'allow' });

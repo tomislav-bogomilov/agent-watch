@@ -1,6 +1,10 @@
 export type GateDecision =
-  | { action: 'allow' }
-  | { action: 'deny'; reason: string }
+  // allow lets the held tool call PROCEED (the agent continues). An optional
+  // `context` carries the user's steer note as model-visible guidance — the
+  // agent continues AND reads the note. We deliberately do NOT use a "deny"
+  // here: deny blocks the tool call, and the model treats that as a stop
+  // signal rather than continuing, which is the opposite of "resume".
+  | { action: 'allow'; context?: string }
   | { action: 'poll' };
 
 export type Owner = 'main' | string;            // string = agent file id, e.g. 'agent-0'
@@ -38,9 +42,9 @@ type SessionControl = {
 };
 
 export const HOLD_MS = 55_000;
-export const STEER_PREFIX = 'The user paused you from ThoughtGraph and left guidance: ';
+export const STEER_PREFIX = 'Guidance from the user (sent via ThoughtGraph while you were paused): ';
 export const STEER_SUFFIX =
-  ' — Re-evaluate with this guidance in mind, then re-issue the held tool call if it is still appropriate.';
+  ' — You are now resumed; continue your work with this guidance in mind.';
 
 export function createControlStore() {
   const sessions = new Map<string, SessionControl>();
@@ -85,8 +89,9 @@ export function createControlStore() {
     for (const entry of [...s.held.values()]) {
       if (isPaused(s, entry.owner)) continue;
       const note = takeNote(s, entry.owner);
+      // Always allow (let the agent continue); attach the note as guidance.
       release(s, entry, note
-        ? { action: 'deny', reason: STEER_PREFIX + note + STEER_SUFFIX }
+        ? { action: 'allow', context: STEER_PREFIX + note + STEER_SUFFIX }
         : { action: 'allow' });
     }
   }
@@ -113,7 +118,8 @@ export function createControlStore() {
       const s = sessions.get(sessionId);
       if (!s) return Promise.resolve({ action: 'allow' });
       const note = takeNote(s, owner);
-      if (note) return Promise.resolve({ action: 'deny', reason: STEER_PREFIX + note + STEER_SUFFIX });
+      // A note waiting (user resumed with guidance) → allow + deliver it.
+      if (note) return Promise.resolve({ action: 'allow', context: STEER_PREFIX + note + STEER_SUFFIX });
       if (!isPaused(s, owner)) return Promise.resolve({ action: 'allow' });
       return new Promise<GateDecision>((resolve) => {
         const entry: HeldEntry = {

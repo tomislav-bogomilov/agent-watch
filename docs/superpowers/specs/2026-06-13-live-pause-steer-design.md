@@ -31,12 +31,20 @@ the agent's next tool call. It cannot interrupt mid-text-generation. The UI
 must therefore show a "pause pending" state between the user's click and the
 gate actually catching the agent.
 
-Steering is delivered through the hook's output: resuming with a note makes
-the gate answer `permissionDecision: "deny"` with
-`permissionDecisionReason` = the user's note (plus boilerplate: "re-issue
-the held tool call if still appropriate"). The model reads the reason and
-acts on it. Resuming without a note answers a plain allow and the held tool
-call proceeds untouched.
+Steering is delivered through the hook's output. Resume always **allows** the
+held tool call so the agent CONTINUES; a steer note rides along as
+`hookSpecificOutput.additionalContext` (with `permissionDecision: "allow"`),
+which the model reads as guidance while it proceeds. Resuming without a note
+is a plain allow and the held call proceeds untouched.
+
+> Why not `deny`? An earlier design delivered the note as a
+> `permissionDecision: "deny"` + `permissionDecisionReason`. In practice the
+> model treats a denied tool call as a stop signal — it abandons the action
+> and waits/asks rather than continuing. That made "resume" fail to resume.
+> Allow + `additionalContext` is the correct mechanism for "continue, with
+> this guidance in mind." The only remaining `deny` is the hook's internal
+> ~4h timeout-renewal, which legitimately must keep blocking to sustain the
+> pause.
 
 ## Components
 

@@ -55,6 +55,18 @@ function deny(reason) {
   }) + '\n');
 }
 
+// Allow the tool call to PROCEED while injecting the user's steer note as
+// model-visible guidance. The agent continues its work and reads the note.
+function allowWithContext(context) {
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'allow',
+      additionalContext: context,
+    },
+  }) + '\n');
+}
+
 /**
  * POST body to url. Resolves with a discriminated result:
  *   { ok: true, json }          — HTTP 200 + parsed JSON
@@ -126,8 +138,12 @@ async function main() {
   while (Date.now() - started < DEADLINE_MS) {
     const out = await gate(port, body, REQUEST_TIMEOUT_MS);
     if (out === null) return;           // server gone / refused / timed out → allow
+    if (out.action === 'allow') {       // resume → continue; context = steer guidance, if any
+      if (typeof out.context === 'string' && out.context) allowWithContext(out.context);
+      return;
+    }
     if (out.action === 'deny' && typeof out.reason === 'string') { deny(out.reason); return; }
-    if (out.action !== 'poll') return;  // 'allow' or anything unexpected → allow
+    if (out.action !== 'poll') return;  // anything unexpected → allow (silent)
   }
   deny(RENEW_REASON);                   // hook-timeout renewal: costs one model turn per 4h paused
 }

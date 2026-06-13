@@ -8,9 +8,10 @@ running agents. Expand it (▴) for one row per agent.
 - **⏸** pauses that agent at its **next tool call** (it can't interrupt
   mid-response — the row shows "engaging…" until the gate catches it, then
   the held tool call and a paused timer).
-- While paused, type into **steer ›** and hit **▶ RESUME** — the note is
-  delivered to the agent, which re-evaluates before continuing. Resume with
-  an empty field releases the held call untouched.
+- **▶ RESUME** lets the agent **continue** its work. If you typed a note in
+  **steer ›**, it's delivered as guidance the agent reads as it continues
+  (it does not block the held action). Resume with an empty field just lets
+  the held call proceed untouched.
 - **⏸ ALL / ▶ RESUME ALL** cover every agent, including subagents the UI
   can't individually target.
 
