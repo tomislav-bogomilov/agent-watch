@@ -67,6 +67,15 @@ describe('control store — gate decisions', () => {
     await expect(store.gate('s1', 'main', INFO)).resolves.toEqual({ action: 'allow' });
   });
 
+  it('a re-pause takes precedence over a leftover pending note (note must not bypass the pause)', async () => {
+    const store = createControlStore();
+    store.pause('s1', 'proj', 'all');
+    store.resume('s1', 'proj', 'all', 'leftover guidance'); // nothing held → note lingers as pending
+    store.pause('s1', 'proj', 'all');                       // user pauses again
+    // The stale note must NOT short-circuit to allow — the gate must HOLD.
+    await expect(store.gate('s1', 'main', INFO, 50)).resolves.toEqual({ action: 'poll' });
+  });
+
   it('resume-all clears main, agents, and the all flag', async () => {
     const store = createControlStore();
     store.pause('s1', 'proj', 'all');

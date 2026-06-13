@@ -117,10 +117,17 @@ export function createControlStore() {
     gate(sessionId: string, owner: Owner | 'unknown', info: GateInfo, holdMs: number = HOLD_MS): Promise<GateDecision> {
       const s = sessions.get(sessionId);
       if (!s) return Promise.resolve({ action: 'allow' });
-      const note = takeNote(s, owner);
-      // A note waiting (user resumed with guidance) → allow + deliver it.
-      if (note) return Promise.resolve({ action: 'allow', context: STEER_PREFIX + note + STEER_SUFFIX });
-      if (!isPaused(s, owner)) return Promise.resolve({ action: 'allow' });
+      // Pause takes precedence over any pending note: if the user (re-)paused,
+      // HOLD and leave the note pending — it's delivered when they resume. (If
+      // we consumed the note here, a leftover note from an earlier resume would
+      // bypass a fresh pause and the agent would run right through it.)
+      if (!isPaused(s, owner)) {
+        const note = takeNote(s, owner);
+        // Not paused, but a note is waiting (user resumed with guidance while
+        // nothing was held) → allow + deliver it on this next tool call.
+        if (note) return Promise.resolve({ action: 'allow', context: STEER_PREFIX + note + STEER_SUFFIX });
+        return Promise.resolve({ action: 'allow' });
+      }
       return new Promise<GateDecision>((resolve) => {
         const entry: HeldEntry = {
           toolUseId: info.toolUseId,
