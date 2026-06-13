@@ -73,6 +73,13 @@ Accepted tradeoff: a command hook spawns a Node process per tool call
 (~50–100ms) for every Claude Code session on the machine while the hook is
 installed.
 
+> Implementation note: the gate script uses Node's built-in `http` module
+> rather than global `fetch`. On Windows + Node v24, calling `process.exit()`
+> while an undici `AbortSignal.timeout` timer is still pending crashes with
+> `STATUS_STACK_BUFFER_OVERRUN`; `node:http` with a native socket timeout
+> avoids this. The script remains dependency-free and its external contract
+> is unchanged.
+
 ### 2. Control server — `server/vite-plugin-control.ts`
 
 New Vite dev-server plugin alongside `vite-plugin-sessions.ts`.
