@@ -11,9 +11,13 @@ import { CanvasToolbar } from '../CanvasToolbar';
 import type { CameraApi } from '../../graph/useCamera';
 import { useNowMs } from './useNowMs';
 import { useStatusMap } from './useStatusMap';
+import { ControlBar } from './ControlBar';
+import { buildControlRows } from './controlRows';
+import { useControlState, usePauseTarget, useResumeTarget, useInstallGateHook } from '../../api/control';
 
 type Props = {
   session: Session;
+  projectId: string;
   subagentMtimes: Record<string, string>;
   onToggleLive: () => void;
 };
@@ -54,7 +58,7 @@ function buildMainRoot(root: Milestone): Milestone {
   return rebuild(root);
 }
 
-export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
+export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: Props) {
   // MAIN trail without sub-agent inner content
   const mainRoot = useMemo(() => buildMainRoot(session.root), [session]);
 
@@ -99,6 +103,20 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
 
   const displayable = pickVisibleSubagentEntries(subagentEntries, keyToFileId, subagentMtimes, statusMap, nowMs);
   const total = 1 + displayable.length;
+
+  const sessionId = session.id;
+  const controlQuery = useControlState(projectId, sessionId, true);
+  const pauseMut = usePauseTarget(projectId, sessionId);
+  const resumeMut = useResumeTarget(projectId, sessionId);
+  const installMut = useInstallGateHook(projectId, sessionId);
+  const snapshot = controlQuery.data?.control
+    ?? { all: false, main: false, agents: {}, held: [], pendingNotes: [] };
+  const controlRows = buildControlRows(
+    displayable.map((e) => ({ key: e.key, summary: e.root.summary })),
+    keyToFileId,
+    snapshot,
+    mainRoot.summary,
+  );
 
   // Memoize playback once per mainRoot so the follow effect can read order.length.
   const mainPlayback = useMemo(() => makeLivePlayback(mainRoot), [mainRoot]);
@@ -168,6 +186,7 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
           cwd={session.cwd}
           paneId="main"
           borderless={isSolo}
+          agentPaused={snapshot.all || snapshot.main}
           onCameraReady={handleMainCameraReady}
         />
         {displayable.map((e, idx) => {
@@ -187,6 +206,7 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
                 paneId={e.key}
                 closingSeconds={showCountdown ? closingSeconds : null}
                 frozen={frozen}
+                agentPaused={snapshot.all || snapshot.agents[fileId] === true}
                 onToggleFreeze={() => freezeToggleByKey(e.key)}
                 onClose={() => closePaneByKey(e.key)}
               />
@@ -194,6 +214,17 @@ export function LivePanes({ session, subagentMtimes, onToggleLive }: Props) {
           );
         })}
       </div>
+      <ControlBar
+        rows={controlRows}
+        installed={controlQuery.data?.installed ?? false}
+        installing={installMut.isPending}
+        nowMs={nowMs}
+        onPause={(target) => pauseMut.mutate(target)}
+        onResume={(target, note) => resumeMut.mutate({ target, note })}
+        onPauseAll={() => pauseMut.mutate('all')}
+        onResumeAll={() => resumeMut.mutate({ target: 'all', note: null })}
+        onInstall={() => installMut.mutate()}
+      />
     </div>
   );
 }

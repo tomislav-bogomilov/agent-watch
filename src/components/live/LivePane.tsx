@@ -17,6 +17,8 @@ type Props = {
   closingSeconds?: number | null;
   frozen?: boolean;
   onToggleFreeze?: () => void;
+  /** True when the AGENT behind this pane is paused via the control gate (not view-freeze). Amber echo: header chip + glow. */
+  agentPaused?: boolean;
   /** When true, skip the cut-corner border, pane header, notches, and breathing animation. Used by the N=1 short-circuit so a single LIVE MAIN reads as a fullscreen canvas (with its detail panel still on the right). */
   borderless?: boolean;
   /** Exposes the inner GraphCanvas camera api so parents (LivePanes N=1) can wire toolbar FIT actions. */
@@ -144,6 +146,7 @@ function collectInnerSubagentIds(root: Milestone): Set<string> {
 export function LivePane({
   kind, label, root, cwd, paneId,
   closingSeconds, frozen, onToggleFreeze,
+  agentPaused = false,
   borderless = false, onCameraReady, onClose,
 }: Props) {
   const accent = kind === 'main' ? '#00e5ff' : '#b894ff';
@@ -204,6 +207,7 @@ export function LivePane({
         ...(showAnimation
           ? { animation: `${kind === 'main' ? 'paneBreathe' : 'subBreathe'} 3.5s ease-in-out infinite` }
           : {}),
+        ...(agentPaused ? { boxShadow: '0 0 18px rgba(245,158,11,0.35)' } : {}),
       }}
     >
       {showNotches && <>
@@ -259,7 +263,19 @@ export function LivePane({
 
       {showHeader && (
         <div style={headerStyle(accent, !!onClose)}>
-          <span style={{ flexShrink: 0 }}>{label}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <span>{label}</span>
+            {agentPaused && (
+              <span
+                data-testid="live-pane-paused-chip"
+                style={{
+                  flexShrink: 0, border: '1px solid #fbbf24', color: '#fbbf24',
+                  fontSize: 8, letterSpacing: 2, padding: '0 5px', borderRadius: 2,
+                  boxShadow: '0 0 6px rgba(245,158,11,0.5)',
+                }}
+              >PAUSED</span>
+            )}
+          </span>
           <span
             style={{
               color: '#6e95a5',
