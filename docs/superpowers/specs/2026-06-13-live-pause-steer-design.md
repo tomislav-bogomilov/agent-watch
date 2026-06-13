@@ -49,11 +49,12 @@ Per tool call:
 
 1. Read hook input JSON from stdin (`session_id`, `tool_use_id`,
    `tool_name`, `tool_input`).
-2. POST it to `http://127.0.0.1:5174/api/control/gate` (the project's
-   fixed dev-server port) with a ~300ms connect timeout. If ThoughtGraph
-   happens to run on a different port, the gate simply no-ops (fail-open);
-   the installer bakes the port into the hook command so a future port
-   change only requires re-running the installer.
+2. POST it to `http://127.0.0.1:<port>/api/control/gate` with a ~300ms
+   connect timeout. The port defaults to 5173 (Vite's default for
+   `npm run dev`); the installer bakes the actual dev-server port into the
+   hook command as `--port <port>`, so a port change only requires
+   re-running the installer. A gate pointed at a dead port no-ops
+   (fail-open).
 3. Connection refused / any error → exit 0 (allow). This is the no-op path
    when ThoughtGraph isn't running.
 4. Response `{"action":"allow"}` → exit 0.
