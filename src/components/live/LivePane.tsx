@@ -19,6 +19,8 @@ type Props = {
   onToggleFreeze?: () => void;
   /** True when the AGENT behind this pane is paused via the control gate (not view-freeze). Amber echo: header chip + glow. */
   agentPaused?: boolean;
+  /** True once the gate has actually caught this agent at a tool call (a held call exists). Distinguishes "held" from "pause pending" (clicked, but the agent hasn't hit its next tool-call boundary yet). */
+  agentHeld?: boolean;
   /** When true, skip the cut-corner border, pane header, notches, and breathing animation. Used by the N=1 short-circuit so a single LIVE MAIN reads as a fullscreen canvas (with its detail panel still on the right). */
   borderless?: boolean;
   /** Exposes the inner GraphCanvas camera api so parents (LivePanes N=1) can wire toolbar FIT actions. */
@@ -147,6 +149,7 @@ export function LivePane({
   kind, label, root, cwd, paneId,
   closingSeconds, frozen, onToggleFreeze,
   agentPaused = false,
+  agentHeld = false,
   borderless = false, onCameraReady, onClose,
 }: Props) {
   const accent = kind === 'main' ? '#00e5ff' : '#b894ff';
@@ -259,6 +262,37 @@ export function LivePane({
             }}
           >×</span>
         </button>
+      )}
+
+      {agentPaused && (
+        <div
+          data-testid="live-pane-paused-banner"
+          data-phase={agentHeld ? 'held' : 'pending'}
+          style={{
+            position: 'absolute',
+            top: showHeader ? 38 : 12,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 6,
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '6px 16px',
+            background: 'rgba(40,24,4,0.94)',
+            border: '1px solid #fbbf24',
+            borderRadius: 3,
+            color: '#fde68a',
+            fontFamily: 'ui-monospace, monospace',
+            fontSize: 12, letterSpacing: 2, fontWeight: 700,
+            boxShadow: '0 0 18px rgba(245,158,11,0.55)',
+            pointerEvents: 'none', whiteSpace: 'nowrap',
+            ...(agentHeld ? {} : { animation: 'pausePulse 1.2s ease-in-out infinite' }),
+          }}
+        >
+          <span aria-hidden style={{ fontSize: 14 }}>⏸</span>
+          <span>{agentHeld ? 'PAUSED BY CLAUDEWATCH' : 'PAUSE PENDING'}</span>
+          <span style={{ fontSize: 8, letterSpacing: 1, color: '#fbbf24', opacity: 0.85, fontWeight: 400 }}>
+            {agentHeld ? 'held at tool call' : 'holds at next tool call'}
+          </span>
+        </div>
       )}
 
       {showHeader && (

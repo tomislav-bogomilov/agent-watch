@@ -187,6 +187,7 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
           paneId="main"
           borderless={isSolo}
           agentPaused={snapshot.all || snapshot.main}
+          agentHeld={snapshot.held.some((h) => h.owner === 'main')}
           onCameraReady={handleMainCameraReady}
         />
         {displayable.map((e, idx) => {
@@ -207,6 +208,7 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
                 closingSeconds={showCountdown ? closingSeconds : null}
                 frozen={frozen}
                 agentPaused={snapshot.all || snapshot.agents[fileId] === true}
+                agentHeld={snapshot.held.some((h) => h.owner === fileId)}
                 onToggleFreeze={() => freezeToggleByKey(e.key)}
                 onClose={() => closePaneByKey(e.key)}
               />

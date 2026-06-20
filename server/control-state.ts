@@ -1,10 +1,12 @@
 export type GateDecision =
   // allow lets the held tool call PROCEED (the agent continues). An optional
   // `context` carries the user's steer note as model-visible guidance — the
-  // agent continues AND reads the note. We deliberately do NOT use a "deny"
-  // here: deny blocks the tool call, and the model treats that as a stop
-  // signal rather than continuing, which is the opposite of "resume".
-  | { action: 'allow'; context?: string }
+  // agent continues AND reads the note. `note` is the raw, unwrapped note text
+  // (without the steer prefix/suffix) so the gate hook can echo it verbatim to
+  // the user's terminal on resume. We deliberately do NOT use a "deny" here:
+  // deny blocks the tool call, and the model treats that as a stop signal rather
+  // than continuing, which is the opposite of "resume".
+  | { action: 'allow'; context?: string; note?: string }
   | { action: 'poll' };
 
 export type Owner = 'main' | string;            // string = agent file id, e.g. 'agent-0'
@@ -89,9 +91,10 @@ export function createControlStore() {
     for (const entry of [...s.held.values()]) {
       if (isPaused(s, entry.owner)) continue;
       const note = takeNote(s, entry.owner);
-      // Always allow (let the agent continue); attach the note as guidance.
+      // Always allow (let the agent continue); attach the note as guidance
+      // (context, for the model) plus the raw note (for the terminal echo).
       release(s, entry, note
-        ? { action: 'allow', context: STEER_PREFIX + note + STEER_SUFFIX }
+        ? { action: 'allow', context: STEER_PREFIX + note + STEER_SUFFIX, note }
         : { action: 'allow' });
     }
   }
@@ -125,7 +128,7 @@ export function createControlStore() {
         const note = takeNote(s, owner);
         // Not paused, but a note is waiting (user resumed with guidance while
         // nothing was held) → allow + deliver it on this next tool call.
-        if (note) return Promise.resolve({ action: 'allow', context: STEER_PREFIX + note + STEER_SUFFIX });
+        if (note) return Promise.resolve({ action: 'allow', context: STEER_PREFIX + note + STEER_SUFFIX, note });
         return Promise.resolve({ action: 'allow' });
       }
       return new Promise<GateDecision>((resolve) => {

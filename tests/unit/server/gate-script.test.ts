@@ -81,23 +81,38 @@ describe('thoughtgraph-gate.mjs', () => {
     expect(out.hookSpecificOutput.permissionDecisionReason).toBe('steer note here');
   });
 
-  it('emits allow + additionalContext when the server returns a steer note', async () => {
-    const srv = await serve([{ action: 'allow', context: 'prefer the fixtures dir' }]);
+  it('on a steer resume, delivers additionalContext (model) AND a systemMessage (terminal)', async () => {
+    const srv = await serve([{ action: 'allow', context: 'guidance: prefer the fixtures dir', note: 'prefer the fixtures dir' }]);
     const r = await runGate(srv.port, INPUT);
     srv.close();
     expect(r.code).toBe(0);
     const out = JSON.parse(r.stdout);
     expect(out.hookSpecificOutput.permissionDecision).toBe('allow'); // tool PROCEEDS (agent continues)
-    expect(out.hookSpecificOutput.additionalContext).toBe('prefer the fixtures dir');
+    expect(out.hookSpecificOutput.additionalContext).toBe('guidance: prefer the fixtures dir'); // model reads it
+    expect(out.systemMessage).toContain('steer');                    // user sees it in the terminal …
+    expect(out.systemMessage).toContain('prefer the fixtures dir');  // … with the raw note verbatim
   });
 
-  it('loops on poll responses until a terminal answer arrives', async () => {
+  it('loops on poll while held, then prints a "resumed" systemMessage on allow', async () => {
     const srv = await serve([{ action: 'poll' }, { action: 'poll' }, { action: 'allow' }]);
     const r = await runGate(srv.port, INPUT);
     srv.close();
     expect(r.code).toBe(0);
-    expect(r.stdout.trim()).toBe('');
     expect(srv.requests()).toBe(3);
+    // Held across two polls, then resumed → exactly one user-visible "resumed"
+    // line on stdout (the hook can only print on exit, i.e. at resume).
+    const lines = r.stdout.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    expect(lines).toHaveLength(1);
+    expect(lines[0].hookSpecificOutput.permissionDecision).toBe('allow');
+    expect(lines[0].systemMessage).toContain('Resumed by ClaudeWatch');
+  });
+
+  it('stays completely silent on an ordinary (never-held) allow', async () => {
+    const srv = await serve([{ action: 'allow' }]);
+    const r = await runGate(srv.port, INPUT);
+    srv.close();
+    expect(r.code).toBe(0);
+    expect(r.stdout.trim()).toBe(''); // no systemMessage spam on normal tool calls
   });
 
   it('exits 0 silently on garbage stdin', async () => {

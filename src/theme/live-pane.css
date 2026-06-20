@@ -26,3 +26,9 @@
   0%, 100% { box-shadow: 0 0 10px rgba(0,229,255,0.55), inset 0 0 10px rgba(0,229,255,0.20); }
   50%      { box-shadow: 0 0 14px rgba(0,229,255,0.75), inset 0 0 14px rgba(0,229,255,0.30); }
 }
+/* PAUSE PENDING banner: pulse while we wait for the gate to catch the agent at
+   its next tool call. Goes solid (no animation) once the call is actually held. */
+@keyframes pausePulse {
+  0%, 100% { opacity: 0.55; box-shadow: 0 0 10px rgba(245,158,11,0.35); }
+  50%      { opacity: 1.0;  box-shadow: 0 0 22px rgba(245,158,11,0.70); }
+}

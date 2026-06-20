@@ -55,16 +55,21 @@ function deny(reason) {
   }) + '\n');
 }
 
-// Allow the tool call to PROCEED while injecting the user's steer note as
-// model-visible guidance. The agent continues its work and reads the note.
-function allowWithContext(context) {
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'allow',
-      additionalContext: context,
-    },
-  }) + '\n');
+// Resolve a held tool call with ALLOW (the agent proceeds). This is the moment
+// the hook EXITS, so it's the one point Claude Code reads our stdout and can show
+// the user terminal text — a still-holding (paused) hook never gets read, which
+// is why the live "paused" state is surfaced in the app, not the CLI.
+//   - systemMessage  → a user-visible terminal line on resume.
+//   - additionalContext → the steer note delivered to the model as guidance.
+// An ordinary un-paused call (never held, no steer) stays completely silent.
+function emitAllow(decision, wasHeld) {
+  const context = typeof decision.context === 'string' && decision.context ? decision.context : null;
+  const note = typeof decision.note === 'string' && decision.note ? decision.note : null;
+  if (!wasHeld && !context) return;     // invisible no-op for ordinary tool calls
+  const out = { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' } };
+  if (context) out.hookSpecificOutput.additionalContext = context;
+  out.systemMessage = note ? `↪ ClaudeWatch steer: ${note}` : '▶ Resumed by ClaudeWatch';
+  process.stdout.write(JSON.stringify(out) + '\n');
 }
 
 /**
@@ -133,19 +138,21 @@ async function main() {
     tool_name: input.tool_name ?? '',
     tool_input: input.tool_input ?? {},
   });
+  let wasHeld = false;                   // did the server ever hold us (a poll came back)?
   const started = Date.now();
 
   while (Date.now() - started < DEADLINE_MS) {
     const out = await gate(port, body, REQUEST_TIMEOUT_MS);
-    if (out === null) return;           // server gone / refused / timed out → allow
-    if (out.action === 'allow') {       // resume → continue; context = steer guidance, if any
-      if (typeof out.context === 'string' && out.context) allowWithContext(out.context);
+    if (out === null) return;            // server gone / refused / timed out → allow
+    if (out.action === 'allow') {        // resume (or ordinary allow)
+      emitAllow(out, wasHeld);           // prints a terminal line only if held and/or steered
       return;
     }
     if (out.action === 'deny' && typeof out.reason === 'string') { deny(out.reason); return; }
-    if (out.action !== 'poll') return;  // anything unexpected → allow (silent)
+    if (out.action !== 'poll') return;   // anything unexpected → allow (silent)
+    wasHeld = true;                      // a poll means we're being held → paused
   }
-  deny(RENEW_REASON);                   // hook-timeout renewal: costs one model turn per 4h paused
+  deny(RENEW_REASON);                    // hook-timeout renewal: costs one model turn per 4h paused
 }
 
 main().then(() => process.exit(0), () => process.exit(0));

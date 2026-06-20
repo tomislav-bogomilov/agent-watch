@@ -105,4 +105,52 @@ test.describe('LIVE control bar', () => {
     expect(allowRes.ok()).toBeTruthy();
     expect(await allowRes.json()).toEqual({ action: 'allow' });
   });
+
+  // Regression: the control bar shares the LIVE layout with the per-pane detail
+  // panel, which carries z-index:4 and — when a node's detail content is tall —
+  // overflows the (overflow:visible) panes grid down over the bar. With no
+  // stacking context the bar lost the hit-test, so pause/resume clicks landed on
+  // the detail panel and silently did nothing ("no change when paused"). The bar
+  // must keep its controls clickable underneath such an overlay.
+  test('control bar controls stay click-reachable under a z-index:4 pane overlay', async ({ page }) => {
+    const now = new Date();
+    await utimes(FIXTURE, now, now);
+    await page.goto('/');
+    await page.locator(`[data-testid="session-item-${SESSION_ID}"]`).click();
+    await expect(page.locator('[data-testid="live-panes-grid"]')).toBeVisible({ timeout: 15_000 });
+
+    const bar = page.locator('[data-testid="control-bar"]');
+    await expect(bar).toBeVisible({ timeout: 15_000 });
+    await page.locator('[data-testid="control-bar-toggle"]').click(); // expand → action row visible
+
+    // The bar must establish a stacking context (positioned + numeric z-index)
+    // so it paints above the z-index:4 detail panel.
+    const stacking = await bar.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { position: cs.position, zIndex: Number(cs.zIndex) };
+    });
+    expect(stacking.position).not.toBe('static');
+    expect(stacking.zIndex).toBeGreaterThan(4);
+
+    // Reproduce the real overlap: a grid-child overlay at z-index:4 covering a
+    // bar button, then assert hit-testing still resolves to the button.
+    const reachable = await page.evaluate(() => {
+      const grid = document.querySelector('[data-testid="live-panes-grid"]') as HTMLElement;
+      const btn = document.querySelector('[data-testid="control-bar-toggle"]') as HTMLElement;
+      const br = btn.getBoundingClientRect();
+      const gr = grid.getBoundingClientRect();
+      const ov = document.createElement('div');
+      ov.style.position = 'absolute';
+      ov.style.left = `${br.left - gr.left}px`;
+      ov.style.top = `${br.top - gr.top}px`;
+      ov.style.width = `${br.width}px`;
+      ov.style.height = `${br.height}px`;
+      ov.style.zIndex = '4'; // same layer as the per-pane detail panel
+      grid.appendChild(ov);
+      const hit = document.elementFromPoint(Math.round(br.left + br.width / 2), Math.round(br.top + br.height / 2));
+      ov.remove();
+      return !!(hit && btn.contains(hit));
+    });
+    expect(reachable).toBe(true);
+  });
 });

@@ -21,8 +21,16 @@ const AMBER = '#fbbf24';
 const barStyle: CSSProperties = {
   marginTop: 10,
   flexShrink: 0,
+  // The control bar sits below the live-panes grid in flow, but the grid is
+  // overflow:visible and the per-pane detail panel carries z-index:4, so when a
+  // pane's detail content is tall it overflows down over this bar and — because
+  // the bar had no stacking context — paints on top of the pause/resume buttons,
+  // silently eating their clicks (pause/resume appears to "do nothing"). Give the
+  // bar its own stacking context above the panes so its controls stay clickable.
+  position: 'relative',
+  zIndex: 30,
   border: '1px solid rgba(0,229,255,0.25)',
-  background: 'rgba(5,8,13,0.85)',
+  background: 'rgba(5,8,13,0.92)',
   fontFamily: 'ui-monospace, monospace',
   fontSize: 10,
   letterSpacing: 1,
