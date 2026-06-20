@@ -387,6 +387,7 @@ export default function App() {
               {liveEngaged ? (
                 <LivePanes
                   session={effectiveSession}
+                  projectId={(selected?.kind === 'session' || selected?.kind === 'prompt') ? selected.projectId : ''}
                   subagentMtimes={effectiveSession.subagentMtimes}
                   onToggleLive={() => setLiveEngaged((v) => !v)}
                 />

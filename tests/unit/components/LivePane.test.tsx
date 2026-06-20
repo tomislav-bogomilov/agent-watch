@@ -33,6 +33,25 @@ describe('LivePane', () => {
     expect(screen.getByTestId('countdown-chip')).toBeTruthy();
   });
 
+  it('shows no paused banner when the agent is running', () => {
+    render(<LivePane kind="main" label="MAIN" root={m('a', 'x')} cwd="/c" paneId="p-run" />);
+    expect(screen.queryByTestId('live-pane-paused-banner')).toBeNull();
+  });
+
+  it('shows a PAUSE PENDING banner when paused but not yet caught at a tool call', () => {
+    render(<LivePane kind="main" label="MAIN" root={m('a', 'x')} cwd="/c" paneId="p-pend" agentPaused agentHeld={false} />);
+    const banner = screen.getByTestId('live-pane-paused-banner');
+    expect(banner.getAttribute('data-phase')).toBe('pending');
+    expect(banner.textContent).toContain('PAUSE PENDING');
+  });
+
+  it('shows a PAUSED BY CLAUDEWATCH banner once a tool call is actually held', () => {
+    render(<LivePane kind="subagent" label="SUBAGENT a1" root={m('a', 'x')} cwd="/c" paneId="p-held" agentPaused agentHeld />);
+    const banner = screen.getByTestId('live-pane-paused-banner');
+    expect(banner.getAttribute('data-phase')).toBe('held');
+    expect(banner.textContent).toContain('PAUSED BY CLAUDEWATCH');
+  });
+
   it('truncates a long summary string in the header with ellipsis styles', () => {
     const longSummary = 'A'.repeat(65); // 65 chars — well over the threshold
     const root = m('root', 'Some Tool', longSummary);

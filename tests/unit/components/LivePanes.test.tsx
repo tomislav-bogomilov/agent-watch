@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 import { LivePanes } from '../../../src/components/live/LivePanes';
 import type { Session, Milestone } from '../../../src/parse/types';
+
+// LivePanes now fetches /api/control/state via react-query; jsdom can't satisfy
+// the network call, so stub fetch with a quiescent control snapshot.
+vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+  installed: false,
+  control: { all: false, main: false, agents: {}, held: [], pendingNotes: [] },
+}), { status: 200, headers: { 'content-type': 'application/json' } })));
+
+// Wrap renders in a QueryClientProvider so the control hooks have a client.
+function renderWithClient(ui: ReactElement) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
+}
 
 function m(id: string, kind: Milestone['kind'] = 'tool_call', children: Milestone[] = []): Milestone {
   return { id, kind, label: id, summary: '', timestamp: '', failed: false, raw: null, children };
@@ -44,7 +59,7 @@ describe('LivePanes', () => {
 
   it('renders one borderless MAIN LivePane when there are no sub-agents (N=1)', () => {
     const session = makeSession([m('a')], []);
-    render(<LivePanes session={session} subagentMtimes={{}} onToggleLive={() => {}} />);
+    renderWithClient(<LivePanes session={session} projectId="C--test" subagentMtimes={{}} onToggleLive={() => {}} />);
     // N=1 uses a single borderless LivePane (keeps detail panel + click-to-pin).
     expect(screen.getAllByTestId('live-pane')).toHaveLength(1);
     expect(screen.getByTestId('live-pane-detail')).toBeTruthy();
@@ -58,7 +73,7 @@ describe('LivePanes', () => {
       { id: 'agent-aaaa1111', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('s1') },
       { id: 'agent-bbbb2222', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('s2') },
     ]);
-    render(<LivePanes session={session} subagentMtimes={{
+    renderWithClient(<LivePanes session={session} projectId="C--test" subagentMtimes={{
       'agent-aaaa1111': '2026-05-24T12:00:00Z',
       'agent-bbbb2222': '2026-05-24T12:00:00Z',
     }} onToggleLive={() => {}} />);
@@ -71,19 +86,30 @@ describe('LivePanes', () => {
     const session = makeSession([m('a')], [
       { id: 'agent-aaaa1111', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('s1') },
     ]);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { rerender } = render(
-      <LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />
+      <QueryClientProvider client={qc}>
+        <LivePanes session={session} projectId="C--test" subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />
+      </QueryClientProvider>
     );
     expect(screen.queryByTestId('countdown-chip')).toBeNull();
 
     // Advance 31s — should enter closing
     act(() => { vi.advanceTimersByTime(31_000); });
-    rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />);
+    rerender(
+      <QueryClientProvider client={qc}>
+        <LivePanes session={session} projectId="C--test" subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />
+      </QueryClientProvider>
+    );
     expect(screen.getByTestId('countdown-chip')).toBeTruthy();
 
     // Advance another 31s — sub-agent pane should be gone (only the borderless MAIN remains)
     act(() => { vi.advanceTimersByTime(31_000); });
-    rerender(<LivePanes session={session} subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />);
+    rerender(
+      <QueryClientProvider client={qc}>
+        <LivePanes session={session} projectId="C--test" subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }} onToggleLive={() => {}} />
+      </QueryClientProvider>
+    );
     expect(screen.getAllByTestId('live-pane')).toHaveLength(1);
     expect(screen.getByTestId('live-panes-grid').getAttribute('data-n')).toBe('1');
     expect(screen.getByTestId('live-panes-grid').getAttribute('data-fullscreen')).toBe('true');
@@ -94,7 +120,7 @@ describe('LivePanes', () => {
       { id: 'agent-aaaa1111', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('s1') }, // fresh
       { id: 'agent-bbbb2222', lastUpdatedAt: '2026-05-24T11:00:00Z', root: m('s2') }, // 1h old
     ]);
-    render(<LivePanes session={session} subagentMtimes={{
+    renderWithClient(<LivePanes session={session} projectId="C--test" subagentMtimes={{
       'agent-aaaa1111': '2026-05-24T12:00:00Z',
       'agent-bbbb2222': '2026-05-24T11:00:00Z',
     }} onToggleLive={() => {}} />);
@@ -107,7 +133,7 @@ describe('LivePanes', () => {
     const session = makeSession([m('a')], [
       { id: 'agent-aaaa1111', lastUpdatedAt: '2026-05-24T11:59:25Z', root: m('s1') }, // 35s old
     ]);
-    render(<LivePanes session={session} subagentMtimes={{
+    renderWithClient(<LivePanes session={session} projectId="C--test" subagentMtimes={{
       'agent-aaaa1111': '2026-05-24T11:59:25Z',
     }} onToggleLive={() => {}} />);
     // Advance through one tick so the statusMap effect runs and any
@@ -122,12 +148,16 @@ describe('LivePanes', () => {
     const session = makeSession([m('a')], [
       { id: 'agent-aaaa1111', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('s1') },
     ]);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { rerender, container } = render(
-      <LivePanes
-        session={session}
-        subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }}
-        onToggleLive={() => {}}
-      />
+      <QueryClientProvider client={qc}>
+        <LivePanes
+          session={session}
+          projectId="C--test"
+          subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }}
+          onToggleLive={() => {}}
+        />
+      </QueryClientProvider>
     );
     // N=2: capture the MAIN pane's <svg>
     const mainPaneN2 = container.querySelector('[data-testid="live-pane"]');
@@ -137,11 +167,14 @@ describe('LivePanes', () => {
     // Advance 61s so the lone subagent closes -> N=1
     act(() => { vi.advanceTimersByTime(61_000); });
     rerender(
-      <LivePanes
-        session={session}
-        subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }}
-        onToggleLive={() => {}}
-      />
+      <QueryClientProvider client={qc}>
+        <LivePanes
+          session={session}
+          projectId="C--test"
+          subagentMtimes={{ 'agent-aaaa1111': '2026-05-24T12:00:00Z' }}
+          onToggleLive={() => {}}
+        />
+      </QueryClientProvider>
     );
     const mainPaneN1 = container.querySelector('[data-testid="live-pane"]');
     const svgN1 = mainPaneN1!.querySelector('svg');

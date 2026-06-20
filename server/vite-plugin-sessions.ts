@@ -1,13 +1,13 @@
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import readline from 'node:readline';
-import type { Plugin, Connect } from 'vite';
+import type { Plugin } from 'vite';
 import { syncTokenUsage } from './usage-sync';
 import {
   readMemoryStore, createMemory, updateMemory, deleteMemory,
   isMemoryName, type MemoryType,
 } from './memory-store';
+import { claudeHome, sendJson, readBody, isSafeScopeKey, assertInsideRoot } from './plugin-shared';
 
 type SessionMeta = {
   projectId: string;
@@ -84,10 +84,6 @@ async function extractTitle(filePath: string): Promise<string | undefined> {
   }
 }
 
-function claudeHome(): string {
-  return process.env.CLAUDE_HOME ?? path.join(os.homedir(), '.claude', 'projects');
-}
-
 function decodeProjectId(id: string): string {
   // Claude Code encodes paths like `C:\Users\foo\proj` -> `C--Users-foo-proj`.
   // Best-effort: replace double-dash with colon prefix (Windows), single dash with slash.
@@ -99,28 +95,9 @@ function decodeProjectId(id: string): string {
   return id.replace(/-/g, '/');
 }
 
-function sendJson(res: Parameters<Connect.NextHandleFunction>[1], status: number, body: unknown): void {
-  res.statusCode = status;
-  res.setHeader('content-type', 'application/json');
-  res.end(JSON.stringify(body));
-}
-
-function readBody(req: Parameters<Connect.NextHandleFunction>[0]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', (c) => { data += c; });
-    req.on('end', () => resolve(data));
-    req.on('error', reject);
-  });
-}
-
 const MEMORY_TYPES = ['user', 'feedback', 'project', 'reference'];
 function isMemoryType(v: unknown): v is MemoryType {
   return typeof v === 'string' && MEMORY_TYPES.includes(v);
-}
-
-function isSafeScopeKey(s: string): boolean {
-  return isSafeId(s) && s !== '.' && s !== '..';
 }
 
 // True iff the .jsonl contains at least one assistant turn. Sessions without one
@@ -222,19 +199,6 @@ export async function readSessionPayload(root: string, projectId: string, sessio
     jsonl,
     subagents,
   };
-}
-
-function isSafeId(s: string): boolean {
-  return /^[A-Za-z0-9._-]+$/.test(s);
-}
-
-// True iff `target` resolves to a path inside `root` (or root itself).
-function assertInsideRoot(root: string, target: string): void {
-  const resolvedRoot = path.resolve(root);
-  const resolvedTarget = path.resolve(target);
-  if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(resolvedRoot + path.sep)) {
-    throw Object.assign(new Error('path escapes root'), { code: 'EOUTSIDE_ROOT' });
-  }
 }
 
 const PROMPT_MAX_CHARS = 140;
