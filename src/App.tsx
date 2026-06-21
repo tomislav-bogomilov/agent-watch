@@ -6,7 +6,7 @@ import { LivePanes } from './components/live/LivePanes';
 import { AppHeader } from './components/AppHeader';
 import { NowPlaying } from './components/NowPlaying';
 import { PlaybackControls } from './components/PlaybackControls';
-import { DetailPanel } from './components/DetailPanel';
+import { InspectorTabs } from './components/narrative/InspectorTabs';
 import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
 import { TokensPage } from './tokens/TokensPage';
@@ -227,6 +227,20 @@ export default function App() {
   const showLive = !pinnedMilestone && !panelDismissed && (playback.playing || playback.index > 0);
   const displayedMilestone = pinnedMilestone ?? (showLive ? currentMilestone : null);
 
+  // Narrative (Logical Steps) wiring: the ordered milestone ids drive the
+  // id->index sync, and a trimmed milestone list feeds the narrator. Built
+  // inline here — the client must never import server code.
+  const orderIds = useMemo(() => playback.order.map((m) => m.id), [playback.order]);
+  const narratorMilestones = useMemo(
+    () => playback.order.map((m) => ({
+      id: m.id, kind: m.kind, label: m.label, summary: m.summary, result: m.result,
+    })),
+    [playback.order],
+  );
+  const inspectorSession = (selected?.kind === 'session' || selected?.kind === 'prompt')
+    ? { projectId: selected.projectId, sessionId: selected.sessionId }
+    : { projectId: '', sessionId: '' };
+
   function handleDetailClose(): void {
     if (pinnedId) setPinnedId(null);
     else setPanelDismissed(true);
@@ -422,11 +436,18 @@ export default function App() {
               <PlaybackControls state={playback} controls={followingControls} />
             </div>
           )}
-          <DetailPanel
+          <InspectorTabs
             milestone={displayedMilestone}
             onClose={handleDetailClose}
             width={detailWidth}
             onResize={(d) => setDetailWidth((w) => w + d)}
+            projectId={inspectorSession.projectId}
+            sessionId={inspectorSession.sessionId}
+            live={liveEngaged}
+            milestones={narratorMilestones}
+            orderIds={orderIds}
+            currentIndex={playback.index}
+            onScrubToIndex={(i) => followingControls.scrubTo(i)}
           />
         </>)}
         </div>
