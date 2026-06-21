@@ -82,6 +82,7 @@ export function createNarrativeStore(deps: NarrativeStoreDeps): NarrativeStore {
     start: (key, args) => execute(key, 'haiku', args, { resume: false }),
     refresh: (key, args) => {
       const e = entry(key);
+      if (e.inFlight) return;
       e.narratorSessionId = null; // fresh session for the Sonnet rebuild
       execute(key, 'sonnet', args, { resume: false });
     },

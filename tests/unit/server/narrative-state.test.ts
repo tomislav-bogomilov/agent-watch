@@ -56,6 +56,26 @@ describe('createNarrativeStore', () => {
     expect(call1['resumeSessionId']).toBeUndefined();
   });
 
+  it('refresh is a no-op while a run is in flight (does not corrupt state)', async () => {
+    let resolveRun!: (r: RunNarratorResult) => void;
+    const pendingRun = new Promise<RunNarratorResult>((res) => { resolveRun = res; });
+    const run = vi.fn()
+      .mockReturnValueOnce(pendingRun)
+      .mockResolvedValue(result(['m1', 'm2']));
+    const store = createNarrativeStore({ run, now: () => 1 });
+    store.start('k', { milestones: ms(['m1', 'm2']), cwd: '/n' }); // in flight
+    store.refresh('k', { milestones: ms(['m1', 'm2']), cwd: '/n' }); // must be dropped
+    expect(run).toHaveBeenCalledTimes(1);
+    // resolve the in-flight run, then wait for idle
+    resolveRun(result(['m1', 'm2']));
+    await store.whenIdle('k');
+    // after the first run resolves, a fresh refresh works and uses sonnet from scratch
+    store.refresh('k', { milestones: ms(['m1', 'm2']), cwd: '/n' });
+    await store.whenIdle('k');
+    expect(run.mock.calls.length).toBe(2);
+    expect((run.mock.calls as unknown[][])[1]![0]).toMatchObject({ model: 'sonnet' });
+  });
+
   it('runner rejection sets error and keeps prior blocks', async () => {
     const run = vi.fn()
       .mockResolvedValueOnce(result(['m1', 'm2']))
