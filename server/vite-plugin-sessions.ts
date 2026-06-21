@@ -273,7 +273,7 @@ async function extractPrompts(filePath: string, projectId: string, sessionId: st
   return out;
 }
 
-async function listPrompts(root: string): Promise<PromptMeta[]> {
+export async function listPrompts(root: string): Promise<PromptMeta[]> {
   let projects: string[];
   try {
     projects = await fs.readdir(root);

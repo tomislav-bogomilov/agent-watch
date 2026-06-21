@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
 import { isNarratorProject, narratorCwd } from '../../../server/plugin-shared';
-import { listSessions } from '../../../server/vite-plugin-sessions';
+import { listSessions, listPrompts } from '../../../server/vite-plugin-sessions';
+import { aggregateTokenUsage } from '../../../server/aggregate-token-usage';
 
 describe('isNarratorProject', () => {
   it('matches any projectId containing the narrator segment', () => {
@@ -19,5 +20,21 @@ describe('listSessions excludes narrator projects', () => {
     const root = path.resolve(__dirname, '../../fixtures/claude-projects');
     const sessions = await listSessions(root);
     expect(sessions.some((s) => isNarratorProject(s.projectId))).toBe(false);
+  });
+});
+
+describe('listPrompts excludes narrator projects', () => {
+  it('does not surface narrator prompts', async () => {
+    const root = path.resolve(__dirname, '../../fixtures/claude-projects');
+    const prompts = await listPrompts(root);
+    expect(prompts.some((p) => isNarratorProject(p.projectId))).toBe(false);
+  });
+});
+
+describe('aggregateTokenUsage excludes narrator projects', () => {
+  it('does not surface the narrator project', async () => {
+    const root = path.resolve(__dirname, '../../fixtures/claude-projects');
+    const result = await aggregateTokenUsage(root);
+    expect(result.projects.some((p) => isNarratorProject(p.id))).toBe(false);
   });
 });
