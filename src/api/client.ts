@@ -1,6 +1,7 @@
 import type { PromptMeta, SessionMeta, SessionPayload } from '../parse/types';
 import type { TokenUsagePayload } from '../../server/usage-sync';
 import type { MemoryResponse, MemoryRecord, MemoryType } from '../../server/memory-store';
+import type { NarrativeState } from '../narrative/types';
 
 export type { TokenUsageRow, TokenUsageProject } from '../../server/aggregate-token-usage';
 export type { PriceEntry, PriceTable } from '../../server/model-pricing';
@@ -68,8 +69,6 @@ export async function deleteMemory(scopeKey: string, name: string): Promise<{ br
   if (!res.ok) throw new Error(`delete failed: ${res.status}`);
   return (await res.json()) as { brokenBacklinks: string[] };
 }
-
-import type { NarrativeState } from '../narrative/types';
 
 export interface NarratorInput { id: string; kind: string; label: string; summary: string; result?: string }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -15,6 +15,10 @@ beforeEach(() => {
       status: 'completed', startMilestoneId: 'm1', endMilestoneId: 'm2' }],
       building: false, error: null, model: 'haiku', generatedAt: '2026-06-21T00:00:00Z' }),
       { status: 200 })));
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('useNarrative', () => {
