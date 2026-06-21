@@ -88,6 +88,7 @@ export function createNarrativeStore(deps: NarrativeStoreDeps): NarrativeStore {
     },
     tick: (key, args) => {
       const e = entry(key);
+      if (!e.narratorSessionId && !e.state.generatedAt) return;
       if (e.inFlight || e.state.building) return;
       const lastId = args.milestones.length ? args.milestones[args.milestones.length - 1].id : null;
       if (!lastId || lastId === e.lastSummarizedId) return; // nothing new

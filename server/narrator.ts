@@ -1,5 +1,6 @@
 import type { BlockStatus, NarrativeBlock, NarratorModel } from '../src/narrative/types';
 import { spawn } from 'node:child_process';
+import { mkdir } from 'node:fs/promises';
 
 const STATUSES: BlockStatus[] = ['completed', 'active', 'upcoming'];
 
@@ -153,6 +154,7 @@ export async function runNarrator(args: RunNarratorArgs): Promise<RunNarratorRes
   if (process.env.TG_NARRATOR_FAKE) {
     return { blocks: fakeBlocks(args.milestones), narratorSessionId: args.resumeSessionId ?? 'fake-session' };
   }
+  await mkdir(args.cwd, { recursive: true });
   const cliArgs = buildClaudeArgs({ model: args.model, resumeSessionId: args.resumeSessionId });
   const prompt = buildNarratorPrompt(args.milestones, { since: args.since });
   const stdout = await new Promise<string>((resolve, reject) => {

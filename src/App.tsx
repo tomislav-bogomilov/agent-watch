@@ -437,6 +437,7 @@ export default function App() {
             </div>
           )}
           <InspectorTabs
+            key={`${inspectorSession.projectId}/${inspectorSession.sessionId}`}
             milestone={displayedMilestone}
             onClose={handleDetailClose}
             width={detailWidth}

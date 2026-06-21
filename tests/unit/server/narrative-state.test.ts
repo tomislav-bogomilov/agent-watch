@@ -76,6 +76,14 @@ describe('createNarrativeStore', () => {
     expect((run.mock.calls as unknown[][])[1]![0]).toMatchObject({ model: 'sonnet' });
   });
 
+  it('tick does not run for a session that was never started', async () => {
+    const run = vi.fn(async () => result(['m1', 'm2']));
+    const store = createNarrativeStore({ run, now: () => 1 });
+    store.tick('never', { milestones: ms(['m1', 'm2']), cwd: '/n' });
+    await store.whenIdle('never');
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it('runner rejection sets error and keeps prior blocks', async () => {
     const run = vi.fn()
       .mockResolvedValueOnce(result(['m1', 'm2']))
