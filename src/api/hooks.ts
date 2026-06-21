@@ -102,11 +102,13 @@ export function useStartNarrative() {
 }
 
 export function useTickNarrative() {
-  const qc = useQueryClient();
+  // No onSuccess invalidation: the live GET query self-polls via refetchInterval: POLL_MS.
+  // Invalidating here would force an immediate refetch → dataUpdatedAt bumps → NarrativeTab
+  // live effect fires another tick → invalidate → … a poll storm bounded only by network
+  // latency. Let the scheduled poll pick up new blocks instead.
   return useMutation({
     mutationFn: (v: { projectId: string; sessionId: string; milestones: NarratorInput[] }) =>
       tickNarrative(v.projectId, v.sessionId, v.milestones),
-    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['narrative', v.projectId, v.sessionId] }),
   });
 }
 
