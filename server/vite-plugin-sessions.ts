@@ -7,7 +7,7 @@ import {
   readMemoryStore, createMemory, updateMemory, deleteMemory,
   isMemoryName, type MemoryType,
 } from './memory-store';
-import { claudeHome, sendJson, readBody, isSafeScopeKey, assertInsideRoot } from './plugin-shared';
+import { claudeHome, sendJson, readBody, isSafeScopeKey, assertInsideRoot, isNarratorProject } from './plugin-shared';
 
 type SessionMeta = {
   projectId: string;
@@ -121,7 +121,7 @@ async function hasAssistantTurn(filePath: string): Promise<boolean> {
   }
 }
 
-async function listSessions(root: string): Promise<SessionMeta[]> {
+export async function listSessions(root: string): Promise<SessionMeta[]> {
   let projects: string[];
   try {
     projects = await fs.readdir(root);
@@ -130,6 +130,7 @@ async function listSessions(root: string): Promise<SessionMeta[]> {
   }
   const out: SessionMeta[] = [];
   for (const projectId of projects) {
+    if (isNarratorProject(projectId)) continue; // hide narrator sessions
     const projectDir = path.join(root, projectId);
     let entries: string[];
     try {
@@ -281,6 +282,7 @@ async function listPrompts(root: string): Promise<PromptMeta[]> {
   }
   const out: PromptMeta[] = [];
   for (const projectId of projects) {
+    if (isNarratorProject(projectId)) continue; // hide narrator sessions
     const projectDir = path.join(root, projectId);
     let entries: string[];
     try {

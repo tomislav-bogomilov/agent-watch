@@ -29,6 +29,18 @@ export function isSafeScopeKey(s: string): boolean {
   return isSafeId(s) && s !== '.' && s !== '..';
 }
 
+const NARRATOR_SEGMENT = 'thoughtgraph-narrator';
+
+/** Fixed working dir for `claude -p` narrators; its last path segment is the marker. */
+export function narratorCwd(): string {
+  return path.join(os.tmpdir(), NARRATOR_SEGMENT);
+}
+
+/** A projectId belongs to a narrator session iff it carries the marker segment. */
+export function isNarratorProject(projectId: string): boolean {
+  return projectId.includes(NARRATOR_SEGMENT);
+}
+
 // True iff `target` resolves to a path inside `root` (or root itself).
 export function assertInsideRoot(root: string, target: string): void {
   const resolvedRoot = path.resolve(root);

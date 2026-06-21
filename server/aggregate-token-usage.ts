@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { isNarratorProject } from './plugin-shared';
 
 export type TokenUsageRow = {
   projectId: string;
@@ -145,6 +146,7 @@ export async function aggregateTokenUsage(root: string): Promise<AggregateResult
   const seenMessageIds = new Set<string>();
 
   for (const projectId of projectDirs) {
+    if (isNarratorProject(projectId)) continue; // hide narrator sessions
     const projectDir = path.join(root, projectId);
     const stat = await statSafe(projectDir);
     if (!stat?.isDirectory()) continue;
