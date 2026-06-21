@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchPromptList, fetchSessionList, fetchSessionPayload, fetchTokenUsage, fetchMemory, createMemory, updateMemory, deleteMemory } from './client';
-import type { TokenUsageResponse, MemoryResponse, MemoryType } from './client';
+import { fetchPromptList, fetchSessionList, fetchSessionPayload, fetchTokenUsage, fetchMemory, createMemory, updateMemory, deleteMemory, fetchNarrative, startNarrative, tickNarrative, refreshNarrative } from './client';
+import type { TokenUsageResponse, MemoryResponse, MemoryType, NarratorInput } from './client';
 import { parseSession } from '../parse';
 import type { Session } from '../parse/types';
 import { POLL_MS } from '../components/live/liveness';
@@ -77,5 +77,44 @@ export function useDeleteMemory() {
   return useMutation({
     mutationFn: (v: { scopeKey: string; name: string }) => deleteMemory(v.scopeKey, v.name),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['memory'] }),
+  });
+}
+
+export function useNarrative(
+  projectId: string | null, sessionId: string | null, enabled: boolean, live: boolean,
+) {
+  return useQuery({
+    queryKey: ['narrative', projectId, sessionId],
+    queryFn: () => fetchNarrative(projectId!, sessionId!),
+    enabled: enabled && !!projectId && !!sessionId,
+    refetchInterval: live ? POLL_MS : false,
+    structuralSharing: false,
+  });
+}
+
+export function useStartNarrative() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { projectId: string; sessionId: string; milestones: NarratorInput[] }) =>
+      startNarrative(v.projectId, v.sessionId, v.milestones),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['narrative', v.projectId, v.sessionId] }),
+  });
+}
+
+export function useTickNarrative() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { projectId: string; sessionId: string; milestones: NarratorInput[] }) =>
+      tickNarrative(v.projectId, v.sessionId, v.milestones),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['narrative', v.projectId, v.sessionId] }),
+  });
+}
+
+export function useRefreshNarrative() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { projectId: string; sessionId: string; milestones: NarratorInput[] }) =>
+      refreshNarrative(v.projectId, v.sessionId, v.milestones),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['narrative', v.projectId, v.sessionId] }),
   });
 }
