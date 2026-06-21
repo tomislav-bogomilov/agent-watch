@@ -107,3 +107,77 @@ export function buildClaudeArgs(opts: { model: 'haiku' | 'sonnet'; resumeSession
   if (opts.resumeSessionId) args.push('--resume', opts.resumeSessionId);
   return args;
 }
+
+import { spawn } from 'node:child_process';
+import type { NarratorModel } from '../src/narrative/types';
+
+export interface RunNarratorArgs {
+  milestones: NarratorInputMilestone[];
+  model: NarratorModel;
+  cwd: string;
+  since?: string;
+  resumeSessionId?: string;
+}
+export interface RunNarratorResult {
+  blocks: NarrativeBlock[];
+  narratorSessionId: string;
+}
+
+/** Deterministic stand-in used in tests/e2e (TG_NARRATOR_FAKE) — two blocks spanning the ids. */
+export function fakeBlocks(input: NarratorInputMilestone[]): NarrativeBlock[] {
+  if (input.length === 0) {
+    return [{ id: 'fake-empty', phase: 'Start', title: 'Starting up', summary: 'No activity yet',
+              status: 'active', startMilestoneId: '', endMilestoneId: '' }];
+  }
+  const mid = Math.max(1, Math.ceil(input.length / 2));
+  const a = input.slice(0, mid);
+  const b = input.slice(mid);
+  const blocks: NarrativeBlock[] = [{
+    id: 'fake-1', phase: 'Explore', title: 'Explore the codebase',
+    summary: 'Scanned the repo and located the relevant module.',
+    detail: 'Fake narrative block A (TG_NARRATOR_FAKE).', status: 'completed',
+    startMilestoneId: a[0].id, endMilestoneId: a[a.length - 1].id, thoughtCount: a.length,
+  }];
+  if (b.length > 0) {
+    blocks.push({
+      id: 'fake-2', phase: 'Implement', title: 'Implement the change',
+      summary: 'Applied the edit and moved toward completion.',
+      detail: 'Fake narrative block B (TG_NARRATOR_FAKE).', status: 'active',
+      startMilestoneId: b[0].id, endMilestoneId: b[b.length - 1].id, thoughtCount: b.length,
+    });
+  }
+  return blocks;
+}
+
+const SPAWN_TIMEOUT_MS = 60_000;
+
+export async function runNarrator(args: RunNarratorArgs): Promise<RunNarratorResult> {
+  if (process.env.TG_NARRATOR_FAKE) {
+    return { blocks: fakeBlocks(args.milestones), narratorSessionId: args.resumeSessionId ?? 'fake-session' };
+  }
+  const cliArgs = buildClaudeArgs({ model: args.model, resumeSessionId: args.resumeSessionId });
+  const prompt = buildNarratorPrompt(args.milestones, { since: args.since });
+  const stdout = await new Promise<string>((resolve, reject) => {
+    const child = spawn('claude', cliArgs, { cwd: args.cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+    let out = '';
+    let err = '';
+    const timer = setTimeout(() => { child.kill(); reject(new Error('narrator timed out')); }, SPAWN_TIMEOUT_MS);
+    child.on('error', (e: NodeJS.ErrnoException) => {
+      clearTimeout(timer);
+      reject(new Error(e.code === 'ENOENT'
+        ? 'Claude Code CLI (`claude`) not found on PATH'
+        : `narrator failed: ${e.message}`));
+    });
+    child.stdout.on('data', (d) => { out += d; });
+    child.stderr.on('data', (d) => { err += d; });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) reject(new Error(`narrator exited ${code}: ${err.slice(0, 200)}`));
+      else resolve(out);
+    });
+    child.stdin.write(prompt);
+    child.stdin.end();
+  });
+  const { blocks, sessionId } = parseNarratorOutput(stdout);
+  return { blocks, narratorSessionId: sessionId ?? args.resumeSessionId ?? '' };
+}
