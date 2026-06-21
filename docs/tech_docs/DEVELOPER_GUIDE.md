@@ -100,7 +100,8 @@ keeps them unit-testable in isolation.
 | `src/playback/` | `usePlayback()` animation clock + `useKeyboard()` shortcuts |
 | `src/components/` | React UI: graph canvas, controls, HUD, minimap, detail panel |
 | `src/components/live/` | Live multi-pane view for in-progress sessions |
-| `src/components/narrative/` | Logical Steps tab: `NarrativeTab`, `NarrativeBlock`, `VerbosityControl`, `RefreshButton`, `ArmillaryLoader`, `EnableNarrativePrompt`; pure helpers `rebucket`, `diffBlocks`, `useNarrativeSync` |
+| `src/narrative/` | Pure narrative logic — block types, verbosity re-bucketing, block diff, playhead↔block sync. No React, unit-tested. |
+| `src/components/narrative/` | Logical Steps tab: `NarrativeTab`, `NarrativeBlock`, `VerbosityControl`, `RefreshButton`, `ArmillaryLoader`, `EnableNarrativePrompt` |
 | `src/components/library/` | Left sidebar: Sessions / Prompts / Usage / Memory modes |
 | `src/memory/` | Memory page: detail view, editor, graph, stats, insights derivation |
 | `src/tokens/` | Token Usage page (chart, spend list, aggregation) |
@@ -408,11 +409,13 @@ Sonnet rebuild from scratch.
 
 **Client data layer.** `src/api/hooks.ts` exports `useNarrative` (GET, polls when
 live), `useStartNarrative`, `useTickNarrative` (no `onSuccess` invalidation — deliberate,
-see above), and `useRefreshNarrative` (invalidates on success). `src/components/narrative/`
-hosts the rendering components: `NarrativeTab`, `NarrativeBlock`, `VerbosityControl`,
-`RefreshButton`, `ArmillaryLoader`, `EnableNarrativePrompt`, plus pure helpers
-`rebucket.ts` (verbosity grouping), `diffBlocks.ts` (animation triggers), and
-`useNarrativeSync.ts` (two-way playhead ↔ block mapping using milestone-id ranges).
+see above), and `useRefreshNarrative` (invalidates on success). `src/narrative/`
+hosts pure helpers: `types.ts` (block types), `rebucket.ts` (verbosity grouping),
+`diffBlocks.ts` (animation triggers), and `sync.ts` (exports plain functions
+`buildIndexMap`, `indexForBlockStart`, `activeBlockId` for playhead ↔ block mapping using
+milestone-id ranges). `src/components/narrative/` hosts the React rendering components:
+`NarrativeTab`, `NarrativeBlock`, `VerbosityControl`, `RefreshButton`, `ArmillaryLoader`,
+`EnableNarrativePrompt`.
 
 **Verbosity.** Three levels — **Overview / Steps / Detailed** — are applied entirely
 client-side by `rebucket.ts` with no model call: Overview collapses blocks to their
