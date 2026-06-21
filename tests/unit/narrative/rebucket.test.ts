@@ -27,4 +27,23 @@ describe('rebucket', () => {
     const out = rebucket([b('1', 'X', 'completed'), b('2', 'X', 'active')], 'overview');
     expect(out[0]).toMatchObject({ status: 'active' });
   });
+
+  it('overview keeps non-adjacent same-phase runs as separate groups', () => {
+    const out = rebucket(
+      [b('1', 'Explore', 'completed'), b('2', 'Implement', 'completed'), b('3', 'Explore', 'active')],
+      'overview',
+    );
+    expect(out).toHaveLength(3);
+    expect(out.map((i) => (i as { phase: string }).phase)).toEqual(['Explore', 'Implement', 'Explore']);
+  });
+
+  it('detailed returns one block item per block', () => {
+    const out = rebucket([b('1', 'Explore', 'completed'), b('2', 'Implement', 'active')], 'detailed');
+    expect(out).toHaveLength(2);
+    expect(out.every((i) => i.kind === 'block')).toBe(true);
+  });
+
+  it('overview of empty input returns empty', () => {
+    expect(rebucket([], 'overview')).toEqual([]);
+  });
 });
