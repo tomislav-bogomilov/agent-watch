@@ -64,3 +64,46 @@ export function parseNarratorOutput(stdout: string): { blocks: NarrativeBlock[];
   const { text, sessionId } = extractResult(stdout);
   return { blocks: parseBlocks(text), sessionId };
 }
+
+export interface NarratorInputMilestone {
+  id: string;
+  kind: string;
+  label: string;
+  summary: string;
+  result?: string;
+}
+
+export function toNarratorInput(
+  milestones: Array<{ id: string; kind: string; label: string; summary: string; result?: string }>,
+): NarratorInputMilestone[] {
+  return milestones.map((m) => {
+    const out: NarratorInputMilestone = { id: m.id, kind: m.kind, label: m.label, summary: m.summary };
+    if (m.result) out.result = m.result;
+    return out;
+  });
+}
+
+const SCHEMA_LINE =
+  'Each block: {"id","phase","title","summary","detail","status","startMilestoneId","endMilestoneId"}. ' +
+  '"status" is one of completed|active|upcoming. "phase" is a coarse group label reused across related blocks. ' +
+  'startMilestoneId/endMilestoneId are the first/last milestone id the block covers.';
+
+export function buildNarratorPrompt(input: NarratorInputMilestone[], opts: { since?: string }): string {
+  const data = JSON.stringify(input);
+  const head = opts.since
+    ? `These are NEW milestones since your last summary (delta after id ${opts.since}). ` +
+      `Update or extend your running narrative and return the FULL current list of blocks.`
+    : `You are narrating a coding agent's session as a few high-level logical phases ` +
+      `(e.g. Explore -> Decide -> Implement -> Verify). Keep it minimal — group many milestones per block.`;
+  return (
+    `${head}\n` +
+    `Output ONLY a JSON array of blocks, no prose. ${SCHEMA_LINE}\n` +
+    `Milestones (JSON): ${data}`
+  );
+}
+
+export function buildClaudeArgs(opts: { model: 'haiku' | 'sonnet'; resumeSessionId?: string }): string[] {
+  const args = ['-p', '--output-format', 'json', '--model', opts.model];
+  if (opts.resumeSessionId) args.push('--resume', opts.resumeSessionId);
+  return args;
+}
