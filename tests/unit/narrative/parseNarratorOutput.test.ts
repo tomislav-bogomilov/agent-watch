@@ -38,6 +38,10 @@ describe('parseBlocks', () => {
   it('throws when no JSON array can be recovered', () => {
     expect(() => parseBlocks('totally not json')).toThrow();
   });
+
+  it('throws when the array parses but every entry is invalid', () => {
+    expect(() => parseBlocks(JSON.stringify([{ id: 'x' }]))).toThrow();
+  });
 });
 
 describe('extractResult', () => {
@@ -47,6 +51,11 @@ describe('extractResult', () => {
   });
   it('falls back to raw stdout when not an envelope', () => {
     expect(extractResult('[{"x":1}]')).toEqual({ text: '[{"x":1}]', sessionId: null });
+  });
+
+  it('returns null sessionId when session_id is not a string', () => {
+    const envelope = JSON.stringify({ result: '[]', session_id: 42 });
+    expect(extractResult(envelope)).toEqual({ text: '[]', sessionId: null });
   });
 });
 
