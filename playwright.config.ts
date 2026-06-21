@@ -24,6 +24,7 @@ export default defineConfig({
       CLAUDE_HOME: fixtureClaudeHome,
       TG_USAGE_DIR: path.resolve(__dirname, '.local/e2e-usage'),
       TG_CLAUDE_SETTINGS: path.resolve(__dirname, '.local/e2e-claude-settings.json'),
+      TG_NARRATOR_FAKE: '1',
     },
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
