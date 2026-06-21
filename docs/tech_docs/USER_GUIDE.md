@@ -138,7 +138,7 @@ modes:
   ClaudeWatch shows *just that prompt's* slice of the session — the work between that
   prompt and your next message — instead of the whole session. Useful when one session had
   many separate requests.
-- **USAGE** — opens the Token Usage page (see §8).
+- **USAGE** — opens the Token Usage page (see §10).
 
 You can collapse the whole sidebar (the `\` key, or its collapse button) to give the graph
 more room, and drag its edge to resize it.
@@ -168,7 +168,37 @@ leave the live view at any time by toggling the **LIVE** button in the top-right
 
 ---
 
-## 8. The Memory page
+## 8. Logical Steps
+
+The **Logical Steps** tab in the right inspector gives you a plain-language story of what
+the agent did — a handful of high-level phase blocks such as *Explore the codebase →
+Decide on the approach → Implement the change → Verify the result* — sitting alongside the
+graph. It's meant for when you want the gist of a session without reading every tool call.
+
+**It's off by default.** Clicking the *Logical Steps* tab shows an *Enable* prompt
+explaining that ClaudeWatch will run a local `claude -p` narrator and draw on your Claude
+subscription. Nothing happens until you click enable, and enabling is per-session — a
+different session will show the prompt again.
+
+**Verbosity.** A three-level toggle adjusts how much detail you see:
+
+- **Overview** — collapses related blocks into coarse phases; fewest entries.
+- **Steps** — shows each individual logical block (the default).
+- **Detailed** — expands every block to show a longer description.
+
+Switching levels is instant and costs nothing — no model call is made. The blocks stay the
+same; only what's shown changes.
+
+**Refresh.** Click **⟳ Refresh** for a fresh, more thorough Sonnet-powered rebuild of the
+whole narrative from scratch. Useful when you want a better-worded summary after the
+session is complete. The Armillary loader animates while it runs.
+
+**Two-way sync.** The active block highlights as the graph playhead moves through the
+session. Click a block to jump the graph to the first Thought that block covers.
+
+---
+
+## 9. The Memory page
 
 Choose **MEMORY** in the sidebar dropdown to browse, read, and edit the memory store that
 Claude Code keeps about your projects. ClaudeWatch shows all your memories — both the
@@ -248,7 +278,7 @@ backed up to `memory/.backups/` before removal, and its line is removed from `ME
 
 ---
 
-## 9. The Token Usage page
+## 10. The Token Usage page
 
 Choose **USAGE** in the sidebar dropdown (or use the Token Usage link) to see how many
 tokens your Claude Code sessions have used across your whole machine. It shows:
@@ -277,7 +307,7 @@ folder to reset. Monthly price files in `.local/usage/prices/` can be hand-edite
 
 ---
 
-## 10. Tips & FAQ
+## 11. Tips & FAQ
 
 **Why is part of the graph dark/faded?**
 That's a *pruned* branch — a path the agent started down but abandoned (often because

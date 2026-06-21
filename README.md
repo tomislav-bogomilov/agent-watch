@@ -12,7 +12,10 @@ agent, a single subagent, or all of them) at its next tool call, show you the to
 holding on, and inject a steering note the agent reads when you resume. It aggregates token
 **usage and cost** across all your sessions, and lets you browse and edit Claude Code's
 memory store (global + per-project) with a force-directed graph view, health analysis, and
-an editor that keeps `MEMORY.md` in sync automatically.
+an editor that keeps `MEMORY.md` in sync automatically. A **Logical Steps** view (opt-in
+per session) narrates the run as a few plain-language phase blocks — *Explore → Decide →
+Implement → Verify* — two-way synced to the graph playhead, powered by a local `claude -p`
+narrator.
 
 No recording or instrumentation needed to *view* — run Claude Code as usual, then point
 ClaudeWatch at the logs it already wrote. Pausing and steering are opt-in: the first time
