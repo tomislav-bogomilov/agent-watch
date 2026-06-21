@@ -1,4 +1,5 @@
-import type { BlockStatus, NarrativeBlock } from '../src/narrative/types';
+import type { BlockStatus, NarrativeBlock, NarratorModel } from '../src/narrative/types';
+import { spawn } from 'node:child_process';
 
 const STATUSES: BlockStatus[] = ['completed', 'active', 'upcoming'];
 
@@ -108,9 +109,6 @@ export function buildClaudeArgs(opts: { model: 'haiku' | 'sonnet'; resumeSession
   return args;
 }
 
-import { spawn } from 'node:child_process';
-import type { NarratorModel } from '../src/narrative/types';
-
 export interface RunNarratorArgs {
   milestones: NarratorInputMilestone[];
   model: NarratorModel;
@@ -158,11 +156,19 @@ export async function runNarrator(args: RunNarratorArgs): Promise<RunNarratorRes
   const cliArgs = buildClaudeArgs({ model: args.model, resumeSessionId: args.resumeSessionId });
   const prompt = buildNarratorPrompt(args.milestones, { since: args.since });
   const stdout = await new Promise<string>((resolve, reject) => {
+    let settled = false;
     const child = spawn('claude', cliArgs, { cwd: args.cwd, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
-    const timer = setTimeout(() => { child.kill(); reject(new Error('narrator timed out')); }, SPAWN_TIMEOUT_MS);
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill();
+      reject(new Error('narrator timed out'));
+    }, SPAWN_TIMEOUT_MS);
     child.on('error', (e: NodeJS.ErrnoException) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       reject(new Error(e.code === 'ENOENT'
         ? 'Claude Code CLI (`claude`) not found on PATH'
@@ -171,6 +177,8 @@ export async function runNarrator(args: RunNarratorArgs): Promise<RunNarratorRes
     child.stdout.on('data', (d) => { out += d; });
     child.stderr.on('data', (d) => { err += d; });
     child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       if (code !== 0) reject(new Error(`narrator exited ${code}: ${err.slice(0, 200)}`));
       else resolve(out);
