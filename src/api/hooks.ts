@@ -3,6 +3,7 @@ import { fetchPromptList, fetchSessionList, fetchSessionPayload, fetchTokenUsage
 import type { TokenUsageResponse, MemoryResponse, MemoryType, NarratorInput } from './client';
 import { parseSession } from '../parse';
 import type { Session } from '../parse/types';
+import type { NarrativeState } from '../narrative/types';
 import { POLL_MS } from '../components/live/liveness';
 
 export function useSessionList() {
@@ -80,6 +81,20 @@ export function useDeleteMemory() {
   });
 }
 
+/**
+ * Poll cadence for the narrative query. LIVE sessions always poll. Completed
+ * (playback) sessions poll ONLY while a build is in flight, so the client
+ * picks up the finished blocks and then stops once `building` clears. Without
+ * the building-poll, a playback build completes server-side but the client
+ * never re-fetches and the loader spins forever.
+ */
+export function narrativePollInterval(
+  live: boolean, data: NarrativeState | undefined,
+): number | false {
+  if (live) return POLL_MS;
+  return data?.building ? POLL_MS : false;
+}
+
 export function useNarrative(
   projectId: string | null, sessionId: string | null, enabled: boolean, live: boolean,
 ) {
@@ -87,7 +102,7 @@ export function useNarrative(
     queryKey: ['narrative', projectId, sessionId],
     queryFn: () => fetchNarrative(projectId!, sessionId!),
     enabled: enabled && !!projectId && !!sessionId,
-    refetchInterval: live ? POLL_MS : false,
+    refetchInterval: (query) => narrativePollInterval(live, query.state.data),
     structuralSharing: false,
   });
 }

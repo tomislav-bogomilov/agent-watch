@@ -85,27 +85,46 @@ export function toNarratorInput(
   });
 }
 
-const SCHEMA_LINE =
-  'Each block: {"id","phase","title","summary","detail","status","startMilestoneId","endMilestoneId"}. ' +
-  '"status" is one of completed|active|upcoming. "phase" is a coarse group label reused across related blocks. ' +
-  'startMilestoneId/endMilestoneId are the first/last milestone id the block covers.';
+// Replaces the Claude Code agent persona with a pure JSON-formatter persona.
+// `claude -p` is a full coding agent: without this it sometimes treats the
+// narration request as ambiguous and replies with prose / clarifying questions
+// (which parse to "no valid block array"), or inspects the cwd. A replacement
+// system prompt — paired with --exclude-dynamic-system-prompt-sections to drop
+// the env/git context — makes it a deterministic JSON transform.
+const NARRATOR_SYSTEM =
+  'You are a non-interactive JSON formatter, not a coding agent. You transform a coding ' +
+  'agent\'s session milestones into a JSON array of logical-phase blocks. Output ONLY a JSON ' +
+  'array and nothing else: no prose, no clarifying questions, no markdown code fences, no ' +
+  'explanation. Never ask questions and never use tools; the user message contains everything ' +
+  'you need. Each element is an object with string fields: id, phase, title, summary, detail, ' +
+  'status (one of completed, active, upcoming), startMilestoneId, endMilestoneId. ' +
+  'startMilestoneId and endMilestoneId must be ids taken from the provided milestones (the ' +
+  'first and last milestone the block covers). Group many milestones per block; keep it ' +
+  'minimal. If you cannot produce blocks, output [].';
 
 export function buildNarratorPrompt(input: NarratorInputMilestone[], opts: { since?: string }): string {
   const data = JSON.stringify(input);
-  const head = opts.since
-    ? `These are NEW milestones since your last summary (delta after id ${opts.since}). ` +
-      `Update or extend your running narrative and return the FULL current list of blocks.`
-    : `You are narrating a coding agent's session as a few high-level logical phases ` +
-      `(e.g. Explore -> Decide -> Implement -> Verify). Keep it minimal — group many milestones per block.`;
+  if (opts.since) {
+    return (
+      `These are NEW milestones since your last summary (after id ${opts.since}). ` +
+      `Update your running narrative and return the FULL current JSON array of blocks.\n` +
+      `New milestones (JSON): ${data}`
+    );
+  }
   return (
-    `${head}\n` +
-    `Output ONLY a JSON array of blocks, no prose. ${SCHEMA_LINE}\n` +
+    `Summarize these coding-agent session milestones into a few high-level logical phases ` +
+    `(e.g. Explore, Decide, Implement, Verify), grouping related milestones into blocks. ` +
+    `Include startMilestoneId and endMilestoneId on every block.\n` +
     `Milestones (JSON): ${data}`
   );
 }
 
 export function buildClaudeArgs(opts: { model: 'haiku' | 'sonnet'; resumeSessionId?: string }): string[] {
-  const args = ['-p', '--output-format', 'json', '--model', opts.model];
+  const args = [
+    '-p', '--output-format', 'json', '--model', opts.model,
+    '--system-prompt', NARRATOR_SYSTEM,
+    '--exclude-dynamic-system-prompt-sections',
+  ];
   if (opts.resumeSessionId) args.push('--resume', opts.resumeSessionId);
   return args;
 }

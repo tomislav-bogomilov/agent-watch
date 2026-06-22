@@ -16,14 +16,15 @@ export interface InspectorTabsProps extends NarrativeTabProps {
 
 export function InspectorTabs(props: InspectorTabsProps) {
   const { milestone, onClose, width, onResize, ...narrative } = props;
-  const [tab, setTab] = useState<Tab>('details');
+  const { live } = narrative;
+  const [tab, setTab] = useState<Tab>(live ? 'narrative' : 'details');
   const [expanded, setExpanded] = useState(false);
 
-  // Preserve the original DetailPanel behavior: nothing is docked until the
-  // user has either a milestone to inspect (Details) or has opened Logical
-  // Steps. This keeps the canvas full-bleed before a node is clicked and the
-  // e2e expectation that `detail-panel` only appears after a click.
-  if (tab === 'details' && !milestone) return null;
+  // Playback keeps the canvas full-bleed until a Thought is selected — the
+  // dock appears on node click, as before. LIVE always docks so the Logical
+  // Steps overview is reachable without pinning a node (the live multi-pane
+  // view has no pin affordance), and defaults to the narrative tab.
+  if (tab === 'details' && !milestone && !live) return null;
 
   const panelWidth = expanded ? Math.round(window.innerWidth / 2) : width;
 
@@ -55,7 +56,9 @@ export function InspectorTabs(props: InspectorTabsProps) {
       </div>
       <div style={styles.content}>
         {tab === 'details'
-          ? <DetailPanel milestone={milestone} onClose={onClose} width={panelWidth} onResize={onResize} />
+          ? (milestone
+              ? <DetailPanel milestone={milestone} onClose={onClose} width={panelWidth} onResize={onResize} />
+              : <div style={styles.placeholder}>Select a Thought in the graph to inspect it.</div>)
           : <NarrativeTab {...narrative} />}
       </div>
     </aside>
@@ -101,5 +104,12 @@ const styles = {
     flex: 1,
     minHeight: 0,
     overflow: 'hidden' as const,
+  },
+  placeholder: {
+    padding: '24px 18px',
+    fontSize: 12,
+    color: 'var(--text-dim)',
+    fontFamily: 'ui-monospace, monospace',
+    lineHeight: 1.5,
   },
 };

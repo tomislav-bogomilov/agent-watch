@@ -30,12 +30,20 @@ describe('buildNarratorPrompt', () => {
 });
 
 describe('buildClaudeArgs', () => {
-  it('builds headless json args with the model', () => {
-    expect(buildClaudeArgs({ model: 'haiku' })).toEqual(['-p', '--output-format', 'json', '--model', 'haiku']);
+  it('builds headless json args with the model and a formatter system prompt', () => {
+    const args = buildClaudeArgs({ model: 'haiku' });
+    expect(args.slice(0, 5)).toEqual(['-p', '--output-format', 'json', '--model', 'haiku']);
+    // Replaces the agent persona with a JSON-formatter persona and strips the
+    // dynamic env/git context, so claude -p behaves as a deterministic transform.
+    const sysIdx = args.indexOf('--system-prompt');
+    expect(sysIdx).toBeGreaterThan(-1);
+    expect(args[sysIdx + 1]).toMatch(/JSON formatter/i);
+    expect(args).toContain('--exclude-dynamic-system-prompt-sections');
   });
   it('adds --resume when a session id is given', () => {
-    expect(buildClaudeArgs({ model: 'haiku', resumeSessionId: 's1' })).toEqual([
-      '-p', '--output-format', 'json', '--model', 'haiku', '--resume', 's1',
-    ]);
+    const args = buildClaudeArgs({ model: 'haiku', resumeSessionId: 's1' });
+    const resumeIdx = args.indexOf('--resume');
+    expect(resumeIdx).toBeGreaterThan(-1);
+    expect(args[resumeIdx + 1]).toBe('s1');
   });
 });
