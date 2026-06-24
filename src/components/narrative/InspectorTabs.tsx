@@ -12,10 +12,12 @@ export interface InspectorTabsProps extends NarrativeTabProps {
   onClose: () => void;
   width: number;
   onResize: (delta: number) => void;
+  /** Px to inset the dock's bottom by, so it clears the LIVE control bar. */
+  bottomInset?: number;
 }
 
 export function InspectorTabs(props: InspectorTabsProps) {
-  const { milestone, onClose, width, onResize, ...narrative } = props;
+  const { milestone, onClose, width, onResize, bottomInset = 0, ...narrative } = props;
   const { live } = narrative;
   const [tab, setTab] = useState<Tab>(live ? 'narrative' : 'details');
   const [expanded, setExpanded] = useState(false);
@@ -29,7 +31,7 @@ export function InspectorTabs(props: InspectorTabsProps) {
   const panelWidth = expanded ? Math.round(window.innerWidth / 2) : width;
 
   return (
-    <aside data-testid="inspector-tabs" style={{ ...styles.dock, width: panelWidth }}>
+    <aside data-testid="inspector-tabs" style={{ ...styles.dock, width: panelWidth, bottom: bottomInset }}>
       <div style={styles.tabbar}>
         <button
           type="button"

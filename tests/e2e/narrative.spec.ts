@@ -52,4 +52,18 @@ test('narrative tab: enable -> fake blocks -> verbosity rebucket -> refresh -> c
   // Clicking a block does not throw and the app stays responsive (narr-flow still visible).
   await page.locator('[data-testid="narr-block-fake-2"]').click();
   await expect(page.locator('[data-testid="narr-flow"]')).toBeVisible();
+
+  // Regression: the block list must be a bounded scroll container, not an
+  // element that grows past the dock and overflows downward. A flex child with
+  // `flex: 1; overflow: auto` only scrolls if it can shrink below its content —
+  // i.e. it needs `min-height: 0` (the default `min-height: auto` blocks it).
+  const flow = page.locator('[data-testid="narr-flow"]');
+  await expect(flow).toHaveCSS('min-height', '0px');
+  await expect(flow).toHaveCSS('overflow-y', 'auto');
+  // And the list stays within the inspector dock (its bottom never exceeds it).
+  const withinDock = await flow.evaluate((el) => {
+    const dock = document.querySelector('[data-testid="inspector-tabs"]');
+    return el.getBoundingClientRect().bottom <= dock.getBoundingClientRect().bottom + 1;
+  });
+  expect(withinDock).toBe(true);
 });

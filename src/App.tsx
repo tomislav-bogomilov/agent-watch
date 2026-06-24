@@ -184,6 +184,10 @@ export default function App() {
   const [panelDismissed, setPanelDismissed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
   const [detailWidth, setDetailWidth] = usePersistentWidth('tg.detail.width', 420, DETAIL_MIN, DETAIL_MAX);
+  // In LIVE mode the agents control bar is anchored to the bottom of the live
+  // layout; LivePanes measures it (it auto-expands when an agent is paused) so
+  // the inspector dock can stop above it instead of running behind it.
+  const [liveBarReserve, setLiveBarReserve] = useState(0);
   useEffect(() => { setPinnedId(null); setPanelDismissed(false); }, [selected]);
   const lastAutoEngagedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -404,6 +408,7 @@ export default function App() {
                   projectId={(selected?.kind === 'session' || selected?.kind === 'prompt') ? selected.projectId : ''}
                   subagentMtimes={effectiveSession.subagentMtimes}
                   onToggleLive={() => setLiveEngaged((v) => !v)}
+                  onControlBarHeight={setLiveBarReserve}
                 />
               ) : (
                 <div style={styles.canvasCard}>
@@ -445,6 +450,7 @@ export default function App() {
             projectId={inspectorSession.projectId}
             sessionId={inspectorSession.sessionId}
             live={liveEngaged}
+            bottomInset={liveEngaged ? liveBarReserve : 0}
             milestones={narratorMilestones}
             orderIds={orderIds}
             currentIndex={playback.index}

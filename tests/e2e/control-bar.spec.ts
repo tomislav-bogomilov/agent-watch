@@ -106,6 +106,41 @@ test.describe('LIVE control bar', () => {
     expect(await allowRes.json()).toEqual({ action: 'allow' });
   });
 
+  // Regression: in LIVE the inspector dock (right panel) is an overlay over the
+  // whole frame, while the control bar is anchored to the bottom with z-index:30.
+  // The dock used to span the full height and run BEHIND the bar, hiding the
+  // bottom of the (e.g. Logical Steps) content. LivePanes now measures the bar
+  // and the dock reserves that space, so the dock stops above the bar — even
+  // when the bar EXPANDS (taller) to show per-agent rows.
+  test('inspector dock stops above the control bar (collapsed and expanded)', async ({ page }) => {
+    const now = new Date();
+    await utimes(FIXTURE, now, now);
+    await page.goto('/');
+    await page.locator(`[data-testid="session-item-${SESSION_ID}"]`).click();
+    await expect(page.locator('[data-testid="live-panes-grid"]')).toBeVisible({ timeout: 15_000 });
+
+    const dock = page.locator('[data-testid="inspector-tabs"]');
+    await expect(dock).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[data-testid="control-bar"]')).toBeVisible({ timeout: 15_000 });
+
+    // dock.bottom must sit at/above bar.top (ResizeObserver → state → re-render
+    // is async, so poll). Also assert the bar has real height (it's measured).
+    const clearance = () => page.evaluate(() => {
+      const d = document.querySelector('[data-testid="inspector-tabs"]').getBoundingClientRect();
+      const b = document.querySelector('[data-testid="control-bar"]').getBoundingClientRect();
+      return { overhang: Math.round(d.bottom - b.top), barH: Math.round(b.height) };
+    });
+
+    await expect.poll(async () => (await clearance()).overhang, { timeout: 8_000 }).toBeLessThanOrEqual(1);
+    expect((await clearance()).barH).toBeGreaterThan(0);
+
+    // Expand the bar (per-agent rows → taller, its top moves up). The dock must
+    // re-reserve and still clear it.
+    await page.locator('[data-testid="control-bar-toggle"]').click();
+    await expect(page.locator('[data-testid="control-row-main"]')).toBeVisible();
+    await expect.poll(async () => (await clearance()).overhang, { timeout: 8_000 }).toBeLessThanOrEqual(1);
+  });
+
   // Regression: the control bar shares the LIVE layout with the per-pane detail
   // panel, which carries z-index:4 and — when a node's detail content is tall —
   // overflows the (overflow:visible) panes grid down over the bar. With no
