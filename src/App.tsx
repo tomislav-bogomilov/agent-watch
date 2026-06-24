@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LibraryPanel, type Selection } from './components/library/LibraryPanel';
 import type { LibraryMode } from './components/library/LibraryPanel';
 import { GraphCanvas } from './components/GraphCanvas';
@@ -184,10 +184,23 @@ export default function App() {
   const [panelDismissed, setPanelDismissed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
   const [detailWidth, setDetailWidth] = usePersistentWidth('tg.detail.width', 420, DETAIL_MIN, DETAIL_MAX);
-  // In LIVE mode the agents control bar is anchored to the bottom of the live
-  // layout; LivePanes measures it (it auto-expands when an agent is paused) so
-  // the inspector dock can stop above it instead of running behind it.
+  // The inspector dock is an absolute overlay over the whole content frame, so
+  // it must reserve space for whichever bottom bar is in flow or it runs behind
+  // it: the LIVE agents control bar (measured by LivePanes — it auto-expands
+  // when an agent is paused) or, in playback, the chrome gutter below.
   const [liveBarReserve, setLiveBarReserve] = useState(0);
+  const [gutterReserve, setGutterReserve] = useState(0);
+  const gutterRoRef = useRef<ResizeObserver | null>(null);
+  const gutterRef = useCallback((node: HTMLDivElement | null) => {
+    gutterRoRef.current?.disconnect();
+    gutterRoRef.current = null;
+    if (!node) { setGutterReserve(0); return; }
+    const measure = () => setGutterReserve(Math.round(node.getBoundingClientRect().height));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    gutterRoRef.current = ro;
+  }, []);
   useEffect(() => { setPinnedId(null); setPanelDismissed(false); }, [selected]);
   const lastAutoEngagedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -436,7 +449,7 @@ export default function App() {
             </div>
           )}
           {effectiveSession && !needsConfirm && !liveEngaged && (
-            <div data-testid="chrome-gutter" style={styles.gutter}>
+            <div data-testid="chrome-gutter" ref={gutterRef} style={styles.gutter}>
               <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
               <PlaybackControls state={playback} controls={followingControls} />
             </div>
@@ -450,7 +463,7 @@ export default function App() {
             projectId={inspectorSession.projectId}
             sessionId={inspectorSession.sessionId}
             live={liveEngaged}
-            bottomInset={liveEngaged ? liveBarReserve : 0}
+            bottomInset={liveEngaged ? liveBarReserve : gutterReserve}
             milestones={narratorMilestones}
             orderIds={orderIds}
             currentIndex={playback.index}

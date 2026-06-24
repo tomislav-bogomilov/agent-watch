@@ -66,4 +66,14 @@ test('narrative tab: enable -> fake blocks -> verbosity rebucket -> refresh -> c
     return el.getBoundingClientRect().bottom <= dock.getBoundingClientRect().bottom + 1;
   });
   expect(withinDock).toBe(true);
+
+  // Regression: in playback the dock overlays the same frame as the chrome
+  // gutter (playback controls) anchored at the bottom. The dock must stop above
+  // the gutter (App measures it and passes a bottomInset), not run behind it.
+  // ResizeObserver → state → re-render is async, so poll.
+  await expect.poll(async () => page.evaluate(() => {
+    const d = document.querySelector('[data-testid="inspector-tabs"]').getBoundingClientRect();
+    const g = document.querySelector('[data-testid="chrome-gutter"]').getBoundingClientRect();
+    return Math.round(d.bottom - g.top);
+  }), { timeout: 8_000 }).toBeLessThanOrEqual(1);
 });
