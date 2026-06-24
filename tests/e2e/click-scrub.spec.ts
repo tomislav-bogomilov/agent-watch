@@ -18,6 +18,17 @@ test('clicking a graph node moves the playhead and pins the detail panel', async
   // Detail panel should be visible.
   await expect(page.getByTestId('detail-panel')).toBeVisible();
 
+  // Regression: the detail panel scrolls vertically only — its content must be
+  // contained in the width (long unbreakable paths/ids wrap), never producing a
+  // horizontal scrollbar. Setting only overflow-y makes overflow-x compute to
+  // auto, so overflow-x must be pinned hidden.
+  const panelOverflow = await page.getByTestId('detail-panel').evaluate((el) => ({
+    overflowX: getComputedStyle(el).overflowX,
+    hasHScroll: el.scrollWidth > el.clientWidth,
+  }));
+  expect(panelOverflow.overflowX).toBe('hidden');
+  expect(panelOverflow.hasHScroll).toBe(false);
+
   // Scrubber should have moved forward.
   await page.waitForTimeout(50);
   const movedPct = Number(

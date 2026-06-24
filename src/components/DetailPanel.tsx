@@ -77,7 +77,13 @@ const styles = {
     padding: '16px 18px',
     fontFamily: 'ui-monospace, monospace',
     color: 'var(--text)',
+    boxSizing: 'border-box' as const,
+    // Vertical scroll only. Setting just overflow-y makes overflow-x compute to
+    // auto, so long unbreakable tokens (paths, ids) would add a horizontal
+    // scrollbar — pin it hidden and let text wrap to stay contained in the width.
     overflowY: 'auto' as const,
+    overflowX: 'hidden' as const,
+    overflowWrap: 'anywhere' as const,
     zIndex: 8,
   },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
