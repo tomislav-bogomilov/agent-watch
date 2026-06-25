@@ -76,4 +76,9 @@ test('narrative tab: enable -> fake blocks -> verbosity rebucket -> refresh -> c
     const g = document.querySelector('[data-testid="chrome-gutter"]').getBoundingClientRect();
     return Math.round(d.bottom - g.top);
   }), { timeout: 8_000 }).toBeLessThanOrEqual(1);
+
+  // Clicking a step now also pins/selects its start node (playback): the Details
+  // tab shows the pinned node.
+  await page.locator('[data-testid="tab-details"]').click();
+  await expect(page.locator('[data-testid="detail-panel"]')).toBeVisible({ timeout: 5_000 });
 });
