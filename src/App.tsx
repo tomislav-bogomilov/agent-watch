@@ -185,10 +185,8 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
   const [detailWidth, setDetailWidth] = usePersistentWidth('tg.detail.width', 420, DETAIL_MIN, DETAIL_MAX);
   // The inspector dock is an absolute overlay over the whole content frame, so
-  // it must reserve space for whichever bottom bar is in flow or it runs behind
-  // it: the LIVE agents control bar (measured by LivePanes — it auto-expands
-  // when an agent is paused) or, in playback, the chrome gutter below.
-  const [liveBarReserve, setLiveBarReserve] = useState(0);
+  // it must reserve space for the playback chrome gutter below so it doesn't
+  // run behind it. Measured by a ResizeObserver on the gutter element.
   const [gutterReserve, setGutterReserve] = useState(0);
   const gutterRoRef = useRef<ResizeObserver | null>(null);
   const gutterRef = useCallback((node: HTMLDivElement | null) => {
@@ -421,7 +419,6 @@ export default function App() {
                   projectId={(selected?.kind === 'session' || selected?.kind === 'prompt') ? selected.projectId : ''}
                   subagentMtimes={effectiveSession.subagentMtimes}
                   onToggleLive={() => setLiveEngaged((v) => !v)}
-                  onControlBarHeight={setLiveBarReserve}
                 />
               ) : (
                 <div style={styles.canvasCard}>
@@ -454,21 +451,24 @@ export default function App() {
               <PlaybackControls state={playback} controls={followingControls} />
             </div>
           )}
-          <InspectorTabs
-            key={`${inspectorSession.projectId}/${inspectorSession.sessionId}`}
-            milestone={displayedMilestone}
-            onClose={handleDetailClose}
-            width={detailWidth}
-            onResize={(d) => setDetailWidth((w) => w + d)}
-            projectId={inspectorSession.projectId}
-            sessionId={inspectorSession.sessionId}
-            live={liveEngaged}
-            bottomInset={liveEngaged ? liveBarReserve : gutterReserve}
-            milestones={narratorMilestones}
-            orderIds={orderIds}
-            currentIndex={playback.index}
-            onScrubToIndex={(i) => followingControls.scrubTo(i)}
-          />
+          {!liveEngaged && (
+            <InspectorTabs
+              key={`${inspectorSession.projectId}/${inspectorSession.sessionId}`}
+              milestone={displayedMilestone}
+              onClose={handleDetailClose}
+              width={detailWidth}
+              onResize={(d) => setDetailWidth((w) => w + d)}
+              projectId={inspectorSession.projectId}
+              sessionId={inspectorSession.sessionId}
+              live={liveEngaged}
+              bottomInset={gutterReserve}
+              milestones={narratorMilestones}
+              orderIds={orderIds}
+              currentIndex={playback.index}
+              onScrubToIndex={(i) => followingControls.scrubTo(i)}
+              onSelectNode={(id) => setPinnedId(id)}
+            />
+          )}
         </>)}
         </div>
       </main>

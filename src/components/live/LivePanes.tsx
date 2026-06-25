@@ -20,10 +20,6 @@ type Props = {
   projectId: string;
   subagentMtimes: Record<string, string>;
   onToggleLive: () => void;
-  /** Reports the px height (incl. bottom padding) the control bar occupies at
-   *  the bottom of the layout, so an overlay (the inspector dock) can clear it.
-   *  Re-fires when the bar expands/collapses. */
-  onControlBarHeight?: (px: number) => void;
 };
 
 const outerStyle: CSSProperties = {
@@ -62,30 +58,9 @@ function buildMainRoot(root: Milestone): Milestone {
   return rebuild(root);
 }
 
-export function LivePanes({ session, projectId, subagentMtimes, onToggleLive, onControlBarHeight }: Props) {
+export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: Props) {
   // MAIN trail without sub-agent inner content
   const mainRoot = useMemo(() => buildMainRoot(session.root), [session]);
-
-  // Measure how much vertical space the control bar reserves at the bottom of
-  // this layout (the gap from the outer's bottom edge up to the bar's top), and
-  // report it upward. A ResizeObserver re-fires when the bar expands (it auto-
-  // expands while an agent is paused) so the inspector dock keeps clearing it.
-  const outerRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const outer = outerRef.current;
-    if (!outer || !onControlBarHeight) return;
-    const bar = outer.querySelector('[data-testid="control-bar"]');
-    if (!bar) return;
-    const measure = () => {
-      const reserve = outer.getBoundingClientRect().bottom - bar.getBoundingClientRect().top;
-      onControlBarHeight(Math.max(0, Math.round(reserve)));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(bar);
-    ro.observe(outer);
-    return () => { ro.disconnect(); onControlBarHeight(0); };
-  }, [onControlBarHeight]);
 
   // Sub-agent panes: one per spawn node, keyed by spawn id
   const spawnNodes = useMemo(() => collectSpawnNodes(session.root), [session]);
@@ -179,7 +154,7 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive, on
   const gridColumns = isSolo ? '1fr' : '1fr 1fr';
 
   return (
-    <div ref={outerRef} style={outerStyle}>
+    <div style={outerStyle}>
       <CanvasToolbar
         showLive={true}
         liveEngaged={true}
@@ -210,6 +185,8 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive, on
           root={mainRoot}
           cwd={session.cwd}
           paneId="main"
+          projectId={projectId}
+          sessionId={sessionId}
           borderless={isSolo}
           agentPaused={snapshot.all || snapshot.main}
           agentHeld={snapshot.held.some((h) => h.owner === 'main')}
@@ -230,6 +207,8 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive, on
                 root={e.root}
                 cwd={session.cwd}
                 paneId={e.key}
+                projectId={projectId}
+                sessionId={sessionId}
                 closingSeconds={showCountdown ? closingSeconds : null}
                 frozen={frozen}
                 agentPaused={snapshot.all || snapshot.agents[fileId] === true}
