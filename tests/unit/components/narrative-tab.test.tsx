@@ -16,7 +16,8 @@ vi.mock('../../../src/api/hooks', () => ({
 
 const props = {
   projectId: 'p', sessionId: 's', live: false,
-  milestones: [], orderIds: ['m1', 'm2', 'm3', 'm4'], currentIndex: 3, onScrubToIndex: vi.fn(),
+  milestones: [], orderIds: ['m1', 'm2', 'm3', 'm4'], currentIndex: 3,
+  onScrubToIndex: vi.fn(), onSelectNode: vi.fn(),
 };
 
 describe('NarrativeTab', () => {
@@ -29,10 +30,11 @@ describe('NarrativeTab', () => {
     expect(screen.getByTestId('narr-block-b2')).toBeTruthy();
   });
 
-  it('click on a block scrubs to its start index', () => {
+  it('click on a block scrubs to its start index AND selects its start node', () => {
     render(<NarrativeTab {...props} />);
     fireEvent.click(screen.getByTestId('narr-enable'));
     fireEvent.click(screen.getByTestId('narr-block-b2'));
-    expect(props.onScrubToIndex).toHaveBeenCalledWith(2); // m3 -> index 2
+    expect(props.onScrubToIndex).toHaveBeenCalledWith(2);  // m3 -> index 2
+    expect(props.onSelectNode).toHaveBeenCalledWith('m3'); // b2.startMilestoneId
   });
 });

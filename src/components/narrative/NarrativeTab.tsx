@@ -20,10 +20,12 @@ export interface NarrativeTabProps {
   orderIds: string[];
   currentIndex: number;
   onScrubToIndex: (i: number) => void;
+  /** Pin/select the block's start node. Optional so playback + per-pane hosts share this. */
+  onSelectNode?: (milestoneId: string) => void;
 }
 
 export function NarrativeTab(props: NarrativeTabProps) {
-  const { projectId, sessionId, live, milestones, orderIds, currentIndex, onScrubToIndex } = props;
+  const { projectId, sessionId, live, milestones, orderIds, currentIndex, onScrubToIndex, onSelectNode } = props;
   const [enabled, setEnabled] = useState(false);
   const [verbosity, setVerbosity] = useState<Verbosity>('steps');
 
@@ -100,6 +102,7 @@ export function NarrativeTab(props: NarrativeTabProps) {
                     onClick={() => {
                       const idx = indexForBlockStart(b, indexMap);
                       if (idx >= 0) onScrubToIndex(idx);
+                      onSelectNode?.(b.startMilestoneId);
                     }}
                   />
                 </div>
