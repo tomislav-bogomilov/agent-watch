@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import {
   nextIndexMatching,
+  stepSpeed,
   type PlaybackControls as Controls,
   type PlaybackState,
 } from '../playback/usePlayback';
@@ -110,39 +111,29 @@ export function PlaybackControls({ state, controls }: Props) {
         >⌥</button>
         <button
           style={styles.btn}
-          data-testid="jump-tool"
-          title="next tool call"
-          aria-label="next tool call"
-          onClick={() => {
-            const i = nextIndexMatching(state.order, state.index, (m) => m.kind === 'tool_call');
-            if (i != null) controls.scrubTo(i);
-          }}
-        >⚙</button>
-        <button
-          style={styles.btn}
-          data-testid="jump-fail"
-          title="next failure"
-          aria-label="next failure"
-          onClick={() => {
-            const i = nextIndexMatching(state.order, state.index, (m) => m.failed);
-            if (i != null) controls.scrubTo(i);
-          }}
-        >⊘</button>
-        <button
-          style={styles.btn}
           data-testid="jump-end"
           title="end"
           aria-label="end"
           onClick={() => controls.scrubTo(state.order.length - 1)}
         >■</button>
       </div>
-      <button
-        onClick={controls.restart}
-        style={styles.btn}
-        data-testid="restart"
-        aria-label="restart"
-        title="restart"
-      >↺</button>
+      <div style={styles.speedGroup}>
+        <button
+          style={styles.btn}
+          data-testid="speed-dec"
+          aria-label="slower"
+          title="slower"
+          onClick={() => controls.setSpeed(stepSpeed(state.speed, -1))}
+        >−</button>
+        <span style={styles.speedValue} data-testid="speed-value">{state.speed}×</span>
+        <button
+          style={styles.btn}
+          data-testid="speed-inc"
+          aria-label="faster"
+          title="faster"
+          onClick={() => controls.setSpeed(stepSpeed(state.speed, 1))}
+        >+</button>
+      </div>
     </div>
   );
 }
@@ -167,4 +158,6 @@ const styles = {
     fontSize: 12,
   },
   jumpGroup: { display: 'flex' as const, gap: 4, marginLeft: 6 },
+  speedGroup: { display: 'flex' as const, gap: 4, alignItems: 'center' as const, marginLeft: 6 },
+  speedValue: { color: 'var(--edge-trail)', fontSize: 11, minWidth: 30, textAlign: 'center' as const, letterSpacing: 1 },
 };
