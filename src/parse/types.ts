@@ -53,6 +53,16 @@ export type RawEvent = {
     role: 'user' | 'assistant';
     content: string | RawContentBlock[];
   };
+  attachment?: {
+    type: string;
+    // hook content arrives as a string[] in real transcripts; skill_listing
+    // content is a plain string. Accept both.
+    content?: string | string[];
+    hookName?: string;
+    skillCount?: number;
+    names?: string[];
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 };
 
@@ -89,13 +99,25 @@ export type PromptMeta = {
   ordinal: number;
 };
 
+/** How a skill's body entered the conversation context.
+ *  - 'invoked': called on demand via the Skill tool.
+ *  - 'hook':    injected automatically by a hook (e.g. SessionStart). */
+export type SkillSource = 'invoked' | 'hook';
+
 export type SkillActivation = {
   name: string;
   activatedAt: string;
   byTurnId: string;
   tokenCost: number;
+  source: SkillSource;
+  /** For hook-injected skills, the hook event that loaded it (e.g. 'SessionStart'). */
+  hookEvent?: string;
 };
 
 export type SkillTrack = {
+  /** Skills whose body is actually loaded into context (invoked or hook-injected). */
   activations: SkillActivation[];
+  /** Skills merely registered/available this session (from the skill_listing
+   *  attachment) — name + description only, body not in context. */
+  availableCount: number;
 };

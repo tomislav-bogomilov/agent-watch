@@ -10,7 +10,7 @@ export type HologramView = {
   mode: 'live' | 'playback';
   metrics: HologramMetrics;
   skills: SkillActivation[];
-  skillsTotal: { count: number; totalTokens: number };
+  skillsTotal: { count: number; totalTokens: number; available: number };
 };
 
 type Props = {
@@ -67,7 +67,7 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose, c
   // its content and divider so the rhythm reads cleanly.
   const SECTION_TOP_PAD = 22;   // divider → first content baseline
   const SECTION_BOTTOM_PAD = 14; // last content baseline → next divider
-  const SKILLS_ROW_STEP = 16;
+  const SKILLS_ROW_STEP = 22; // name line + source sub-line
 
   const HEADER_Y = 10;
   const HEADER_DIVIDER_Y = HEADER_Y + 34;
@@ -79,8 +79,10 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose, c
   const IDLE_Y = LATENCY_DIVIDER_Y + SECTION_TOP_PAD;
   const IDLE_DIVIDER_Y = IDLE_Y + SECTION_BOTTOM_PAD;
 
+  const hasAvailable = skillsTotal.available > 0;
   const SKILLS_HEAD_Y = (showIdleGap ? IDLE_DIVIDER_Y : LATENCY_DIVIDER_Y) + SECTION_TOP_PAD;
-  const SKILLS_FIRST_ROW_Y = SKILLS_HEAD_Y + 10;
+  const SKILLS_SUB_Y = SKILLS_HEAD_Y + 11;
+  const SKILLS_FIRST_ROW_Y = SKILLS_HEAD_Y + (hasAvailable ? 24 : 10);
   const skillsBlockBottom = SKILLS_FIRST_ROW_Y + SKILLS_ROW_STEP * topSkills.length
     + (hiddenSkills.length > 0 ? SKILLS_ROW_STEP : 0);
   const SKILLS_DIVIDER_Y = skillsBlockBottom + SECTION_BOTTOM_PAD;
@@ -182,17 +184,26 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose, c
         <text x={w - 10} y={SKILLS_HEAD_Y} className="holo-kind" textAnchor="end">
           {skillsTotal.count} · {formatTokens(skillsTotal.totalTokens)}
         </text>
+        {hasAvailable && (
+          <text x={w - 10} y={SKILLS_SUB_Y} className="holo-value-sub" textAnchor="end" data-testid="holo-skills-available">
+            {skillsTotal.available} available
+          </text>
+        )}
 
         {topSkills.map((s, i) => {
           const y = SKILLS_FIRST_ROW_Y + i * SKILLS_ROW_STEP;
+          const sourceLabel = s.source === 'hook' ? `via ${s.hookEvent ?? 'hook'} hook` : 'invoked';
           return (
             <g key={s.name + s.activatedAt} transform={`translate(20, ${y})`} data-testid={`holo-skill-row-${i}`}>
-              <text x={0} y={11} className="holo-skill-name">{s.name}</text>
-              <text x={w - 78} y={11} className="holo-skill-tokens" textAnchor="end">
+              <text x={0} y={10} className="holo-skill-name">{s.name}</text>
+              <text x={w - 78} y={10} className="holo-skill-tokens" textAnchor="end">
                 {formatTokens(s.tokenCost)}
               </text>
-              <text x={w - 30} y={11} className="holo-skill-tokens" textAnchor="end">
+              <text x={w - 30} y={10} className="holo-skill-tokens" textAnchor="end">
                 {pctOfTotal(s.tokenCost)}
+              </text>
+              <text x={0} y={20} className="holo-skill-source" data-testid={`holo-skill-source-${i}`}>
+                {sourceLabel}
               </text>
             </g>
           );

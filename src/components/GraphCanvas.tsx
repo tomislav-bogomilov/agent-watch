@@ -364,7 +364,7 @@ export function GraphCanvas({
         mode: liveEngaged ? 'live' : 'playback',
         metrics,
         skills,
-        skillsTotal: { count: skills.length, totalTokens },
+        skillsTotal: { count: skills.length, totalTokens, available: session.skillTrack?.availableCount ?? 0 },
       },
       node,
     };

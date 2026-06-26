@@ -397,7 +397,7 @@ export function LivePane({
         </div>
         <div style={paneTabContent}>
           {tab === 'details' ? (
-            <div style={{ position: 'absolute', inset: 0, overflow: 'auto' }}>
+            <div className="tg-library-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: 9, letterSpacing: 3, color: accent }}>
                   {kind === 'main' ? 'MAIN · NODE' : 'SUBAGENT · NODE'}
@@ -432,7 +432,7 @@ export function LivePane({
                   )}
                   {selected.detail && (
                     <pre style={{
-                      fontSize: 10, color: '#6e95a5', whiteSpace: 'pre-wrap', margin: '8px 0 0 0',
+                      fontSize: 10, color: '#6e95a5', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '8px 0 0 0',
                       background: 'rgba(15,38,50,0.4)', padding: '6px 8px', border: '1px solid var(--grid)',
                     }}>{selected.detail}</pre>
                   )}
