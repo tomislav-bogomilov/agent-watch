@@ -13,6 +13,22 @@ describe('toNarratorInput', () => {
       { id: 'm1', kind: 'root_prompt', label: 'Prompt', summary: 'Fix routing bug' },
     ]);
   });
+
+  it('caps long summary/result so a big tool output cannot bloat the prompt', () => {
+    const long = 'x'.repeat(800);
+    const [out] = toNarratorInput([
+      { id: 'm9', kind: 'tool_call', label: 'Big', summary: long, result: long },
+    ] as never);
+    // ids/kind/label untouched — the narrator must echo exact ids back.
+    expect(out.id).toBe('m9');
+    expect(out.kind).toBe('tool_call');
+    expect(out.label).toBe('Big');
+    // free text trimmed + ellipsis-marked.
+    expect(out.summary.length).toBeLessThan(long.length);
+    expect(out.summary.endsWith('…')).toBe(true);
+    expect(out.result!.length).toBeLessThan(long.length);
+    expect(out.result!.endsWith('…')).toBe(true);
+  });
 });
 
 describe('buildNarratorPrompt', () => {

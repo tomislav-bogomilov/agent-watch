@@ -75,12 +75,22 @@ export interface NarratorInputMilestone {
   result?: string;
 }
 
+// Cap on free-text fields. A single big tool result can dwarf everything else in
+// the prompt, which makes the narrator both slower and more timeout-prone on large
+// sessions. ids/kind/label are NEVER trimmed — the narrator must echo exact
+// milestone ids back in startMilestoneId/endMilestoneId.
+const FIELD_CAP = 500;
+
+function capField(s: string): string {
+  return s.length > FIELD_CAP ? `${s.slice(0, FIELD_CAP)}…` : s;
+}
+
 export function toNarratorInput(
   milestones: Array<{ id: string; kind: string; label: string; summary: string; result?: string }>,
 ): NarratorInputMilestone[] {
   return milestones.map((m) => {
-    const out: NarratorInputMilestone = { id: m.id, kind: m.kind, label: m.label, summary: m.summary };
-    if (m.result) out.result = m.result;
+    const out: NarratorInputMilestone = { id: m.id, kind: m.kind, label: m.label, summary: capField(m.summary) };
+    if (m.result) out.result = capField(m.result);
     return out;
   });
 }
@@ -99,8 +109,10 @@ const NARRATOR_SYSTEM =
   'you need. Each element is an object with string fields: id, phase, title, summary, detail, ' +
   'status (one of completed, active, upcoming), startMilestoneId, endMilestoneId. ' +
   'startMilestoneId and endMilestoneId must be ids taken from the provided milestones (the ' +
-  'first and last milestone the block covers). Group many milestones per block; keep it ' +
-  'minimal. If you cannot produce blocks, output [].';
+  'first and last milestone the block covers). Emit one block per distinct logical step the ' +
+  'agent took, in order; prefer several focused steps over a few broad ones. Use the `phase` ' +
+  'field as a coarse group label (e.g. Explore, Decide, Implement, Verify) shared by the steps ' +
+  'that belong to it, so steps can be rolled up by phase. If you cannot produce blocks, output [].';
 
 export function buildNarratorPrompt(input: NarratorInputMilestone[], opts: { since?: string }): string {
   const data = JSON.stringify(input);
@@ -112,9 +124,10 @@ export function buildNarratorPrompt(input: NarratorInputMilestone[], opts: { sin
     );
   }
   return (
-    `Summarize these coding-agent session milestones into a few high-level logical phases ` +
-    `(e.g. Explore, Decide, Implement, Verify), grouping related milestones into blocks. ` +
-    `Include startMilestoneId and endMilestoneId on every block.\n` +
+    `Break this coding-agent session into a sequence of distinct logical steps, in order — ` +
+    `one block per step. Tag each block with a coarse phase (e.g. Explore, Decide, Implement, ` +
+    `Verify) so related steps can be rolled up. Prefer several focused steps over a few broad ` +
+    `phases. Include startMilestoneId and endMilestoneId on every block.\n` +
     `Milestones (JSON): ${data}`
   );
 }
@@ -167,7 +180,14 @@ export function fakeBlocks(input: NarratorInputMilestone[]): NarrativeBlock[] {
   return blocks;
 }
 
-const SPAWN_TIMEOUT_MS = 60_000;
+const DEFAULT_NARRATOR_TIMEOUT_MS = 180_000;
+
+/** Spawn ceiling for the narrator child. Large sessions (e.g. PROMPT 10) need
+ *  headroom; overridable via TG_NARRATOR_TIMEOUT_MS (ms) without a code change. */
+export function narratorTimeoutMs(): number {
+  const raw = Number(process.env.TG_NARRATOR_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_NARRATOR_TIMEOUT_MS;
+}
 
 export async function runNarrator(args: RunNarratorArgs): Promise<RunNarratorResult> {
   if (process.env.TG_NARRATOR_FAKE) {
@@ -186,7 +206,7 @@ export async function runNarrator(args: RunNarratorArgs): Promise<RunNarratorRes
       settled = true;
       child.kill();
       reject(new Error('narrator timed out'));
-    }, SPAWN_TIMEOUT_MS);
+    }, narratorTimeoutMs());
     child.on('error', (e: NodeJS.ErrnoException) => {
       if (settled) return;
       settled = true;

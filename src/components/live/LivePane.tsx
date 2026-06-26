@@ -4,6 +4,7 @@ import { CountdownChip } from './CountdownChip';
 import { makeLivePlayback } from './livePlayback';
 import { NarrativeTab } from '../narrative/NarrativeTab';
 import { narrativeScopeId } from '../../narrative/scopeKey';
+import type { Verbosity } from '../../narrative/types';
 import type { Session, Milestone } from '../../parse/types';
 import type { Filters } from '../FilterToggles';
 import type { CameraApi } from '../../graph/useCamera';
@@ -221,6 +222,10 @@ export function LivePane({
   const selected = pinned ?? newest;
 
   const [tab, setTab] = useState<'details' | 'narrative'>('details');
+  // Owned per-pane so the generated steps persist across Details/Logical Steps
+  // switches (the narrative tab unmounts on switch; local state would reset).
+  const [narrEnabled, setNarrEnabled] = useState(false);
+  const [narrVerbosity, setNarrVerbosity] = useState<Verbosity>('steps');
   const scopeId = useMemo(() => narrativeScopeId(sessionId, paneId), [sessionId, paneId]);
   const paneOrderIds = useMemo(() => playback.order.map((mm) => mm.id), [playback.order]);
   const paneNarratorMilestones = useMemo(
@@ -450,6 +455,10 @@ export function LivePane({
                 currentIndex={playback.index}
                 onScrubToIndex={() => { /* no playhead scrub in LIVE; pinning drives the graph */ }}
                 onSelectNode={(id) => setPinnedId(id)}
+                enabled={narrEnabled}
+                onEnabledChange={setNarrEnabled}
+                verbosity={narrVerbosity}
+                onVerbosityChange={setNarrVerbosity}
               />
             </div>
           )}

@@ -17,6 +17,12 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   };
 }
 
+// jsdom does not implement scrollIntoView; NarrativeTab's auto-follow effect
+// calls it on the active block. Stub it so the narrative tests don't throw.
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
+}
+
 // jsdom does not implement SVG geometry (width/height baseVal). d3-zoom reads
 // these synchronously inside animation frames that can fire after test teardown.
 // Stub SVGAnimatedLength so d3-zoom gets a value of 0 instead of throwing.

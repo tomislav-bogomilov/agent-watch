@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { runNarrator, fakeBlocks, toNarratorInput } from '../../../server/narrator';
+import { runNarrator, fakeBlocks, toNarratorInput, narratorTimeoutMs } from '../../../server/narrator';
 
 const ms = [
   { id: 'm1', kind: 'root_prompt', label: 'p', summary: 's1' },
@@ -9,6 +9,24 @@ const ms = [
 ];
 
 afterEach(() => { delete process.env.TG_NARRATOR_FAKE; });
+
+describe('narratorTimeoutMs', () => {
+  afterEach(() => { delete process.env.TG_NARRATOR_TIMEOUT_MS; });
+
+  it('defaults to 180s for large-session headroom', () => {
+    expect(narratorTimeoutMs()).toBe(180_000);
+  });
+  it('honors a valid TG_NARRATOR_TIMEOUT_MS override', () => {
+    process.env.TG_NARRATOR_TIMEOUT_MS = '240000';
+    expect(narratorTimeoutMs()).toBe(240_000);
+  });
+  it('ignores a non-numeric / non-positive override', () => {
+    process.env.TG_NARRATOR_TIMEOUT_MS = 'abc';
+    expect(narratorTimeoutMs()).toBe(180_000);
+    process.env.TG_NARRATOR_TIMEOUT_MS = '0';
+    expect(narratorTimeoutMs()).toBe(180_000);
+  });
+});
 
 describe('fakeBlocks', () => {
   it('spans the provided milestone ids across two blocks', () => {

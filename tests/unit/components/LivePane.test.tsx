@@ -5,7 +5,13 @@ import type { Milestone } from '../../../src/parse/types';
 
 vi.mock('../../../src/api/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/api/hooks')>()),
-  useNarrative: () => ({ data: undefined, dataUpdatedAt: 0 }),
+  useNarrative: () => ({
+    data: {
+      blocks: [{ id: 'b1', phase: 'Explore', title: 'Explore', summary: 's1', status: 'completed', startMilestoneId: 'a', endMilestoneId: 'b' }],
+      building: false, error: null, model: 'haiku', generatedAt: 'x',
+    },
+    dataUpdatedAt: 1,
+  }),
   useStartNarrative: () => ({ mutate: vi.fn(), isPending: false }),
   useTickNarrative: () => ({ mutate: vi.fn() }),
   useRefreshNarrative: () => ({ mutate: vi.fn() }),
@@ -104,5 +110,18 @@ describe('LivePane', () => {
     render(<LivePane kind="main" label="MAIN" root={root} cwd="/c" paneId="p1" projectId="p" sessionId="s" />);
     fireEvent.click(screen.getByTestId('pane-tab-narrative'));
     expect(screen.getByTestId('narr-enable')).toBeTruthy();
+  });
+
+  it('keeps the per-pane steps after toggling Details and back (enabled is pane-owned)', () => {
+    const root = m('a', 'Read App.tsx', 'first', [m('b', 'Grep', 'newest')]);
+    render(<LivePane kind="main" label="MAIN" root={root} cwd="/c" paneId="p1" projectId="p" sessionId="s" />);
+    fireEvent.click(screen.getByTestId('pane-tab-narrative'));
+    fireEvent.click(screen.getByTestId('narr-enable'));
+    expect(screen.getByTestId('narr-block-b1')).toBeTruthy();
+    // round-trip through Details — NarrativeTab unmounts, but the pane keeps `enabled`
+    fireEvent.click(screen.getByTestId('pane-tab-details'));
+    fireEvent.click(screen.getByTestId('pane-tab-narrative'));
+    expect(screen.getByTestId('narr-block-b1')).toBeTruthy();
+    expect(screen.queryByTestId('narr-enable')).toBeNull();
   });
 });

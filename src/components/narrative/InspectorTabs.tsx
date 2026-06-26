@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { DetailPanel } from '../DetailPanel';
 import { NarrativeTab, type NarrativeTabProps } from './NarrativeTab';
+import type { Verbosity } from '../../narrative/types';
 import type { Milestone } from '../../parse/types';
 import '../../theme/narrative.css';
 
@@ -21,6 +22,10 @@ export function InspectorTabs(props: InspectorTabsProps) {
   const { live } = narrative;
   const [tab, setTab] = useState<Tab>(live ? 'narrative' : 'details');
   const [expanded, setExpanded] = useState(false);
+  // Owned here (not in NarrativeTab) so the generated steps survive a tab switch:
+  // switching to Details unmounts NarrativeTab, and local state would reset.
+  const [narrEnabled, setNarrEnabled] = useState(false);
+  const [verbosity, setVerbosity] = useState<Verbosity>('steps');
 
   // Playback keeps the canvas full-bleed until a Thought is selected — the
   // dock appears on node click, as before. LIVE always docks so the Logical
@@ -61,7 +66,13 @@ export function InspectorTabs(props: InspectorTabsProps) {
           ? (milestone
               ? <DetailPanel milestone={milestone} onClose={onClose} width={panelWidth} onResize={onResize} />
               : <div style={styles.placeholder}>Select a Thought in the graph to inspect it.</div>)
-          : <NarrativeTab {...narrative} />}
+          : <NarrativeTab
+              {...narrative}
+              enabled={narrEnabled}
+              onEnabledChange={setNarrEnabled}
+              verbosity={verbosity}
+              onVerbosityChange={setVerbosity}
+            />}
       </div>
     </aside>
   );

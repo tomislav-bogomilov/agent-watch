@@ -22,12 +22,23 @@ export interface NarrativeTabProps {
   onScrubToIndex: (i: number) => void;
   /** Pin/select the block's start node. Optional so playback + per-pane hosts share this. */
   onSelectNode?: (milestoneId: string) => void;
+  /** Controlled enable state. Lifted to the host so it survives the tab unmount
+   *  (switching to Details unmounts this component); omit for uncontrolled. */
+  enabled?: boolean;
+  onEnabledChange?: (v: boolean) => void;
+  /** Controlled verbosity, lifted for the same reason; omit for uncontrolled. */
+  verbosity?: Verbosity;
+  onVerbosityChange?: (v: Verbosity) => void;
 }
 
 export function NarrativeTab(props: NarrativeTabProps) {
   const { projectId, sessionId, live, milestones, orderIds, currentIndex, onScrubToIndex, onSelectNode } = props;
-  const [enabled, setEnabled] = useState(false);
-  const [verbosity, setVerbosity] = useState<Verbosity>('steps');
+  const [enabledLocal, setEnabledLocal] = useState(false);
+  const [verbosityLocal, setVerbosityLocal] = useState<Verbosity>('steps');
+  const enabled = props.enabled ?? enabledLocal;
+  const setEnabled = props.onEnabledChange ?? setEnabledLocal;
+  const verbosity = props.verbosity ?? verbosityLocal;
+  const setVerbosity = props.onVerbosityChange ?? setVerbosityLocal;
 
   const start = useStartNarrative();
   const tick = useTickNarrative();
@@ -42,9 +53,12 @@ export function NarrativeTab(props: NarrativeTabProps) {
     [blocks, indexMap, currentIndex],
   );
 
-  // animation diff vs previous blocks
-  const prevRef = useRef<Block[]>([]);
-  const diff = useMemo(() => diffBlocks(prevRef.current, blocks), [blocks]);
+  // animation diff vs previous blocks. prevRef starts null so the FIRST render
+  // diffs blocks against themselves (no spurious "new" flash) — this matters on
+  // remount (tab switch back), where React Query hands back cached blocks
+  // synchronously and we don't want them all re-animating as added.
+  const prevRef = useRef<Block[] | null>(null);
+  const diff = useMemo(() => diffBlocks(prevRef.current ?? blocks, blocks), [blocks]);
   useEffect(() => { prevRef.current = blocks; }, [blocks]);
 
   // live incremental: on each poll, push current milestones (server no-ops if nothing new)
@@ -84,33 +98,33 @@ export function NarrativeTab(props: NarrativeTabProps) {
           onClick={() => refresh.mutate({ projectId, sessionId, milestones })}
         />
       </div>
-      {state?.building ? (
-        <ArmillaryLoader label="Rebuilding · Sonnet" />
-      ) : (
-        <div className="narr-flow" data-testid="narr-flow">
-          {items.map((item) => {
-            const list = item.kind === 'group' ? item.blocks : [item.block];
-            return list.map((b) => {
-              const isActive = b.id === activeId;
-              return (
-                <div key={b.id} ref={isActive ? activeRef : undefined}>
-                  <NarrativeBlock
-                    block={item.kind === 'group' ? { ...b, status: item.status } : b}
-                    active={isActive}
-                    isNew={diff.added.has(b.id) || diff.changed.has(b.id)}
-                    showDetail={verbosity === 'detailed'}
-                    onClick={() => {
-                      const idx = indexForBlockStart(b, indexMap);
-                      if (idx >= 0) onScrubToIndex(idx);
-                      onSelectNode?.(b.startMilestoneId);
-                    }}
-                  />
-                </div>
-              );
-            });
-          })}
-        </div>
-      )}
+      {/* Keep the existing steps visible during a rebuild/auto-refresh — the
+          server preserves the old blocks while building, and the RefreshButton
+          above already signals the in-flight state. (The empty-blocks initial
+          build is handled by the ArmillaryLoader early-return above.) */}
+      <div className="narr-flow" data-testid="narr-flow" data-building={state?.building ? 'true' : undefined}>
+        {items.map((item) => {
+          const list = item.kind === 'group' ? item.blocks : [item.block];
+          return list.map((b) => {
+            const isActive = b.id === activeId;
+            return (
+              <div key={b.id} ref={isActive ? activeRef : undefined}>
+                <NarrativeBlock
+                  block={item.kind === 'group' ? { ...b, status: item.status } : b}
+                  active={isActive}
+                  isNew={diff.added.has(b.id) || diff.changed.has(b.id)}
+                  showDetail={verbosity === 'detailed'}
+                  onClick={() => {
+                    const idx = indexForBlockStart(b, indexMap);
+                    if (idx >= 0) onScrubToIndex(idx);
+                    onSelectNode?.(b.startMilestoneId);
+                  }}
+                />
+              </div>
+            );
+          });
+        })}
+      </div>
     </div>
   );
 }
