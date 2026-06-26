@@ -7,6 +7,7 @@ import {
 import { colorFor } from './palette';
 import { modelKeyLabel } from './modelLabel';
 import { modelKeysSorted } from './aggregate';
+import { appendGlassDefs, drawGlassBar } from './glass';
 
 type Props = {
   rows: TokenUsageRow[];
@@ -49,6 +50,8 @@ export function SpendBars({ rows, prices, bundled }: Props) {
     sel.attr('width', w).attr('height', height);
     if (months.length === 0) return;
 
+    const ids = appendGlassDefs(svg, 'spend');
+
     const x = d3.scaleBand<string>()
       .domain(months.map((m) => m.month))
       .range([margin.left, w - margin.right])
@@ -60,20 +63,23 @@ export function SpendBars({ rows, prices, bundled }: Props) {
 
     for (const m of months) {
       let y0 = 0;
+      const mg = sel.append('g');
       for (const k of keys) {
         const v = m.byModel.get(k)?.total ?? 0;
         if (v <= 0) continue;
-        sel.append('rect')
-          .attr('data-role', 'spend-bar')
-          .attr('x', x(m.month)!)
-          .attr('width', x.bandwidth())
-          .attr('y', y(y0 + v))
-          .attr('height', Math.max(1, y(y0) - y(y0 + v)))
-          .attr('fill', colorFor(k, colorKeys))
-          .append('title')
-          .text(`${m.month} · ${modelKeyLabel(k)}: ${formatUsd(v)}`);
+        const front = drawGlassBar(mg, {
+          x: x(m.month)!,
+          y: y(y0 + v),
+          width: x.bandwidth(),
+          height: Math.max(1, y(y0) - y(y0 + v)),
+          color: colorFor(k, colorKeys),
+          ids,
+          role: 'spend-bar',
+        });
+        front.append('title').text(`${m.month} · ${modelKeyLabel(k)}: ${formatUsd(v)}`);
         y0 += v;
       }
+      // month label (unchanged)
       sel.append('text')
         .attr('x', x(m.month)! + x.bandwidth() / 2)
         .attr('y', height - 6)
