@@ -134,14 +134,26 @@ function MatrixRow({ k, color, months, maxCell, rowTotal, pinnedMonth, onCellCli
           if (!c) {
             return <td key={m.month} style={styles.td} data-testid={`spend-cell-${k}-${m.month}`}>—</td>;
           }
-          const alpha = maxCell > 0 ? 0.04 + (c.total / maxCell) * 0.22 : 0.04;
+          const pct = maxCell > 0 ? Math.round((c.total / maxCell) * 100) : 0;
           return (
             <td
               key={m.month}
               data-testid={`spend-cell-${k}-${m.month}`}
               onClick={() => onCellClick(m.month)}
-              style={{ ...styles.tdCell, background: hexToRgba(color, alpha) }}
-            >{formatUsd(c.total)}</td>
+              style={styles.tdCell}
+            >
+              <span
+                data-role="matrix-bar"
+                style={{
+                  position: 'absolute', left: 0, top: 0, bottom: 0,
+                  width: `${pct}%`,
+                  background: `linear-gradient(90deg, ${hexToRgba(color, 0.15)}, ${hexToRgba(color, 0.55)})`,
+                  boxShadow: pct > 80 ? `0 0 6px ${hexToRgba(color, 0.7)}` : 'none',
+                  borderRight: `1px solid ${hexToRgba(color, 0.9)}`,
+                }}
+              />
+              <span style={styles.cellNum}>{formatUsd(c.total)}</span>
+            </td>
           );
         })}
         <td style={styles.tdRight}>{formatUsd(rowTotal)}</td>
@@ -173,7 +185,8 @@ const styles = {
   thRight: { textAlign: 'right' as const, padding: '5px 8px', color: 'var(--edge-trail)', fontWeight: 400, letterSpacing: 1, borderBottom: '1px solid rgba(110,224,238,0.18)' },
   tdLeft: { textAlign: 'left' as const, padding: '5px 8px', color: 'var(--text)', borderTop: '1px solid rgba(110,224,238,0.08)' },
   td: { textAlign: 'right' as const, padding: '5px 8px', color: 'var(--text-dim)', borderTop: '1px solid rgba(110,224,238,0.08)' },
-  tdCell: { textAlign: 'right' as const, padding: '5px 8px', color: 'var(--text)', borderTop: '1px solid rgba(110,224,238,0.08)', cursor: 'pointer' as const },
+  tdCell: { position: 'relative' as const, textAlign: 'right' as const, padding: '5px 8px', color: 'var(--text)', borderTop: '1px solid rgba(110,224,238,0.08)', cursor: 'pointer' as const, overflow: 'hidden' as const },
+  cellNum: { position: 'relative' as const, zIndex: 1 },
   tdRight: { textAlign: 'right' as const, padding: '5px 8px', color: 'var(--edge-trail)', borderTop: '1px solid rgba(110,224,238,0.08)' },
   tdGrand: { textAlign: 'right' as const, padding: '5px 8px', color: 'var(--edge-trail)', borderTop: '1px solid rgba(110,224,238,0.25)' },
   pinCell: { textAlign: 'left' as const, padding: '2px 8px 6px 20px', color: 'var(--text-dim)', fontSize: 9 },

@@ -58,4 +58,18 @@ describe('SpendMatrix', () => {
     render(<SpendMatrix rows={[]} prices={{}} bundled={BUNDLED} todayMonth="2026-06" />);
     expect(screen.getByText('NO PRICED USAGE IN RANGE')).toBeTruthy();
   });
+
+  it('renders a glass mini-bar scaled to the cell value', () => {
+    render(<SpendMatrix rows={ROWS} prices={{}} bundled={BUNDLED} todayMonth="2026-06" />);
+    const cell = screen.getByTestId('spend-cell-claude-opus-4-8-2026-05'); // $5 — the max cell -> full width
+    const bar = cell.querySelector('[data-role="matrix-bar"]') as HTMLElement;
+    expect(bar).not.toBeNull();
+    expect(bar.style.width).toBe('100%');
+    // value text is still exactly the $ figure
+    expect(cell.textContent).toBe('$5.00');
+    // a smaller cell gets a narrower bar
+    const small = screen.getByTestId('spend-cell-claude-sonnet-4-6-2026-06'); // $3 of max $5 = 60%
+    const smallBar = small.querySelector('[data-role="matrix-bar"]') as HTMLElement;
+    expect(smallBar.style.width).toBe('60%');
+  });
 });
