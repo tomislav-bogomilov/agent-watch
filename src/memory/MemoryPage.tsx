@@ -20,7 +20,7 @@ type Props = {
 
 export function MemoryPage({ selected, onSelectMemory, onJumpToSession, creatingScope, onCreateDone, knownSessionIds }: Props) {
   const { data, isLoading, error } = useMemoryList();
-  const [view, setView] = useState<View>('detail');
+  const [view, setView] = useState<View>('graph');
   const create = useCreateMemory();
 
   const memories = data?.memories ?? [];
