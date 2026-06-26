@@ -33,4 +33,13 @@ describe('glass helper', () => {
     expect(svg.querySelectorAll('[data-role="bar"]').length).toBe(1);
     expect(svg.querySelectorAll('[data-role="bar-cap"]').length).toBe(0);
   });
+
+  it('supports two different prefixes on the same svg', () => {
+    const svg = document.createElementNS(NS, 'svg') as SVGSVGElement;
+    appendGlassDefs(svg, 'daily');
+    appendGlassDefs(svg, 'spend');
+    expect(svg.querySelector('#daily-glass-glow')).not.toBeNull();
+    expect(svg.querySelector('#spend-glass-glow')).not.toBeNull();
+    expect(svg.querySelectorAll('defs[data-glass]').length).toBe(2);
+  });
 });

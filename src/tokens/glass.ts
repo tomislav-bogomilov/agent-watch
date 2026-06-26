@@ -12,7 +12,7 @@ export function appendGlassDefs(svgEl: SVGSVGElement, prefix: string): GlassIds 
     softglow: `${prefix}-glass-softglow`,
   };
   const svg = d3.select(svgEl);
-  if (!svg.select('defs[data-glass]').empty()) return ids;
+  if (!svg.select(`defs[data-glass="${prefix}"]`).empty()) return ids;
   const defs = svg.insert('defs', ':first-child').attr('data-glass', prefix);
 
   const sheen = defs.append('linearGradient')
