@@ -13,6 +13,7 @@ import {
   type DayRow,
 } from './aggregate';
 import { colorFor } from './palette';
+import { appendGlassDefs, drawGlassBar } from './glass';
 import { TOKEN_TYPE_KEYS, tokenTypeColor, tokenTypeLabel } from './tokenType';
 import { formatTokens } from '../util/formatTokens';
 import { modelLabel } from './modelLabel';
@@ -31,8 +32,6 @@ type Hover = { day: string; key: string; value: number; cx: number; cy: number }
 
 const MARGIN = { top: 16, right: 16, bottom: 28, left: 56 };
 const TOOLTIP_W = 140;
-const ISO_OFF_X = 5;
-const ISO_OFF_Y = 5;
 const LEGEND_H = 32;
 
 const PANEL_BG: React.CSSProperties = {
@@ -173,92 +172,27 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric, family
         g.select('.domain').attr('stroke', 'rgba(110,224,238,0.25)');
       });
 
-    // Isometric wireframe bars — drawing order: side polygons, front rects, top polygons.
-    // One <g> per series.
+    // Hologram-Glass bars — one group per series; drawGlassBar handles the
+    // glass fill, sheen, bloom and cap. The front rect stays interactive.
+    const ids = appendGlassDefs(svgRef.current, 'daily');
     const barsG = svg.append('g');
-
-    // Pass 1: side polygons (drawn first, behind everything)
     series.forEach((s) => {
       const color = colorOf(s.key);
-      const sideG = barsG.append('g');
+      const sg = barsG.append('g');
       s.forEach((d) => {
         const bx = x(d.data.day) ?? 0;
         const bw = x.bandwidth();
         const yTop = y(d[1]);
-        const yBottom = y(d[0]);
-        const h = Math.max(0, yBottom - yTop);
-        if (h <= 0) return;
-        // Side panel: right face of the bar, offset ISO_OFF_X right and ISO_OFF_Y up
-        const pts = [
-          `${bx + bw},${yTop}`,
-          `${bx + bw + ISO_OFF_X},${yTop - ISO_OFF_Y}`,
-          `${bx + bw + ISO_OFF_X},${yBottom - ISO_OFF_Y}`,
-          `${bx + bw},${yBottom}`,
-        ].join(' ');
-        sideG.append('polygon')
-          .attr('points', pts)
-          .attr('fill', color)
-          .attr('fill-opacity', 0.08)
-          .attr('stroke', color)
-          .attr('stroke-width', 1)
-          .attr('stroke-opacity', 1);
-      });
-    });
-
-    // Pass 2: front rects (data-role="bar" goes here only, for test assertion compat)
-    const frontG = barsG.append('g');
-    series.forEach((s) => {
-      const color = colorOf(s.key);
-      frontG.append('g')
-        .selectAll('rect')
-        .data(s)
-        .join('rect')
-        .attr('data-role', 'bar')
-        .attr('data-key', s.key)
-        .attr('data-day', (d) => d.data.day)
-        .attr('x', (d) => x(d.data.day) ?? 0)
-        .attr('y', (d) => y(d[1]))
-        .attr('height', (d) => Math.max(0, y(d[0]) - y(d[1])))
-        .attr('width', x.bandwidth())
-        .attr('fill', color)
-        .attr('fill-opacity', 0.10)
-        .attr('stroke', color)
-        .attr('stroke-width', 1.1)
-        .attr('stroke-opacity', 1)
-        .style('cursor', 'crosshair')
-        .on('mouseenter', (_event, d) => {
-          const rx = (x(d.data.day) ?? 0) + x.bandwidth() / 2;
-          const ry = y(d[1]);
-          setHover({ day: d.data.day, key: s.key, value: d[1] - d[0], cx: rx, cy: ry });
-        })
-        .on('mouseleave', () => setHover(null));
-    });
-
-    // Pass 3: top polygons (drawn last, on top)
-    series.forEach((s) => {
-      const color = colorOf(s.key);
-      const topG = barsG.append('g');
-      s.forEach((d) => {
-        const bx = x(d.data.day) ?? 0;
-        const bw = x.bandwidth();
-        const yTop = y(d[1]);
-        const yBottom = y(d[0]);
-        const h = Math.max(0, yBottom - yTop);
-        if (h <= 0) return;
-        // Top face: parallelogram on the top of the bar
-        const pts = [
-          `${bx},${yTop}`,
-          `${bx + ISO_OFF_X},${yTop - ISO_OFF_Y}`,
-          `${bx + bw + ISO_OFF_X},${yTop - ISO_OFF_Y}`,
-          `${bx + bw},${yTop}`,
-        ].join(' ');
-        topG.append('polygon')
-          .attr('points', pts)
-          .attr('fill', color)
-          .attr('fill-opacity', 0.15)
-          .attr('stroke', color)
-          .attr('stroke-width', 1)
-          .attr('stroke-opacity', 1);
+        const h = Math.max(0, y(d[0]) - y(d[1]));
+        const front = drawGlassBar(sg, { x: bx, y: yTop, width: bw, height: h, color, ids, role: 'bar' });
+        front
+          .attr('data-key', s.key)
+          .attr('data-day', d.data.day)
+          .style('cursor', 'crosshair')
+          .on('mouseenter', () => {
+            setHover({ day: d.data.day, key: s.key, value: d[1] - d[0], cx: bx + bw / 2, cy: yTop });
+          })
+          .on('mouseleave', () => setHover(null));
       });
     });
   }, [hasData, width, svgHeight, days, allKeys, activeKeys, data, metric]);

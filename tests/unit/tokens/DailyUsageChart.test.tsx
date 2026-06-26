@@ -37,6 +37,13 @@ describe('DailyUsageChart', () => {
     expect(screen.getByText(/NO USAGE IN RANGE/i)).toBeDefined();
   });
 
+  it('renders glass caps on the non-zero segments', () => {
+    render(chart('total'));
+    // glass defs present + at least one cap drawn for the populated days
+    expect(document.querySelector('svg defs[data-glass="daily"]')).not.toBeNull();
+    expect(document.querySelectorAll('svg [data-role="bar-cap"]').length).toBeGreaterThan(0);
+  });
+
   it('TOTAL mode legend chips display token-type labels and distinct swatch colors', () => {
     render(chart('total'));
 
@@ -51,7 +58,7 @@ describe('DailyUsageChart', () => {
       const chip = screen.getByTestId(`legend-chip-${k}`);
       const swatch = chip.querySelector('span[aria-hidden]');
       // In jsdom, inline style "background: color" is read via .style.background, not .style.backgroundColor
-      return swatch?.style.background || '';
+      return (swatch as HTMLElement | null)?.style.background || '';
     });
 
     const uniqueColors = new Set(swatchColors.filter((c) => c.length > 0));
