@@ -239,3 +239,51 @@ describe('write operations', () => {
     expect(files).toContain('global-note.md');
   });
 });
+
+// Memories created by Claude Code's auto-memory can have a snake_case filename
+// AND a free-text frontmatter `name` (e.g. "Constants belong on the page object…").
+// The app must identify them by their on-disk filename, not the display name —
+// otherwise edits hit the kebab-only `isMemoryName` guard and 400.
+describe('identify by filename (non-kebab / free-text names)', () => {
+  async function makeFreeStore(): Promise<string> {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'memf-'));
+    const projects = path.join(tmp, 'projects');
+    const dir = path.join(projects, 'C--demo', 'memory');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'feedback_constants_placement.md'),
+      `---\nname: Constants belong on the page object that owns them\ndescription: Constants live on the page object\ntype: feedback\noriginSessionId: keep-123\n---\nBody about constants.\n`);
+    await fs.writeFile(path.join(dir, 'MEMORY.md'),
+      `- [Constants belong on the page object that owns them](feedback_constants_placement.md) — owns them\n`);
+    return projects;
+  }
+
+  it('readMemoryStore exposes the on-disk filename separately from the display name', async () => {
+    const out = await readMemoryStore(await makeFreeStore());
+    const rec = out.memories.find((m) => m.fileName === 'feedback_constants_placement');
+    expect(rec).toBeTruthy();
+    expect(rec!.name).toBe('Constants belong on the page object that owns them');
+    expect(rec!.fileName).toBe('feedback_constants_placement');
+    expect(rec!.inIndex).toBe(true);
+  });
+
+  it('updateMemory routes by filename and preserves the free-text frontmatter name', async () => {
+    const projects = await makeFreeStore();
+    const rec = await updateMemory(projects, 'C--demo', 'feedback_constants_placement',
+      { description: 'updated desc', type: 'feedback', body: 'edited body' });
+    expect(rec.fileName).toBe('feedback_constants_placement');
+    expect(rec.name).toBe('Constants belong on the page object that owns them'); // preserved, not clobbered
+    expect(rec.type).toBe('feedback');
+    expect(rec.originSessionId).toBe('keep-123');
+    const dir = memoryDirFor(projects, 'C--demo');
+    const written = await fs.readFile(path.join(dir, 'feedback_constants_placement.md'), 'utf8');
+    expect(written).toContain('edited body');
+    expect(parseMemoryFile(written).frontmatter.name).toBe('Constants belong on the page object that owns them');
+  });
+
+  it('deleteMemory routes by filename for a non-kebab file', async () => {
+    const projects = await makeFreeStore();
+    await deleteMemory(projects, 'C--demo', 'feedback_constants_placement');
+    const dir = memoryDirFor(projects, 'C--demo');
+    await expect(fs.stat(path.join(dir, 'feedback_constants_placement.md'))).rejects.toThrow();
+  });
+});

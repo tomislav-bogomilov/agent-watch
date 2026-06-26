@@ -67,8 +67,8 @@ export function useCreateMemory() {
 export function useUpdateMemory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { scopeKey: string; name: string; description: string; type: MemoryType; body: string }) =>
-      updateMemory(v.scopeKey, v.name, { description: v.description, type: v.type, body: v.body }),
+    mutationFn: (v: { scopeKey: string; fileName: string; description: string; type: MemoryType; body: string }) =>
+      updateMemory(v.scopeKey, v.fileName, { description: v.description, type: v.type, body: v.body }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['memory'] }),
   });
 }
@@ -76,7 +76,7 @@ export function useUpdateMemory() {
 export function useDeleteMemory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { scopeKey: string; name: string }) => deleteMemory(v.scopeKey, v.name),
+    mutationFn: (v: { scopeKey: string; fileName: string }) => deleteMemory(v.scopeKey, v.fileName),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['memory'] }),
   });
 }

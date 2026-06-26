@@ -23,9 +23,11 @@ export function MemoryDetail({ memory, knownNames, backlinks, onNavigate, onJump
   const del = useDeleteMemory();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Perform the write only. A rejection propagates to the editor, which now
+  // surfaces it instead of silently doing nothing. The editor calls onSaved
+  // once its success animation has played, which is when we close.
   async function save(v: EditorValue) {
-    await update.mutateAsync({ scopeKey: memory.scopeKey, name: memory.name, description: v.description, type: v.type, body: v.body });
-    setEditing(false);
+    await update.mutateAsync({ scopeKey: memory.scopeKey, fileName: memory.fileName, description: v.description, type: v.type, body: v.body });
   }
 
   if (editing) {
@@ -35,8 +37,8 @@ export function MemoryDetail({ memory, knownNames, backlinks, onNavigate, onJump
         initial={{ name: memory.name, description: memory.description, type: memory.type ?? 'project', body: memory.body }}
         knownNames={[...knownNames]}
         onSave={save}
+        onSaved={() => setEditing(false)}
         onCancel={() => setEditing(false)}
-        pending={update.isPending}
       />
     );
   }
@@ -88,7 +90,7 @@ export function MemoryDetail({ memory, knownNames, backlinks, onNavigate, onJump
           <div>Delete <strong>{memory.name}</strong>?</div>
           <div style={styles.actions}>
             <button data-testid="delete-confirm-yes" style={{ ...styles.act, ...styles.del }} disabled={del.isPending}
-              onClick={() => del.mutate({ scopeKey: memory.scopeKey, name: memory.name })}>
+              onClick={() => del.mutate({ scopeKey: memory.scopeKey, fileName: memory.fileName })}>
               {del.isPending ? 'DELETING…' : 'CONFIRM DELETE'}
             </button>
             <button style={styles.act} onClick={() => setConfirmDelete(false)}>cancel</button>

@@ -7,7 +7,7 @@ import type { MemoryRecord } from '../../../src/api/client';
 function rec(name: string, links: string[] = []): MemoryRecord {
   return {
     scopeKey: 'C--demo', scope: { kind: 'project', projectId: 'C--demo', cwd: 'C:/demo' },
-    name, description: '', type: 'project', originSessionId: null, links, body: '', mtimeMs: 0, inIndex: true,
+    fileName: name, name, description: '', type: 'project', originSessionId: null, links, body: '', mtimeMs: 0, inIndex: true,
   };
 }
 

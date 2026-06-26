@@ -55,17 +55,17 @@ export async function createMemory(
 }
 
 export async function updateMemory(
-  scopeKey: string, name: string, patch: { description: string; type: MemoryType; body: string }
+  scopeKey: string, fileName: string, patch: { description: string; type: MemoryType; body: string }
 ): Promise<MemoryRecord> {
-  const res = await fetch(`/api/memory/${encodeURIComponent(scopeKey)}/${encodeURIComponent(name)}`, {
+  const res = await fetch(`/api/memory/${encodeURIComponent(scopeKey)}/${encodeURIComponent(fileName)}`, {
     method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch),
   });
   if (!res.ok) throw new Error(`update failed: ${res.status}`);
   return (await res.json()) as MemoryRecord;
 }
 
-export async function deleteMemory(scopeKey: string, name: string): Promise<{ brokenBacklinks: string[] }> {
-  const res = await fetch(`/api/memory/${encodeURIComponent(scopeKey)}/${encodeURIComponent(name)}`, { method: 'DELETE' });
+export async function deleteMemory(scopeKey: string, fileName: string): Promise<{ brokenBacklinks: string[] }> {
+  const res = await fetch(`/api/memory/${encodeURIComponent(scopeKey)}/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`delete failed: ${res.status}`);
   return (await res.json()) as { brokenBacklinks: string[] };
 }

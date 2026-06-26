@@ -107,7 +107,9 @@ export function parseIndex(raw: string): MemoryIndexEntry[] {
     const m = line.trim().match(INDEX_LINE_RE);
     if (!m) continue;
     const name = m[2].trim();
-    if (!isMemoryName(name)) continue;
+    // The link target is a filename stem (may be snake_case / mixed-case); only
+    // reject traversal-unsafe targets, not merely non-kebab ones.
+    if (!isSafeMemoryFileName(name)) continue;
     out.push({ title: m[1].trim(), name, hook: m[3]?.trim() || undefined, filePresent: false });
   }
   return out;
@@ -170,6 +172,24 @@ export function resolveMemoryFile(projectsRoot: string, scopeKey: string, name: 
   return path.join(memoryDirFor(projectsRoot, scopeKey), `${name}.md`);
 }
 
+// Whether a string is safe to use as an on-disk memory filename stem. Unlike
+// isMemoryName (kebab-only, used when CREATING), this permits the snake_case /
+// mixed-case stems Claude Code's auto-memory writes — it only has to guarantee
+// the stem cannot escape the scope dir.
+export function isSafeMemoryFileName(s: string): boolean {
+  return typeof s === 'string' && s.length > 0
+    && !s.includes('/') && !s.includes('\\') && !s.includes('\0')
+    && !s.split(/[/\\]/).includes('..') && s !== '.' && s !== '..';
+}
+
+// Resolve an EXISTING memory file by its real on-disk filename stem (for
+// update/delete). The display `name` (frontmatter) may be free text and is NOT
+// usable here; the filename is the stable identity.
+export function resolveMemoryFileByName(projectsRoot: string, scopeKey: string, fileName: string): string {
+  if (!isSafeMemoryFileName(fileName)) throw new Error(`invalid memory file: ${fileName}`);
+  return path.join(memoryDirFor(projectsRoot, scopeKey), `${fileName}.md`);
+}
+
 import { promises as fs } from 'node:fs';
 
 export type MemoryScope =
@@ -179,6 +199,9 @@ export type MemoryScope =
 export type MemoryRecord = {
   scopeKey: string;
   scope: MemoryScope;
+  /** On-disk filename stem (without .md) — the stable identity used for writes. */
+  fileName: string;
+  /** Display title from frontmatter `name`; may be free text. Not a routing key. */
   name: string;
   description: string;
   type: MemoryType | null;
@@ -232,16 +255,18 @@ async function readScope(
     if (!stat.isFile()) continue;
     const raw = await fs.readFile(full, 'utf8').catch(() => '');
     const parsed = parseMemoryFile(raw);
-    const name = parsed.frontmatter.name ?? f.replace(/\.md$/, '');
+    const fileName = f.replace(/\.md$/, '');
+    const name = parsed.frontmatter.name ?? fileName;
     out.push({
-      scopeKey, scope, name,
+      scopeKey, scope, fileName, name,
       description: parsed.frontmatter.description ?? '',
       type: parsed.frontmatter.type ?? null,
       originSessionId: parsed.frontmatter.originSessionId ?? null,
       links: parsed.links,
       body: parsed.body,
       mtimeMs: stat.mtimeMs,
-      inIndex: indexNames.has(name),
+      // The index links to files by stem, so membership is keyed by fileName.
+      inIndex: indexNames.has(fileName),
       parseError: parsed.parseError,
     });
   }
@@ -282,17 +307,17 @@ async function backupFile(filePath: string): Promise<void> {
   } catch { /* nothing to back up */ }
 }
 
-async function readRecord(projectsRoot: string, scopeKey: string, name: string): Promise<MemoryRecord> {
-  const file = resolveMemoryFile(projectsRoot, scopeKey, name);
+async function readRecord(projectsRoot: string, scopeKey: string, fileName: string): Promise<MemoryRecord> {
+  const file = resolveMemoryFileByName(projectsRoot, scopeKey, fileName);
   const stat = await fs.stat(file);
   const parsed = parseMemoryFile(await fs.readFile(file, 'utf8'));
   const scope: MemoryScope = scopeKey === 'global'
     ? { kind: 'global' }
     : { kind: 'project', projectId: scopeKey, cwd: decodeProjectId(scopeKey) };
   const indexRaw = await fs.readFile(path.join(memoryDirFor(projectsRoot, scopeKey), 'MEMORY.md'), 'utf8').catch(() => '');
-  const inIndex = parseIndex(indexRaw).some((e) => e.name === name);
+  const inIndex = parseIndex(indexRaw).some((e) => e.name === fileName);
   return {
-    scopeKey, scope, name,
+    scopeKey, scope, fileName, name: parsed.frontmatter.name ?? fileName,
     description: parsed.frontmatter.description ?? '',
     type: parsed.frontmatter.type ?? null,
     originSessionId: parsed.frontmatter.originSessionId ?? null,
@@ -329,31 +354,39 @@ export async function createMemory(
 }
 
 export async function updateMemory(
-  projectsRoot: string, scopeKey: string, name: string,
+  projectsRoot: string, scopeKey: string, fileName: string,
   patch: { description: string; type: MemoryType; body: string },
 ): Promise<MemoryRecord> {
-  const file = resolveMemoryFile(projectsRoot, scopeKey, name);
+  const file = resolveMemoryFileByName(projectsRoot, scopeKey, fileName);
   const prior = parseMemoryFile(await fs.readFile(file, 'utf8'));
+  // Preserve the existing display name — the editor doesn't change it, and it
+  // may be free text that isn't derivable from the filename.
+  const name = prior.frontmatter.name ?? fileName;
   await backupFile(file);
   await fs.writeFile(file, serializeMemory({
     name, description: patch.description, type: patch.type,
     originSessionId: prior.frontmatter.originSessionId ?? null, body: patch.body,
   }), 'utf8');
+  // Index links by filename stem; title reflects the (possibly free-text) name.
   const e = deriveIndexEntry(name, patch.description);
-  await writeIndex(projectsRoot, scopeKey, (raw) => upsertIndexLine(raw, e.name, e.title, e.hook));
-  return readRecord(projectsRoot, scopeKey, name);
+  await writeIndex(projectsRoot, scopeKey, (raw) => upsertIndexLine(raw, fileName, e.title, e.hook));
+  return readRecord(projectsRoot, scopeKey, fileName);
 }
 
 export async function deleteMemory(
-  projectsRoot: string, scopeKey: string, name: string,
+  projectsRoot: string, scopeKey: string, fileName: string,
 ): Promise<{ brokenBacklinks: string[] }> {
-  const file = resolveMemoryFile(projectsRoot, scopeKey, name);
+  const file = resolveMemoryFileByName(projectsRoot, scopeKey, fileName);
   const store = await readMemoryStore(projectsRoot);
+  // Backlinks reference the display name (via [[name]]), so resolve it from the
+  // record we're deleting rather than the filename.
+  const target = store.memories.find((m) => m.scopeKey === scopeKey && m.fileName === fileName);
+  const displayName = target?.name ?? fileName;
   const brokenBacklinks = store.memories
-    .filter((m) => m.name !== name && m.links.includes(name))
+    .filter((m) => m.fileName !== fileName && m.links.includes(displayName))
     .map((m) => m.name);
   await backupFile(file);
   await fs.rm(file);
-  await writeIndex(projectsRoot, scopeKey, (raw) => removeIndexLine(raw, name));
+  await writeIndex(projectsRoot, scopeKey, (raw) => removeIndexLine(raw, fileName));
   return { brokenBacklinks };
 }

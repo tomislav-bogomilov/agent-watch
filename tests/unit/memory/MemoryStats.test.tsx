@@ -8,7 +8,7 @@ import type { MemoryRecord } from '../../../src/api/client';
 function rec(p: Partial<MemoryRecord> & { name: string }): MemoryRecord {
   return {
     scopeKey: 'C--demo', scope: { kind: 'project', projectId: 'C--demo', cwd: 'C:/demo' },
-    name: p.name, description: '', type: p.type ?? 'project', originSessionId: p.originSessionId ?? null,
+    fileName: p.fileName ?? p.name, name: p.name, description: '', type: p.type ?? 'project', originSessionId: p.originSessionId ?? null,
     links: p.links ?? [], body: '', mtimeMs: p.mtimeMs ?? Date.now(), inIndex: p.inIndex ?? true,
   };
 }

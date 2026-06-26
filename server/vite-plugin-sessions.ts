@@ -5,7 +5,7 @@ import type { Plugin } from 'vite';
 import { syncTokenUsage } from './usage-sync';
 import {
   readMemoryStore, createMemory, updateMemory, deleteMemory,
-  isMemoryName, type MemoryType,
+  isMemoryName, isSafeMemoryFileName, type MemoryType,
 } from './memory-store';
 import { claudeHome, sendJson, readBody, isSafeScopeKey, assertInsideRoot, isNarratorProject, isTempProject } from './plugin-shared';
 
@@ -429,19 +429,20 @@ export function sessionsPlugin(): Plugin {
             return;
           }
 
-          // PUT / DELETE /:scopeKey/:name
+          // PUT / DELETE /:scopeKey/:fileName  (fileName = on-disk stem, the
+          // stable id — may be snake_case / mixed-case, not just kebab)
           const itemMatch = url.match(/^\/([^/]+)\/([^/]+)$/);
           if (itemMatch) {
             const scopeKey = decodeURIComponent(itemMatch[1]);
-            const name = decodeURIComponent(itemMatch[2]);
-            if (!isSafeScopeKey(scopeKey) || !isMemoryName(name)) { sendJson(res, 400, { error: 'invalid id' }); return; }
+            const fileName = decodeURIComponent(itemMatch[2]);
+            if (!isSafeScopeKey(scopeKey) || !isSafeMemoryFileName(fileName)) { sendJson(res, 400, { error: 'invalid id' }); return; }
 
             if (method === 'PUT') {
               let b: { description?: string; type?: unknown; body?: string };
               try { b = JSON.parse(await readBody(req)); }
               catch { sendJson(res, 400, { error: 'invalid JSON' }); return; }
               if (!isMemoryType(b.type)) { sendJson(res, 400, { error: 'invalid type' }); return; }
-              const rec = await updateMemory(root, scopeKey, name, {
+              const rec = await updateMemory(root, scopeKey, fileName, {
                 description: typeof b.description === 'string' ? b.description : '',
                 type: b.type,
                 body: typeof b.body === 'string' ? b.body : '',
@@ -450,7 +451,7 @@ export function sessionsPlugin(): Plugin {
               return;
             }
             if (method === 'DELETE') {
-              sendJson(res, 200, await deleteMemory(root, scopeKey, name));
+              sendJson(res, 200, await deleteMemory(root, scopeKey, fileName));
               return;
             }
           }
