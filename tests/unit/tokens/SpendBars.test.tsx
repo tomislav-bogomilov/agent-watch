@@ -62,4 +62,10 @@ describe('SpendBars', () => {
     expect(titles).toContain('2026-05 · Opus 4.8: $5.00');
     expect(titles).toContain('2026-06 · Sonnet 4.6: $3.00');
   });
+
+  it('draws glass caps + defs for the priced segments', () => {
+    const { container } = render(<SpendBars rows={ROWS} prices={{}} bundled={BUNDLED} />);
+    expect(container.querySelector('svg defs[data-glass="spend"]')).not.toBeNull();
+    expect(container.querySelectorAll('svg [data-role="bar-cap"]').length).toBe(3);
+  });
 });

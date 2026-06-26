@@ -39,9 +39,9 @@ function readPreset(): RangePreset {
   try {
     const raw = localStorage.getItem(STORAGE_PRESET);
     if (raw === '7d' || raw === '30d' || raw === '90d' || raw === 'all') return raw;
-    return '30d';
+    return '7d';
   } catch {
-    return '30d';
+    return '7d';
   }
 }
 

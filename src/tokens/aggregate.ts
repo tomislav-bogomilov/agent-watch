@@ -85,6 +85,26 @@ export function stackData(
   return days.map((d) => dayMap.get(d)!);
 }
 
+// Per-day stack keyed by the four fixed token types (cacheWrite folds 5m+1h).
+// Used by the daily chart's TOTAL view so the stack shows token composition
+// instead of per-model bars (which look identical to CACHED — cache reads
+// dominate volume).
+export function stackDataByType(rows: TokenUsageRow[], days: string[]): DayRow[] {
+  const dayMap = new Map<string, DayRow>();
+  for (const d of days) {
+    dayMap.set(d, { day: d, values: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } });
+  }
+  for (const r of rows) {
+    const slot = dayMap.get(r.day);
+    if (!slot) continue;
+    slot.values.input += r.input;
+    slot.values.output += r.output;
+    slot.values.cacheRead += r.cacheRead;
+    slot.values.cacheWrite += r.cacheWrite5m + r.cacheWrite1h;
+  }
+  return days.map((d) => dayMap.get(d)!);
+}
+
 export type ModelSummary = {
   modelId: string;
   isSubagent: boolean;

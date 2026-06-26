@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { usePlayback } from '../../src/playback/usePlayback';
+import { usePlayback, SPEED_STEPS, stepSpeed } from '../../src/playback/usePlayback';
 import type { Milestone } from '../../src/parse/types';
 
 function ms(id: string, children: Milestone[] = []): Milestone {
@@ -39,11 +39,11 @@ describe('usePlayback', () => {
     expect(result.current.state.index).toBe(0);
   });
 
-  it('exposes 0.25×, 0.5×, 1×, 2×, 4× speeds via setSpeed', () => {
+  it('exposes 0.3×, 0.5×, 1×, 2×, 4× speeds via setSpeed', () => {
     const root = ms('a');
     const { result } = renderHook(() => usePlayback(root));
-    act(() => { result.current.controls.setSpeed(0.25); });
-    expect(result.current.state.speed).toBe(0.25);
+    act(() => { result.current.controls.setSpeed(0.3); });
+    expect(result.current.state.speed).toBe(0.3);
     act(() => { result.current.controls.setSpeed(0.5); });
     expect(result.current.state.speed).toBe(0.5);
     act(() => { result.current.controls.setSpeed(4); });
@@ -56,5 +56,21 @@ describe('usePlayback', () => {
     act(() => { result.current.controls.scrubTo(2); });
     expect(result.current.state.index).toBe(2);
     expect(result.current.state.playing).toBe(false);
+  });
+
+  it('defaults to 0.3x (the calm default speed)', () => {
+    const root = ms('a', [ms('b')]);
+    const { result } = renderHook(() => usePlayback(root));
+    expect(result.current.state.speed).toBe(0.3);
+  });
+
+  it('stepSpeed walks the ladder and clamps at both ends', () => {
+    expect(SPEED_STEPS).toEqual([0.1, 0.3, 0.5, 1, 2, 4]);
+    expect(stepSpeed(0.3, 1)).toBe(0.5);  // step up from the default
+    expect(stepSpeed(0.3, -1)).toBe(0.1); // step down from the default
+    expect(stepSpeed(1, 1)).toBe(2);
+    expect(stepSpeed(1, -1)).toBe(0.5);
+    expect(stepSpeed(4, 1)).toBe(4);   // clamp high
+    expect(stepSpeed(0.1, -1)).toBe(0.1); // clamp low
   });
 });

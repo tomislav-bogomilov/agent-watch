@@ -41,21 +41,22 @@ describe('TokensPage view toggle', () => {
     expect(screen.getByTestId('usage-view-tokens').getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('switches to SPEND · BARS and shows the disclaimer', async () => {
+  it('SPEND defaults to the MATRIX mode', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('usage-view-spend'));
-    expect(await screen.findByTestId('spend-bars')).toBeTruthy();
-    expect(screen.getByTestId('spend-disclaimer').textContent).toContain('API LIST PRICES');
-    expect(screen.queryByTestId('model-row-claude-opus-4-8')).toBeNull(); // TOKENS panels hidden
-  });
-
-  it('switches between BARS and MATRIX', async () => {
-    renderPage();
-    fireEvent.click(screen.getByTestId('usage-view-spend'));
-    fireEvent.click(await screen.findByTestId('spend-mode-matrix'));
     expect(await screen.findByTestId('spend-matrix')).toBeTruthy();
     expect(screen.queryByTestId('spend-bars')).toBeNull();
-    fireEvent.click(screen.getByTestId('spend-mode-bars'));
+    expect(screen.getByTestId('spend-mode-matrix').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('spend-disclaimer').textContent).toContain('API LIST PRICES');
+  });
+
+  it('switches from MATRIX to BARS and back', async () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('usage-view-spend'));
+    fireEvent.click(await screen.findByTestId('spend-mode-bars'));
     expect(await screen.findByTestId('spend-bars')).toBeTruthy();
+    expect(screen.queryByTestId('spend-matrix')).toBeNull();
+    fireEvent.click(screen.getByTestId('spend-mode-matrix'));
+    expect(await screen.findByTestId('spend-matrix')).toBeTruthy();
   });
 });
