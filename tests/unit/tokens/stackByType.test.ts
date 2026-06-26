@@ -24,5 +24,10 @@ describe('stackDataByType', () => {
     expect([...TOKEN_TYPE_KEYS]).toEqual(['input', 'output', 'cacheRead', 'cacheWrite']);
     expect(tokenTypeLabel('cacheRead')).toBe('Cache Read');
     expect(tokenTypeColor('input')).toBe('#00E5FF');
+    expect(tokenTypeColor('output')).toBe('#7FFFD4');
+    expect(tokenTypeColor('cacheRead')).toBe('#B47FF6');
+    expect(tokenTypeColor('cacheWrite')).toBe('#FF7A1A');
+    expect(tokenTypeColor('nope')).toBe('#9CA3AF');
+    expect(tokenTypeLabel('nope')).toBe('nope');
   });
 });
