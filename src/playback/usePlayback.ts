@@ -19,6 +19,15 @@ export function msPerNode(speed: Speed): number {
   return BASE_MS_PER_NODE / speed;
 }
 
+export const SPEED_STEPS: Speed[] = [0.1, 0.25, 0.5, 1, 2, 4];
+
+export function stepSpeed(current: Speed, dir: 1 | -1): Speed {
+  const i = SPEED_STEPS.indexOf(current);
+  const base = i < 0 ? SPEED_STEPS.indexOf(2) : i;
+  const next = Math.max(0, Math.min(SPEED_STEPS.length - 1, base + dir));
+  return SPEED_STEPS[next];
+}
+
 export function nextIndexMatching(
   order: Milestone[],
   from: number,
@@ -68,7 +77,7 @@ export function usePlayback(root: Milestone | null): { state: PlaybackState; con
   // two, skipping every other node. One state, pure updater, no skipping.
   const [position, setPosition] = useState<Position>({ index: 0, edgeProgress: 0 });
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<Speed>(0.1);
+  const [speed, setSpeed] = useState<Speed>(2);
   const lastTickRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 

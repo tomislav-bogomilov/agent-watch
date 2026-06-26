@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { usePlayback } from '../../src/playback/usePlayback';
+import { usePlayback, SPEED_STEPS, stepSpeed } from '../../src/playback/usePlayback';
 import type { Milestone } from '../../src/parse/types';
 
 function ms(id: string, children: Milestone[] = []): Milestone {
@@ -56,5 +56,19 @@ describe('usePlayback', () => {
     act(() => { result.current.controls.scrubTo(2); });
     expect(result.current.state.index).toBe(2);
     expect(result.current.state.playing).toBe(false);
+  });
+
+  it('defaults to 2x (quicker than the old 0.1x)', () => {
+    const root = ms('a', [ms('b')]);
+    const { result } = renderHook(() => usePlayback(root));
+    expect(result.current.state.speed).toBe(2);
+  });
+
+  it('stepSpeed walks the ladder and clamps at both ends', () => {
+    expect(SPEED_STEPS).toEqual([0.1, 0.25, 0.5, 1, 2, 4]);
+    expect(stepSpeed(1, 1)).toBe(2);
+    expect(stepSpeed(1, -1)).toBe(0.5);
+    expect(stepSpeed(4, 1)).toBe(4);   // clamp high
+    expect(stepSpeed(0.1, -1)).toBe(0.1); // clamp low
   });
 });
