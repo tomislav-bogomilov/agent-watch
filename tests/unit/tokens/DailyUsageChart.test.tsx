@@ -9,34 +9,31 @@ const rows: TokenUsageRow[] = [
   { projectId: 'p1', modelId: 'sonnet', isSubagent: false, day: '2026-05-21', input: 7, output: 3, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 },
 ];
 
+function chart(metric: 'total' | 'input') {
+  return (
+    <DailyUsageChart rows={rows} projectId="all" preset="all" today="2026-05-22" metric={metric} family="all" />
+  );
+}
+
 describe('DailyUsageChart', () => {
-  it('renders one <rect> per (day, modelKey) for non-empty data', () => {
-    render(
-      <DailyUsageChart
-        rows={rows}
-        projectId="all"
-        preset="all"
-        today="2026-05-22"
-        metric="total"
-        family="all"
-      />
-    );
-    // 3 days × 2 model keys = 6 stack rects (zero-height ones still rendered)
-    const rects = document.querySelectorAll('svg [data-role="bar"]');
-    expect(rects.length).toBe(6);
+  it('TOTAL stacks by token type: 3 days x 4 types = 12 bars + token-type legend', () => {
+    render(chart('total'));
+    expect(document.querySelectorAll('svg [data-role="bar"]').length).toBe(12);
+    expect(screen.getByTestId('legend-chip-input')).toBeTruthy();
+    expect(screen.getByTestId('legend-chip-output')).toBeTruthy();
+    expect(screen.getByTestId('legend-chip-cacheRead')).toBeTruthy();
+    expect(screen.getByTestId('legend-chip-cacheWrite')).toBeTruthy();
+  });
+
+  it('non-total metrics still stack by model: 3 days x 2 models = 6 bars', () => {
+    render(chart('input'));
+    expect(document.querySelectorAll('svg [data-role="bar"]').length).toBe(6);
+    expect(screen.getByTestId('legend-chip-opus')).toBeTruthy();
+    expect(screen.getByTestId('legend-chip-sonnet')).toBeTruthy();
   });
 
   it('renders "NO USAGE IN RANGE" when no rows match the filter', () => {
-    render(
-      <DailyUsageChart
-        rows={[]}
-        projectId="all"
-        preset="all"
-        today="2026-05-22"
-        metric="total"
-        family="all"
-      />
-    );
+    render(<DailyUsageChart rows={[]} projectId="all" preset="all" today="2026-05-22" metric="total" family="all" />);
     expect(screen.getByText(/NO USAGE IN RANGE/i)).toBeDefined();
   });
 });

@@ -7,11 +7,13 @@ import {
   densifyDays,
   modelKeysSorted,
   stackData,
+  stackDataByType,
   type RangePreset,
   type Metric,
   type DayRow,
 } from './aggregate';
 import { colorFor } from './palette';
+import { TOKEN_TYPE_KEYS, tokenTypeColor, tokenTypeLabel } from './tokenType';
 import { formatTokens } from '../util/formatTokens';
 import { modelLabel } from './modelLabel';
 import { familyOf, type Family } from './family';
@@ -74,6 +76,8 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric, family
     setDisabled(new Set());
   }, [projectId, preset]);
 
+  const byType = metric === 'total';
+
   // allKeys is every model key present in the filtered data; activeKeys
   // is the subset to actually stack (legend toggles flip membership).
   const { days, allKeys, activeKeys, data, hasData } = useMemo(() => {
@@ -86,11 +90,19 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric, family
     const earliest = filtered.reduce((m, r) => (r.day < m ? r.day : m), filtered[0].day);
     const from = earliest > cutoff ? earliest : cutoff;
     const days = densifyDays(from, today);
-    const allKeys = modelKeysSorted(filtered);
+    const allKeys = byType ? [...TOKEN_TYPE_KEYS] : modelKeysSorted(filtered);
     const activeKeys = allKeys.filter((k) => !disabled.has(k));
-    const data = stackData(filtered, days, activeKeys, metric);
+    const data = byType ? stackDataByType(filtered, days) : stackData(filtered, days, activeKeys, metric);
     return { days, allKeys, activeKeys, data, hasData: true };
-  }, [rows, projectId, preset, today, metric, disabled, family]);
+  }, [rows, projectId, preset, today, metric, disabled, family, byType]);
+
+  const colorOf = (k: string): string => (byType ? tokenTypeColor(k) : colorFor(k, allKeys));
+  const labelOf = (k: string): string => {
+    if (byType) return tokenTypeLabel(k);
+    const isSub = k.endsWith('|sub');
+    const baseId = isSub ? k.slice(0, -4) : k;
+    return isSub ? `${modelLabel(baseId)} · sub` : modelLabel(baseId);
+  };
 
   // SVG height is reduced by LEGEND_H to reserve space for the legend row below.
   const svgHeight = Math.max(160, height - LEGEND_H);
@@ -167,7 +179,7 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric, family
 
     // Pass 1: side polygons (drawn first, behind everything)
     series.forEach((s) => {
-      const color = colorFor(s.key, allKeys);
+      const color = colorOf(s.key);
       const sideG = barsG.append('g');
       s.forEach((d) => {
         const bx = x(d.data.day) ?? 0;
@@ -196,7 +208,7 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric, family
     // Pass 2: front rects (data-role="bar" goes here only, for test assertion compat)
     const frontG = barsG.append('g');
     series.forEach((s) => {
-      const color = colorFor(s.key, allKeys);
+      const color = colorOf(s.key);
       frontG.append('g')
         .selectAll('rect')
         .data(s)
@@ -224,7 +236,7 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric, family
 
     // Pass 3: top polygons (drawn last, on top)
     series.forEach((s) => {
-      const color = colorFor(s.key, allKeys);
+      const color = colorOf(s.key);
       const topG = barsG.append('g');
       s.forEach((d) => {
         const bx = x(d.data.day) ?? 0;
@@ -249,7 +261,7 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric, family
           .attr('stroke-opacity', 1);
       });
     });
-  }, [hasData, width, svgHeight, days, allKeys, activeKeys, data]);
+  }, [hasData, width, svgHeight, days, allKeys, activeKeys, data, metric]);
 
   function toggleKey(k: string): void {
     setDisabled((prev) => {
@@ -273,13 +285,7 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric, family
             style={{ ...styles.tooltip, left, top, width: TOOLTIP_W }}
           >
             <div>{hover.day}</div>
-            <div style={{ color: colorFor(hover.key, allKeys) }}>
-              {(() => {
-                const isSub = hover.key.endsWith('|sub');
-                const baseId = isSub ? hover.key.slice(0, -4) : hover.key;
-                return isSub ? `${modelLabel(baseId)} · sub` : modelLabel(baseId);
-              })()}
-            </div>
+            <div style={{ color: colorOf(hover.key) }}>{labelOf(hover.key)}</div>
             <div>{formatTokens(hover.value)}</div>
           </div>
         );
@@ -297,12 +303,8 @@ export function DailyUsageChart({ rows, projectId, preset, today, metric, family
                 data-testid={`legend-chip-${k}`}
                 aria-pressed={!off}
               >
-                <span style={{ ...styles.swatch, background: colorFor(k, allKeys) }} aria-hidden />
-                {(() => {
-                  const isSub = k.endsWith('|sub');
-                  const baseId = isSub ? k.slice(0, -4) : k;
-                  return isSub ? `${modelLabel(baseId)} · sub` : modelLabel(baseId);
-                })()}
+                <span style={{ ...styles.swatch, background: colorOf(k) }} aria-hidden />
+                {labelOf(k)}
               </button>
             );
           })}
