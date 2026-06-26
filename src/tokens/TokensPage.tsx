@@ -30,7 +30,7 @@ export function TokensPage({ family, preset, onPresetChange }: Props) {
   const [projectId, setProjectId] = useState<string | 'all'>('all');
   const [metric, setMetric] = useState<Metric>('total');
   const [view, setView] = useState<'tokens' | 'spend'>('tokens');
-  const [spendMode, setSpendMode] = useState<'bars' | 'matrix'>('bars');
+  const [spendMode, setSpendMode] = useState<'bars' | 'matrix'>('matrix');
   const query = useTokenUsage();
   const today = todayUtc();
 
