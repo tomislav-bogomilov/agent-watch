@@ -36,4 +36,25 @@ describe('DailyUsageChart', () => {
     render(<DailyUsageChart rows={[]} projectId="all" preset="all" today="2026-05-22" metric="total" family="all" />);
     expect(screen.getByText(/NO USAGE IN RANGE/i)).toBeDefined();
   });
+
+  it('TOTAL mode legend chips display token-type labels and distinct swatch colors', () => {
+    render(chart('total'));
+
+    // Verify token-type LABELS render on the chips
+    expect(screen.getByTestId('legend-chip-input').textContent).toContain('Input');
+    expect(screen.getByTestId('legend-chip-output').textContent).toContain('Output');
+    expect(screen.getByTestId('legend-chip-cacheRead').textContent).toContain('Cache Read');
+    expect(screen.getByTestId('legend-chip-cacheWrite').textContent).toContain('Cache Write');
+
+    // Verify the four chip swatches have DISTINCT background colors
+    const swatchColors = ['input', 'output', 'cacheRead', 'cacheWrite'].map((k) => {
+      const chip = screen.getByTestId(`legend-chip-${k}`);
+      const swatch = chip.querySelector('span[aria-hidden]');
+      // In jsdom, inline style "background: color" is read via .style.background, not .style.backgroundColor
+      return swatch?.style.background || '';
+    });
+
+    const uniqueColors = new Set(swatchColors.filter((c) => c.length > 0));
+    expect(uniqueColors.size).toBe(4);
+  });
 });
