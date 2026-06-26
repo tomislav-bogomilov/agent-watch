@@ -177,3 +177,15 @@ opens on GRAPH, and the speed stepper plays at 2× by default and adjusts.
 - Making USAGE open directly on the SPEND view.
 - Reworking the per-model OverallSpendList, summary cards, or pricing.
 - Persisting the chosen playback speed across sessions.
+
+## Post-review adjustments (2026-06-26, after implementation)
+
+Two default values were changed at the user's request after the branch was built
+(supersede the values written above):
+
+- **Default play speed is `0.3×`, not `2×`.** The speed ladder replaces `0.25`
+  with `0.3` → `[0.1, 0.3, 0.5, 1, 2, 4]`, and `usePlayback` defaults to `0.3`.
+  (The `playback.spec.ts` speed-pin added during Task 11 was reverted, since the
+  slower default already gives the spec its timing headroom.)
+- **Default USAGE timeframe is `7D`, not `30D`.** `App.tsx` `readPreset()` falls
+  back to `'7d'` (still persisted per-user in `localStorage`).
