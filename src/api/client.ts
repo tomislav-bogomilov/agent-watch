@@ -1,6 +1,7 @@
 import type { PromptMeta, SessionMeta, SessionPayload } from '../parse/types';
 import type { TokenUsagePayload } from '../../server/usage-sync';
 import type { MemoryResponse, MemoryRecord, MemoryType } from '../../server/memory-store';
+import type { NarrativeState } from '../narrative/types';
 
 export type { TokenUsageRow, TokenUsageProject } from '../../server/aggregate-token-usage';
 export type { PriceEntry, PriceTable } from '../../server/model-pricing';
@@ -68,3 +69,28 @@ export async function deleteMemory(scopeKey: string, name: string): Promise<{ br
   if (!res.ok) throw new Error(`delete failed: ${res.status}`);
   return (await res.json()) as { brokenBacklinks: string[] };
 }
+
+export interface NarratorInput { id: string; kind: string; label: string; summary: string; result?: string }
+
+const narrativeUrl = (p: string, s: string, action = '') =>
+  `/api/narrative/${encodeURIComponent(p)}/${encodeURIComponent(s)}${action ? `/${action}` : ''}`;
+
+export async function fetchNarrative(projectId: string, sessionId: string): Promise<NarrativeState> {
+  const res = await fetch(narrativeUrl(projectId, sessionId));
+  if (!res.ok) throw new Error(`narrative fetch failed: ${res.status}`);
+  return (await res.json()) as NarrativeState;
+}
+
+async function postNarrative(
+  projectId: string, sessionId: string, action: string, milestones: NarratorInput[],
+): Promise<NarrativeState> {
+  const res = await fetch(narrativeUrl(projectId, sessionId, action), {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ milestones }),
+  });
+  if (!res.ok) throw new Error(`narrative ${action} failed: ${res.status}`);
+  return (await res.json()) as NarrativeState;
+}
+
+export const startNarrative = (p: string, s: string, m: NarratorInput[]) => postNarrative(p, s, 'start', m);
+export const tickNarrative = (p: string, s: string, m: NarratorInput[]) => postNarrative(p, s, 'tick', m);
+export const refreshNarrative = (p: string, s: string, m: NarratorInput[]) => postNarrative(p, s, 'refresh', m);

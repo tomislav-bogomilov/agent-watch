@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { GraphCanvas } from '../GraphCanvas';
 import { CountdownChip } from './CountdownChip';
 import { makeLivePlayback } from './livePlayback';
+import { NarrativeTab } from '../narrative/NarrativeTab';
+import { narrativeScopeId } from '../../narrative/scopeKey';
 import type { Session, Milestone } from '../../parse/types';
 import type { Filters } from '../FilterToggles';
 import type { CameraApi } from '../../graph/useCamera';
@@ -27,6 +29,9 @@ type Props = {
   onCameraReady?: (api: CameraApi) => void;
   /** When provided, renders a red close button in the pane's top-right. Clicking it flips the pane status to 'closed' immediately (skipping the closing countdown). MAIN panes do not get this affordance — there's exactly one per session. */
   onClose?: () => void;
+  /** Project + session ids for this pane's own Logical Steps narrative (keyed per pane). */
+  projectId: string;
+  sessionId: string;
 };
 
 const ALL_FILTERS: Filters = { hidePruned: false, hideSubagents: false, successOnly: false, showAllContext: false };
@@ -121,10 +126,28 @@ function detailStyle(withHeader: boolean, accent: AccentRgb): CSSProperties {
     padding: 12,
     fontFamily: 'ui-monospace, monospace',
     fontSize: 11, color: '#d4e9f0',
-    overflow: 'auto',
+    display: 'flex', flexDirection: 'column', minHeight: 0,
+    overflow: 'hidden',
     position: 'relative', zIndex: 4,
   };
 }
+
+const paneTabBar: CSSProperties = {
+  display: 'flex', flexShrink: 0, marginBottom: 8,
+  borderBottom: '1px solid rgba(255,255,255,0.08)',
+};
+function paneTabStyle(active: boolean, accent: string): CSSProperties {
+  return {
+    flex: 1, padding: '4px 0', fontSize: 9, letterSpacing: 1.5,
+    cursor: 'pointer', background: 'none', border: 'none',
+    fontFamily: 'ui-monospace, monospace',
+    color: active ? accent : '#6e95a5',
+    borderBottom: active ? `2px solid ${accent}` : '2px solid transparent',
+  };
+}
+const paneTabContent: CSSProperties = {
+  flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden',
+};
 
 function collectInnerSubagentIds(root: Milestone): Set<string> {
   // Only marks descendants of a spawn's children[0] (the inner subtree). Walks
@@ -146,7 +169,7 @@ function collectInnerSubagentIds(root: Milestone): Set<string> {
 }
 
 export function LivePane({
-  kind, label, root, cwd, paneId,
+  kind, label, root, cwd, paneId, projectId, sessionId,
   closingSeconds, frozen, onToggleFreeze,
   agentPaused = false,
   agentHeld = false,
@@ -196,6 +219,16 @@ export function LivePane({
   // node leaves the tree or the user escapes via the PINNED control.
   const pinned = pinnedId ? playback.order.find((m) => m.id === pinnedId) ?? null : null;
   const selected = pinned ?? newest;
+
+  const [tab, setTab] = useState<'details' | 'narrative'>('details');
+  const scopeId = useMemo(() => narrativeScopeId(sessionId, paneId), [sessionId, paneId]);
+  const paneOrderIds = useMemo(() => playback.order.map((mm) => mm.id), [playback.order]);
+  const paneNarratorMilestones = useMemo(
+    () => playback.order.map((mm) => ({
+      id: mm.id, kind: mm.kind, label: mm.label, summary: mm.summary, result: mm.result,
+    })),
+    [playback.order],
+  );
 
   const showHeader = !borderless;
   const showNotches = !borderless;
@@ -358,56 +391,69 @@ export function LivePane({
       </div>
 
       <aside data-testid="live-pane-detail" style={detailStyle(showHeader, kind === 'main' ? ACCENT_MAIN : ACCENT_SUB)}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-          <span style={{ fontSize: 9, letterSpacing: 3, color: accent }}>
-            {kind === 'main' ? 'MAIN · NODE' : 'SUBAGENT · NODE'}
-          </span>
-          {pinned && (
-            <button
-              type="button"
-              data-testid="live-pane-unpin"
-              onClick={() => setPinnedId(null)}
-              title="return to live"
-              aria-label="return to live"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'rgba(5,8,13,0.6)',
-                border: `1px solid ${accent}`,
-                color: accent,
-                fontFamily: 'ui-monospace, monospace',
-                fontSize: 8,
-                letterSpacing: 2,
-                padding: '2px 6px',
-                cursor: 'pointer',
-                flexShrink: 0,
-                boxShadow: `0 0 6px ${accent}55`,
-              }}
-            >
-              <span aria-hidden style={{ fontSize: 7 }}>●</span>
-              PINNED
-              <span aria-hidden style={{ fontSize: 10, lineHeight: 1 }}>✕</span>
-            </button>
+        <div style={paneTabBar}>
+          <button type="button" data-testid="pane-tab-details" onClick={() => setTab('details')} style={paneTabStyle(tab === 'details', accent)}>Details</button>
+          <button type="button" data-testid="pane-tab-narrative" onClick={() => setTab('narrative')} style={paneTabStyle(tab === 'narrative', accent)}>Logical Steps</button>
+        </div>
+        <div style={paneTabContent}>
+          {tab === 'details' ? (
+            <div className="tg-library-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 9, letterSpacing: 3, color: accent }}>
+                  {kind === 'main' ? 'MAIN · NODE' : 'SUBAGENT · NODE'}
+                </span>
+                {pinned && (
+                  <button
+                    type="button"
+                    data-testid="live-pane-unpin"
+                    onClick={() => setPinnedId(null)}
+                    title="return to live"
+                    aria-label="return to live"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      background: 'rgba(5,8,13,0.6)', border: `1px solid ${accent}`,
+                      color: accent, fontFamily: 'ui-monospace, monospace',
+                      fontSize: 8, letterSpacing: 2, padding: '2px 6px',
+                      cursor: 'pointer', flexShrink: 0, boxShadow: `0 0 6px ${accent}55`,
+                    }}
+                  >
+                    <span aria-hidden style={{ fontSize: 7 }}>●</span>
+                    PINNED
+                    <span aria-hidden style={{ fontSize: 10, lineHeight: 1 }}>✕</span>
+                  </button>
+                )}
+              </div>
+              {selected && (
+                <>
+                  <div style={{ fontSize: 11, color: '#d4e9f0', marginBottom: 4 }}>{selected.label}</div>
+                  <div style={{ fontSize: 10, color: '#6e95a5' }}>{selected.summary}</div>
+                  {selected.result && (
+                    <div style={{ fontSize: 10, color: selected.failed ? 'var(--node-failed)' : '#6e95a5', marginTop: 6, whiteSpace: 'pre-wrap' }}>{selected.result}</div>
+                  )}
+                  {selected.detail && (
+                    <pre style={{
+                      fontSize: 10, color: '#6e95a5', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '8px 0 0 0',
+                      background: 'rgba(15,38,50,0.4)', padding: '6px 8px', border: '1px solid var(--grid)',
+                    }}>{selected.detail}</pre>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <div style={{ position: 'absolute', inset: 0 }}>
+              <NarrativeTab
+                projectId={projectId}
+                sessionId={scopeId}
+                live
+                milestones={paneNarratorMilestones}
+                orderIds={paneOrderIds}
+                currentIndex={playback.index}
+                onScrubToIndex={() => { /* no playhead scrub in LIVE; pinning drives the graph */ }}
+                onSelectNode={(id) => setPinnedId(id)}
+              />
+            </div>
           )}
         </div>
-        {selected && (
-          <>
-            <div style={{ fontSize: 11, color: '#d4e9f0', marginBottom: 4 }}>{selected.label}</div>
-            <div style={{ fontSize: 10, color: '#6e95a5' }}>{selected.summary}</div>
-            {selected.result && (
-              <div style={{ fontSize: 10, color: selected.failed ? 'var(--node-failed)' : '#6e95a5', marginTop: 6, whiteSpace: 'pre-wrap' }}>{selected.result}</div>
-            )}
-            {selected.detail && (
-              <pre style={{
-                fontSize: 10, color: '#6e95a5',
-                whiteSpace: 'pre-wrap', margin: '8px 0 0 0',
-                background: 'rgba(15,38,50,0.4)', padding: '6px 8px',
-                border: '1px solid var(--grid)',
-              }}>{selected.detail}</pre>
-            )}
-          </>
-        )}
       </aside>
     </div>
   );

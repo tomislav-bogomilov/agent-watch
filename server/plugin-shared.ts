@@ -29,6 +29,35 @@ export function isSafeScopeKey(s: string): boolean {
   return isSafeId(s) && s !== '.' && s !== '..';
 }
 
+const NARRATOR_SEGMENT = 'thoughtgraph-narrator';
+
+/** Fixed working dir for `claude -p` narrators; its last path segment is the marker. */
+export function narratorCwd(): string {
+  return path.join(os.tmpdir(), NARRATOR_SEGMENT);
+}
+
+/** A projectId belongs to a narrator session iff it carries the marker segment. */
+export function isNarratorProject(projectId: string): boolean {
+  return projectId.includes(NARRATOR_SEGMENT);
+}
+
+/** Claude Code encodes a project's cwd as the dir name by replacing every
+ *  non-alphanumeric character with '-' (e.g. `C:\Users\me\App` -> `C--Users-me-App`). */
+function encodeProjectPath(p: string): string {
+  return p.replace(/[^A-Za-z0-9]/g, '-');
+}
+
+/**
+ * True iff a projectId's working directory lives inside the OS temp directory.
+ * These are ephemeral scratch / git-worktree runs (e.g. `mkdtemp` 'tmp-XXXX'),
+ * not real project work, so they're hidden from the session and prompt lists.
+ * Matched case-insensitively against the encoded `os.tmpdir()` prefix.
+ */
+export function isTempProject(projectId: string): boolean {
+  const prefix = encodeProjectPath(os.tmpdir()).toLowerCase();
+  return prefix.length > 0 && projectId.toLowerCase().startsWith(prefix);
+}
+
 // True iff `target` resolves to a path inside `root` (or root itself).
 export function assertInsideRoot(root: string, target: string): void {
   const resolvedRoot = path.resolve(root);

@@ -185,6 +185,8 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
           root={mainRoot}
           cwd={session.cwd}
           paneId="main"
+          projectId={projectId}
+          sessionId={sessionId}
           borderless={isSolo}
           agentPaused={snapshot.all || snapshot.main}
           agentHeld={snapshot.held.some((h) => h.owner === 'main')}
@@ -205,6 +207,8 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
                 root={e.root}
                 cwd={session.cwd}
                 paneId={e.key}
+                projectId={projectId}
+                sessionId={sessionId}
                 closingSeconds={showCountdown ? closingSeconds : null}
                 frozen={frozen}
                 agentPaused={snapshot.all || snapshot.agents[fileId] === true}

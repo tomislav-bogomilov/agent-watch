@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LibraryPanel, type Selection } from './components/library/LibraryPanel';
 import type { LibraryMode } from './components/library/LibraryPanel';
 import { GraphCanvas } from './components/GraphCanvas';
@@ -6,7 +6,7 @@ import { LivePanes } from './components/live/LivePanes';
 import { AppHeader } from './components/AppHeader';
 import { NowPlaying } from './components/NowPlaying';
 import { PlaybackControls } from './components/PlaybackControls';
-import { DetailPanel } from './components/DetailPanel';
+import { InspectorTabs } from './components/narrative/InspectorTabs';
 import { FilterToggles, type Filters } from './components/FilterToggles';
 import { Legend } from './components/Legend';
 import { TokensPage } from './tokens/TokensPage';
@@ -184,6 +184,21 @@ export default function App() {
   const [panelDismissed, setPanelDismissed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = usePersistentWidth('tg.sidebar.width', 280, SIDEBAR_MIN, SIDEBAR_MAX);
   const [detailWidth, setDetailWidth] = usePersistentWidth('tg.detail.width', 420, DETAIL_MIN, DETAIL_MAX);
+  // The inspector dock is an absolute overlay over the whole content frame, so
+  // it must reserve space for the playback chrome gutter below so it doesn't
+  // run behind it. Measured by a ResizeObserver on the gutter element.
+  const [gutterReserve, setGutterReserve] = useState(0);
+  const gutterRoRef = useRef<ResizeObserver | null>(null);
+  const gutterRef = useCallback((node: HTMLDivElement | null) => {
+    gutterRoRef.current?.disconnect();
+    gutterRoRef.current = null;
+    if (!node) { setGutterReserve(0); return; }
+    const measure = () => setGutterReserve(Math.round(node.getBoundingClientRect().height));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    gutterRoRef.current = ro;
+  }, []);
   useEffect(() => { setPinnedId(null); setPanelDismissed(false); }, [selected]);
   const lastAutoEngagedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -226,6 +241,20 @@ export default function App() {
 
   const showLive = !pinnedMilestone && !panelDismissed && (playback.playing || playback.index > 0);
   const displayedMilestone = pinnedMilestone ?? (showLive ? currentMilestone : null);
+
+  // Narrative (Logical Steps) wiring: the ordered milestone ids drive the
+  // id->index sync, and a trimmed milestone list feeds the narrator. Built
+  // inline here — the client must never import server code.
+  const orderIds = useMemo(() => playback.order.map((m) => m.id), [playback.order]);
+  const narratorMilestones = useMemo(
+    () => playback.order.map((m) => ({
+      id: m.id, kind: m.kind, label: m.label, summary: m.summary, result: m.result,
+    })),
+    [playback.order],
+  );
+  const inspectorSession = (selected?.kind === 'session' || selected?.kind === 'prompt')
+    ? { projectId: selected.projectId, sessionId: selected.sessionId }
+    : { projectId: '', sessionId: '' };
 
   function handleDetailClose(): void {
     if (pinnedId) setPinnedId(null);
@@ -417,17 +446,29 @@ export default function App() {
             </div>
           )}
           {effectiveSession && !needsConfirm && !liveEngaged && (
-            <div data-testid="chrome-gutter" style={styles.gutter}>
+            <div data-testid="chrome-gutter" ref={gutterRef} style={styles.gutter}>
               <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
               <PlaybackControls state={playback} controls={followingControls} />
             </div>
           )}
-          <DetailPanel
-            milestone={displayedMilestone}
-            onClose={handleDetailClose}
-            width={detailWidth}
-            onResize={(d) => setDetailWidth((w) => w + d)}
-          />
+          {!liveEngaged && (
+            <InspectorTabs
+              key={`${inspectorSession.projectId}/${inspectorSession.sessionId}`}
+              milestone={displayedMilestone}
+              onClose={handleDetailClose}
+              width={detailWidth}
+              onResize={(d) => setDetailWidth((w) => w + d)}
+              projectId={inspectorSession.projectId}
+              sessionId={inspectorSession.sessionId}
+              live={liveEngaged}
+              bottomInset={gutterReserve}
+              milestones={narratorMilestones}
+              orderIds={orderIds}
+              currentIndex={playback.index}
+              onScrubToIndex={(i) => followingControls.scrubTo(i)}
+              onSelectNode={(id) => setPinnedId(id)}
+            />
+          )}
         </>)}
         </div>
       </main>

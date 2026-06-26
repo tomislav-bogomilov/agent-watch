@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchPromptList, fetchSessionList, fetchSessionPayload, fetchTokenUsage, fetchMemory, createMemory, updateMemory, deleteMemory } from './client';
-import type { TokenUsageResponse, MemoryResponse, MemoryType } from './client';
+import { fetchPromptList, fetchSessionList, fetchSessionPayload, fetchTokenUsage, fetchMemory, createMemory, updateMemory, deleteMemory, fetchNarrative, startNarrative, tickNarrative, refreshNarrative } from './client';
+import type { TokenUsageResponse, MemoryResponse, MemoryType, NarratorInput } from './client';
 import { parseSession } from '../parse';
 import type { Session } from '../parse/types';
+import type { NarrativeState } from '../narrative/types';
 import { POLL_MS } from '../components/live/liveness';
 
 export function useSessionList() {
@@ -77,5 +78,60 @@ export function useDeleteMemory() {
   return useMutation({
     mutationFn: (v: { scopeKey: string; name: string }) => deleteMemory(v.scopeKey, v.name),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['memory'] }),
+  });
+}
+
+/**
+ * Poll cadence for the narrative query. LIVE sessions always poll. Completed
+ * (playback) sessions poll ONLY while a build is in flight, so the client
+ * picks up the finished blocks and then stops once `building` clears. Without
+ * the building-poll, a playback build completes server-side but the client
+ * never re-fetches and the loader spins forever.
+ */
+export function narrativePollInterval(
+  live: boolean, data: NarrativeState | undefined,
+): number | false {
+  if (live) return POLL_MS;
+  return data?.building ? POLL_MS : false;
+}
+
+export function useNarrative(
+  projectId: string | null, sessionId: string | null, enabled: boolean, live: boolean,
+) {
+  return useQuery({
+    queryKey: ['narrative', projectId, sessionId],
+    queryFn: () => fetchNarrative(projectId!, sessionId!),
+    enabled: enabled && !!projectId && !!sessionId,
+    refetchInterval: (query) => narrativePollInterval(live, query.state.data),
+    structuralSharing: false,
+  });
+}
+
+export function useStartNarrative() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { projectId: string; sessionId: string; milestones: NarratorInput[] }) =>
+      startNarrative(v.projectId, v.sessionId, v.milestones),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['narrative', v.projectId, v.sessionId] }),
+  });
+}
+
+export function useTickNarrative() {
+  // No onSuccess invalidation: the live GET query self-polls via refetchInterval: POLL_MS.
+  // Invalidating here would force an immediate refetch → dataUpdatedAt bumps → NarrativeTab
+  // live effect fires another tick → invalidate → … a poll storm bounded only by network
+  // latency. Let the scheduled poll pick up new blocks instead.
+  return useMutation({
+    mutationFn: (v: { projectId: string; sessionId: string; milestones: NarratorInput[] }) =>
+      tickNarrative(v.projectId, v.sessionId, v.milestones),
+  });
+}
+
+export function useRefreshNarrative() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { projectId: string; sessionId: string; milestones: NarratorInput[] }) =>
+      refreshNarrative(v.projectId, v.sessionId, v.milestones),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['narrative', v.projectId, v.sessionId] }),
   });
 }

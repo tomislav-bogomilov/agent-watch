@@ -25,16 +25,16 @@ const fullView = {
     tokens: { input: 3000, cacheRead: 58100, cacheCreation: 2000, output: 1100 },
   },
   skills: [
-    { name: 'brainstorming', activatedAt: '', byTurnId: '', tokenCost: 6100 },
-    { name: 'test-driven-development', activatedAt: '', byTurnId: '', tokenCost: 4200 },
-    { name: 'systematic-debugging', activatedAt: '', byTurnId: '', tokenCost: 2800 },
-    { name: 'using-git-worktrees', activatedAt: '', byTurnId: '', tokenCost: 2100 },
-    { name: 'verification-before-completion', activatedAt: '', byTurnId: '', tokenCost: 1400 },
-    { name: 'extra-six', activatedAt: '', byTurnId: '', tokenCost: 900 },
-    { name: 'extra-seven', activatedAt: '', byTurnId: '', tokenCost: 700 },
-    { name: 'extra-eight', activatedAt: '', byTurnId: '', tokenCost: 500 },
+    { name: 'brainstorming', activatedAt: '', byTurnId: '', tokenCost: 6100, source: 'invoked' as const },
+    { name: 'test-driven-development', activatedAt: '', byTurnId: '', tokenCost: 4200, source: 'invoked' as const },
+    { name: 'systematic-debugging', activatedAt: '', byTurnId: '', tokenCost: 2800, source: 'invoked' as const },
+    { name: 'using-git-worktrees', activatedAt: '', byTurnId: '', tokenCost: 2100, source: 'invoked' as const },
+    { name: 'verification-before-completion', activatedAt: '', byTurnId: '', tokenCost: 1400, source: 'invoked' as const },
+    { name: 'extra-six', activatedAt: '', byTurnId: '', tokenCost: 900, source: 'invoked' as const },
+    { name: 'extra-seven', activatedAt: '', byTurnId: '', tokenCost: 700, source: 'invoked' as const },
+    { name: 'extra-eight', activatedAt: '', byTurnId: '', tokenCost: 500, source: 'invoked' as const },
   ],
-  skillsTotal: { count: 8, totalTokens: 18700 },
+  skillsTotal: { count: 8, totalTokens: 18700, available: 35 },
 };
 
 const panelRect = { x: 200, y: 30, w: 350, h: 400 };
@@ -67,6 +67,36 @@ describe('HologramPanel', () => {
     expect(rows[4].textContent).toContain('verification-before-completion');
   });
 
+  it('shows the available-skills subtitle alongside the loaded count', () => {
+    render(<svg><HologramPanel view={fullView} panelRect={panelRect} connectorPath={connectorPath} open={true} onClose={() => {}} /></svg>);
+    expect(screen.getByTestId('holo-skills-available').textContent).toContain('35 available');
+  });
+
+  it('shows which hook loaded a non-invoked skill', () => {
+    const view = {
+      ...fullView,
+      skills: [
+        { name: 'superpowers:using-superpowers', activatedAt: '', byTurnId: '', tokenCost: 2100, source: 'hook' as const, hookEvent: 'SessionStart' },
+      ],
+      skillsTotal: { count: 1, totalTokens: 2100, available: 35 },
+    };
+    render(<svg><HologramPanel view={view} panelRect={panelRect} connectorPath={connectorPath} open={true} onClose={() => {}} /></svg>);
+    const row = screen.getByTestId('holo-skill-row-0');
+    expect(row.textContent).toContain('superpowers:using-superpowers');
+    expect(screen.getByTestId('holo-skill-source-0').textContent).toContain('SessionStart');
+  });
+
+  it('still reports available skills when none are loaded into context (0 loaded, N available)', () => {
+    const view = {
+      ...fullView,
+      skills: [],
+      skillsTotal: { count: 0, totalTokens: 0, available: 35 },
+    };
+    render(<svg><HologramPanel view={view} panelRect={panelRect} connectorPath={connectorPath} open={true} onClose={() => {}} /></svg>);
+    expect(screen.queryAllByTestId(/^holo-skill-row-/)).toHaveLength(0);
+    expect(screen.getByTestId('holo-skills-available').textContent).toContain('35 available');
+  });
+
   it('shows expand row with N more and total token count', () => {
     render(<svg><HologramPanel view={fullView} panelRect={panelRect} connectorPath={connectorPath} open={true} onClose={() => {}} /></svg>);
     const expand = screen.getByTestId('holo-skill-expand');
@@ -89,7 +119,7 @@ describe('HologramPanel', () => {
         contextSize: null, contextDeltaSincePrev: null,
         cacheEfficiency: null, cacheReads: null, cacheMisses: null, tokens: null,
       },
-      skills: [], skillsTotal: { count: 0, totalTokens: 0 },
+      skills: [], skillsTotal: { count: 0, totalTokens: 0, available: 0 },
     };
     render(<svg><HologramPanel view={view} panelRect={panelRect} connectorPath={connectorPath} open={true} onClose={() => {}} /></svg>);
     expect(screen.getByTestId('holo-latency-value').textContent).toBe('—');

@@ -88,6 +88,10 @@ keeps them unit-testable in isolation.
 | Path | Responsibility |
 |---|---|
 | `server/vite-plugin-sessions.ts` | Vite plugin: HTTP endpoints, directory listing, JSONL streaming, path validation against `CLAUDE_HOME/projects` |
+| `server/vite-plugin-narrative.ts` | Vite plugin: narrative endpoints; owns the per-session narrator store |
+| `server/narrator.ts` | `claude -p` orchestration: prompt building, spawn/resume, JSON parsing, `TG_NARRATOR_FAKE` mode |
+| `server/narrative-state.ts` | In-memory `NarrativeStore`: `start`/`tick`/`refresh` state machine, one run at a time per session |
+| `server/plugin-shared.ts` | Shared helpers: `narratorCwd()`, `isNarratorProject()`, `isSafeId()`, `sendJson()` |
 | `server/aggregate-token-usage.ts` | Walks all sessions, sums per-model token usage for the Token Usage page |
 | `server/memory-store.ts` | Memory file parsing, serialization, index reconciliation, path safety, and read/write operations |
 | `src/api/` | Typed fetch helpers (`client.ts`) + TanStack Query hooks (`hooks.ts`) |
@@ -96,6 +100,8 @@ keeps them unit-testable in isolation.
 | `src/playback/` | `usePlayback()` animation clock + `useKeyboard()` shortcuts |
 | `src/components/` | React UI: graph canvas, controls, HUD, minimap, detail panel |
 | `src/components/live/` | Live multi-pane view for in-progress sessions |
+| `src/narrative/` | Pure narrative logic — block types, verbosity re-bucketing, block diff, playhead↔block sync. No React, unit-tested. |
+| `src/components/narrative/` | Logical Steps tab: `NarrativeTab`, `NarrativeBlock`, `VerbosityControl`, `RefreshButton`, `ArmillaryLoader`, `EnableNarrativePrompt` |
 | `src/components/library/` | Left sidebar: Sessions / Prompts / Usage / Memory modes |
 | `src/memory/` | Memory page: detail view, editor, graph, stats, insights derivation |
 | `src/tokens/` | Token Usage page (chart, spend list, aggregation) |
@@ -359,7 +365,73 @@ Shared: substring filter, draggable/collapsible project groups (order + expansio
 ### 7.4 Token Usage page (`src/tokens/`)
 See §8.
 
-### 7.5 Memory page (`src/memory/`, `server/memory-store.ts`)
+### 7.5 Narrative view — Logical Steps (`server/vite-plugin-narrative.ts`, `src/components/narrative/`)
+
+The **Logical Steps** tab in the right inspector narrates a session as a small set of
+plain-language phase blocks (e.g. *Explore → Decide → Implement → Verify*) sitting
+alongside the graph. It is **opt-in per session**: nothing calls a model until the user
+clicks *Enable* for that session.
+
+**Server architecture.** Three files own the Node side:
+
+- `server/narrator.ts` — `runNarrator()`: spawns `claude -p --output-format json
+  --model <model>` with the prompt on stdin. On the first call there is no `--resume`;
+  subsequent incremental calls add `--resume <narratorSessionId>` and pass only the
+  milestone delta since `lastSummarizedId`. JSON output is parsed defensively by
+  `parseBlocks()` (tolerates prose + fences); malformed output keeps the last good
+  block set. When `TG_NARRATOR_FAKE=1`, `runNarrator()` returns two canned blocks for
+  deterministic unit and e2e tests.
+- `server/narrative-state.ts` — `createNarrativeStore()`: in-memory `Map<key,
+  Entry>` keyed by `${projectId}/${sessionId}`. Exports `start` (Haiku, no resume),
+  `tick` (Haiku, `--resume`, delta milestones only; skips if nothing new), `refresh`
+  (Sonnet, clears `narratorSessionId` for a fresh conversation). One run at a time per
+  key; `tick` is a no-op if a run is already in flight.
+- `server/vite-plugin-narrative.ts` — `narrativePlugin()`: registers the four
+  endpoints under `/api/narrative`. Narrators run from the fixed cwd returned by
+  `narratorCwd()` (`<os.tmpdir()>/thoughtgraph-narrator`), so their JSONL logs all
+  decode to a single known `projectId`. `isNarratorProject(projectId)` detects this
+  marker and is used to **exclude** narrator sessions from `/api/sessions`,
+  `/api/prompts`, and the token-usage aggregator — they never appear in session lists or
+  inflate usage counts.
+
+**Endpoints:**
+
+| Method + path | Purpose |
+|---|---|
+| `POST /api/narrative/:projectId/:sessionId/start` | Enable + initial Haiku build. Returns the current `NarrativeState` immediately (build runs async; poll `building` to track). |
+| `POST /api/narrative/:projectId/:sessionId/tick` | Incremental Haiku update with new milestone delta (`--resume`). Does **not** invalidate the GET query — the GET self-polls on the existing 7 s cadence to avoid a request storm. |
+| `POST /api/narrative/:projectId/:sessionId/refresh` | Full Sonnet rebuild in a fresh narrator conversation. Invalidates the GET query on success. |
+| `GET /api/narrative/:projectId/:sessionId` | Returns `NarrativeState` — `blocks[]`, `building`, `error`, `model`, `generatedAt`. LIVE polling uses this at `POLL_MS` (7 s). |
+
+**Model tiers.** `start` and `tick` always use Haiku (cheap, fast; prompt cache serves
+the retained transcript at ~0.1× on ticks). The ⟳ Refresh button triggers a full
+Sonnet rebuild from scratch.
+
+**Client data layer.** `src/api/hooks.ts` exports `useNarrative` (GET, polls when
+live), `useStartNarrative`, `useTickNarrative` (no `onSuccess` invalidation — deliberate,
+see above), and `useRefreshNarrative` (invalidates on success). `src/narrative/`
+hosts pure helpers: `types.ts` (block types), `rebucket.ts` (verbosity grouping),
+`diffBlocks.ts` (animation triggers), and `sync.ts` (exports plain functions
+`buildIndexMap`, `indexForBlockStart`, `activeBlockId` for playhead ↔ block mapping using
+milestone-id ranges). `src/components/narrative/` hosts the React rendering components:
+`NarrativeTab`, `NarrativeBlock`, `VerbosityControl`, `RefreshButton`, `ArmillaryLoader`,
+`EnableNarrativePrompt`.
+
+**Verbosity.** Three levels — **Overview / Steps / Detailed** — are applied entirely
+client-side by `rebucket.ts` with no model call: Overview collapses blocks to their
+`phase` group, Steps shows all blocks, Detailed shows blocks with the `detail` field
+expanded. Only ⟳ Refresh re-tunes wording via a model call.
+
+**Two-way sync.** Each `NarrativeBlock` carries `startMilestoneId` / `endMilestoneId`.
+Clicking a block scrubs the playback playhead to `startMilestoneId`; the playhead
+advancing highlights the block whose range covers the current milestone.
+
+**Testing.** Set `TG_NARRATOR_FAKE=1` to replace real `claude -p` spawns with
+`fakeBlocks()` (two canned blocks). The e2e suite uses this; unit tests mock `runNarrator`
+directly. Pure helpers (`rebucket`, `diffBlocks`, `parseBlocks`, `toNarratorInput`,
+`isNarratorProject`) are unit-tested in isolation.
+
+### 7.6 Memory page (`src/memory/`, `server/memory-store.ts`)
 
 The Memory page lets users browse, read, and edit Claude Code's memory store. It is the
 app's first feature with **write endpoints**, so the architecture has an explicit safety

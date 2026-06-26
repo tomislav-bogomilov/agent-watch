@@ -60,6 +60,7 @@
 .holo-skill-name { font: 600 10px ui-monospace, monospace; fill: #aeeaf2; }
 .holo-skill-tokens { font: 600 9px ui-monospace, monospace; fill: var(--holo-mint); }
 .holo-skill-dim { font: 600 10px ui-monospace, monospace; fill: #4f7782; }
+.holo-skill-source { font: 8px ui-monospace, monospace; fill: #4f7782; letter-spacing: 0.4px; }
 
 /* --- mode chip --- */
 .holo-mode-chip { fill: var(--holo-mode-fill); stroke: var(--holo-mode-stroke); stroke-width: 0.6; }
