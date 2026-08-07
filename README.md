@@ -24,6 +24,17 @@ you pause, ClaudeWatch installs a single `PreToolUse` hook entry into
 The control channel is **fail-open** — if ClaudeWatch isn't running, or you close it while
 an agent is paused, the agent simply continues. It is never left stranded.
 
+## UI showcase
+
+![ClaudeWatch featured interface](docs/images/ui-03-featured.png)
+
+| | |
+|---|---|
+| ![ClaudeWatch interface view 1](docs/images/ui-01.png) | ![ClaudeWatch interface view 2](docs/images/ui-02.png) |
+| ![ClaudeWatch interface view 4](docs/images/ui-04.png) | ![ClaudeWatch interface view 5](docs/images/ui-05.png) |
+| ![ClaudeWatch interface view 6](docs/images/ui-06.png) | ![ClaudeWatch interface view 7](docs/images/ui-07.png) |
+| ![ClaudeWatch interface view 8](docs/images/ui-08.png) | ![ClaudeWatch interface view 9](docs/images/ui-09.png) |
+
 ## Quick start
 
 ```bash
@@ -47,3 +58,11 @@ sessions appear in the left sidebar automatically.
 
 React 19 · TypeScript · Vite 6 · TanStack Query · D3 7. Dev-only (no production build).
 Tests: Vitest (unit) + Playwright (e2e, Chromium).
+
+## Validation status
+
+Run `npm run typecheck` to check the TypeScript project. The unit suite has a known
+compatibility issue in the observed Node 25 environment, where the injected `localStorage`
+implementation lacks `clear`; use a supported Node LTS environment for follow-up validation.
+Development-tool dependency advisories are intentionally deferred and should be reviewed
+before deploying this project beyond local development.

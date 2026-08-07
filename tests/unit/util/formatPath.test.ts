@@ -13,9 +13,9 @@ describe('formatPath', () => {
     // The parser/storage layer sometimes surfaces a dotted username as two
     // path segments. We treat the first two segments after C:\Users\ as a
     // single username when neither contains a dot.
-    expect(formatPath('C:/Users/alex/alexov/work/AI/ThoughtGraph'))
+    expect(formatPath('C:/Users/alex/smith/work/AI/ThoughtGraph'))
       .toBe('~/work/AI/ThoughtGraph');
-    expect(formatPath('C:\\Users\\alex\\alexov\\work\\AI\\ThoughtGraph'))
+    expect(formatPath('C:\\Users\\alex\\smith\\work\\AI\\ThoughtGraph'))
       .toBe('~\\work\\AI\\ThoughtGraph');
   });
 
