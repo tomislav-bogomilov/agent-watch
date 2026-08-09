@@ -1,9 +1,8 @@
 # ClaudeWatch
 
-ClaudeWatch supports local Claude Code sessions and read-only Codex Desktop/CLI replay.
-Both providers share the session library, graph, playback, filters, minimap, and details.
-Prompts, Usage, Memory, Logical Steps, and pause/steer are Claude-only. At this replay
-milestone, live monitoring is also Claude-only.
+ClaudeWatch supports local Claude Code sessions and read-only Codex Desktop/CLI live monitoring
+and replay. Both providers share the session library, graph, playback, filters, minimap, and
+details. Prompts, Usage, Memory, Logical Steps, narration, and pause/steer remain Claude-only.
 
 Watch a Claude Code agent *think*. ClaudeWatch reads Claude Code's own session logs from
 your machine and turns each session into a navigable graph: every node is a **Thought** — a

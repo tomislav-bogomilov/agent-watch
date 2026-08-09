@@ -33,6 +33,7 @@ type Props = {
   /** Project + session ids for this pane's own Logical Steps narrative (keyed per pane). */
   projectId: string;
   sessionId: string;
+  showNarrative?: boolean;
 };
 
 const ALL_FILTERS: Filters = { hidePruned: false, hideSubagents: false, successOnly: false, showAllContext: false };
@@ -175,6 +176,7 @@ export function LivePane({
   agentPaused = false,
   agentHeld = false,
   borderless = false, onCameraReady, onClose,
+  showNarrative = true,
 }: Props) {
   const accent = kind === 'main' ? '#00e5ff' : '#b894ff';
   const [pinnedId, setPinnedId] = useState<string | null>(null);
@@ -399,10 +401,12 @@ export function LivePane({
       <aside data-testid="live-pane-detail" style={detailStyle(showHeader, kind === 'main' ? ACCENT_MAIN : ACCENT_SUB)}>
         <div style={paneTabBar}>
           <button type="button" data-testid="pane-tab-details" onClick={() => setTab('details')} style={paneTabStyle(tab === 'details', accent)}>Details</button>
-          <button type="button" data-testid="pane-tab-narrative" onClick={() => setTab('narrative')} style={paneTabStyle(tab === 'narrative', accent)}>Logical Steps</button>
+          {showNarrative && (
+            <button type="button" data-testid="pane-tab-narrative" onClick={() => setTab('narrative')} style={paneTabStyle(tab === 'narrative', accent)}>Logical Steps</button>
+          )}
         </div>
         <div style={paneTabContent}>
-          {tab === 'details' ? (
+          {tab === 'details' || !showNarrative ? (
             <div className="tg-library-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: 9, letterSpacing: 3, color: accent }}>

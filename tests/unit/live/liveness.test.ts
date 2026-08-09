@@ -37,7 +37,11 @@ describe('isLiveMeta', () => {
     expect(isLiveMeta(meta('2026-05-24T11:56:59Z'))).toBe(false);
   });
 
-  it('never treats a recent Codex rollout as live', () => {
-    expect(isLiveMeta({ ...meta('2026-05-24T12:00:00Z'), provider: 'codex' })).toBe(false);
+  it('treats a recent Codex rollout as live', () => {
+    expect(isLiveMeta({ ...meta('2026-05-24T12:00:00Z'), provider: 'codex' })).toBe(true);
+  });
+
+  it('treats a stale Codex rollout as not live', () => {
+    expect(isLiveMeta({ ...meta('2026-05-24T11:56:59Z'), provider: 'codex' })).toBe(false);
   });
 });

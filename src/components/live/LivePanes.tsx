@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import type { Session, Milestone } from '../../parse/types';
 import { LivePane } from './LivePane';
 import { extractSubagentPaneRoot } from './extractSubagentPaneRoot';
-import { subagentLabel } from './subagentLabel';
 import { remainingSeconds } from './paneStatus';
 import { TICK_MS, CLOSING_MS } from './liveness';
 import { pickVisibleSubagentEntries } from './visibleSubagents';
@@ -11,9 +10,16 @@ import { CanvasToolbar } from '../CanvasToolbar';
 import type { CameraApi } from '../../graph/useCamera';
 import { useNowMs } from './useNowMs';
 import { useStatusMap } from './useStatusMap';
-import { ControlBar } from './ControlBar';
-import { buildControlRows } from './controlRows';
-import { useControlState, usePauseTarget, useResumeTarget, useInstallGateHook } from '../../api/control';
+import {
+  ClaudeLiveControls,
+  EMPTY_CONTROL_SNAPSHOT,
+} from './ClaudeLiveControls';
+import type { ControlSnapshot } from '../../api/control';
+import {
+  associateSubagentFiles,
+  liveSubagentKey,
+  liveSubagentLabel,
+} from './subagentAssociation';
 
 type Props = {
   session: Session;
@@ -68,18 +74,27 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
     return spawnNodes
       .map((spawn) => {
         const root = extractSubagentPaneRoot(spawn);
-        return root ? { key: `spawn:${spawn.id}`, spawnId: spawn.id, root } : null;
+        return root ? {
+          key: liveSubagentKey(session.provider, spawn),
+          spawnId: spawn.id,
+          spawnThreadId: spawn.spawnThreadId,
+          spawnLabel: spawn.label,
+          root,
+        } : null;
       })
-      .filter((x): x is { key: string; spawnId: string; root: Milestone } => x !== null);
-  }, [spawnNodes]);
+      .filter((x): x is {
+        key: string;
+        spawnId: string;
+        spawnThreadId: string | undefined;
+        spawnLabel: string;
+        root: Milestone;
+      } => x !== null);
+  }, [session.provider, spawnNodes]);
 
-  // Alphabetical pairing v1 (per the spec follow-up note).
-  const fileIds = useMemo(() => Object.keys(subagentMtimes).sort(), [subagentMtimes]);
-  const keyToFileId = useMemo(() => {
-    const map = new Map<string, string>();
-    subagentEntries.forEach((e, i) => { if (fileIds[i]) map.set(e.key, fileIds[i]); });
-    return map;
-  }, [subagentEntries, fileIds]);
+  const keyToFileId = useMemo(
+    () => associateSubagentFiles(session.provider, subagentEntries, subagentMtimes),
+    [session.provider, subagentEntries, subagentMtimes],
+  );
 
   const [userClosedKeys, setUserClosedKeys] = useState<Set<string>>(new Set());
   const mainCameraRef = useRef<CameraApi | null>(null);
@@ -105,18 +120,6 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
   const total = 1 + displayable.length;
 
   const sessionId = session.id;
-  const controlQuery = useControlState(projectId, sessionId, true);
-  const pauseMut = usePauseTarget(projectId, sessionId);
-  const resumeMut = useResumeTarget(projectId, sessionId);
-  const installMut = useInstallGateHook(projectId, sessionId);
-  const snapshot = controlQuery.data?.control
-    ?? { all: false, main: false, agents: {}, held: [], pendingNotes: [] };
-  const controlRows = buildControlRows(
-    displayable.map((e) => ({ key: e.key, summary: e.root.summary })),
-    keyToFileId,
-    snapshot,
-    mainRoot.summary,
-  );
 
   // Memoize playback once per mainRoot so the follow effect can read order.length.
   const mainPlayback = useMemo(() => makeLivePlayback(mainRoot), [mainRoot]);
@@ -153,18 +156,7 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
   const isSolo = total === 1;
   const gridColumns = isSolo ? '1fr' : '1fr 1fr';
 
-  return (
-    <div style={outerStyle}>
-      <CanvasToolbar
-        showLive={true}
-        liveEngaged={true}
-        onToggleLive={onToggleLive}
-        showFit={isSolo}
-        onFit={() => mainCameraRef.current?.fit()}
-        showFollow={false}
-        follow={false}
-        onToggleFollow={() => {}}
-      />
+  const renderGrid = (snapshot: ControlSnapshot) => (
       <div
         data-testid="live-panes-grid"
         data-n={total}
@@ -190,6 +182,7 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
           borderless={isSolo}
           agentPaused={snapshot.all || snapshot.main}
           agentHeld={snapshot.held.some((h) => h.owner === 'main')}
+          showNarrative={session.provider !== 'codex'}
           onCameraReady={handleMainCameraReady}
         />
         {displayable.map((e, idx) => {
@@ -203,7 +196,7 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
             <div key={e.key} style={isLastOdd ? lastSpanStyle : undefined}>
               <LivePane
                 kind="subagent"
-                label={subagentLabel(fileId)}
+                label={liveSubagentLabel(session.provider, fileId, e.spawnLabel)}
                 root={e.root}
                 cwd={session.cwd}
                 paneId={e.key}
@@ -213,6 +206,7 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
                 frozen={frozen}
                 agentPaused={snapshot.all || snapshot.agents[fileId] === true}
                 agentHeld={snapshot.held.some((h) => h.owner === fileId)}
+                showNarrative={session.provider !== 'codex'}
                 onToggleFreeze={() => freezeToggleByKey(e.key)}
                 onClose={() => closePaneByKey(e.key)}
               />
@@ -220,18 +214,32 @@ export function LivePanes({ session, projectId, subagentMtimes, onToggleLive }: 
           );
         })}
       </div>
-      <ControlBar
-        rows={controlRows}
-        installed={controlQuery.data?.installed ?? false}
-        installing={installMut.isPending}
-        allPaused={snapshot.all}
-        nowMs={nowMs}
-        onPause={(target) => pauseMut.mutate(target)}
-        onResume={(target, note) => resumeMut.mutate({ target, note })}
-        onPauseAll={() => pauseMut.mutate('all')}
-        onResumeAll={() => resumeMut.mutate({ target: 'all', note: null })}
-        onInstall={() => installMut.mutate()}
+  );
+
+  return (
+    <div style={outerStyle}>
+      <CanvasToolbar
+        showLive={true}
+        liveEngaged={true}
+        onToggleLive={onToggleLive}
+        showFit={isSolo}
+        onFit={() => mainCameraRef.current?.fit()}
+        showFollow={false}
+        follow={false}
+        onToggleFollow={() => {}}
       />
+      {session.provider === 'codex' ? renderGrid(EMPTY_CONTROL_SNAPSHOT) : (
+        <ClaudeLiveControls
+          projectId={projectId}
+          sessionId={sessionId}
+          mainSummary={mainRoot.summary}
+          subagentRows={displayable.map((entry) => ({ key: entry.key, summary: entry.root.summary }))}
+          keyToFileId={keyToFileId}
+          nowMs={nowMs}
+        >
+          {renderGrid}
+        </ClaudeLiveControls>
+      )}
     </div>
   );
 }

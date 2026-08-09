@@ -40,6 +40,7 @@ export type Milestone = {
   children: Milestone[];
   usage?: ContextUsage;
   contextSize?: number;
+  spawnThreadId?: string;
 };
 
 export type Session = {

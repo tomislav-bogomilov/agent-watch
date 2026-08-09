@@ -1,0 +1,5 @@
+{"timestamp":"2026-08-09T08:00:00.000Z","type":"session_meta","payload":{"id":"codex-live-main","cwd":"C:/demo/codex-live","thread_source":"cli"}}
+{"timestamp":"2026-08-09T08:00:01.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Watch Codex live"}]}}
+{"timestamp":"2026-08-09T08:00:02.000Z","type":"event_msg","payload":{"type":"agent_reasoning","text":"Inspect live updates"}}
+{"timestamp":"2026-08-09T08:00:03.000Z","type":"event_msg","payload":{"type":"sub_agent_activity","kind":"started","agent_thread_id":"codex-live-child"}}
+{"timestamp":"2026-08-09T08:00:10.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Codex live complete"}]}}

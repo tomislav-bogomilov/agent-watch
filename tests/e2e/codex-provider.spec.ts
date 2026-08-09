@@ -8,7 +8,9 @@ test('mixed providers share a cwd group and load provider-specific payloads', as
   await expect(group.getByText('CODEX', { exact: true })).toBeVisible();
 
   const list = await page.evaluate(async () => (await fetch('/api/sessions')).json());
-  const codex = list.sessions.find((session: { provider: string }) => session.provider === 'codex');
+  const codex = list.sessions.find((session: { provider: string; sessionId: string }) => (
+    session.provider === 'codex' && session.sessionId === 'codex-main'
+  ));
   expect(codex).toBeTruthy();
   const loaded = await page.evaluate(async (session) => {
     const url = `/api/sessions/${session.provider}/${encodeURIComponent(session.projectId)}/${encodeURIComponent(session.sessionId)}`;
@@ -19,8 +21,19 @@ test('mixed providers share a cwd group and load provider-specific payloads', as
 
   await group.getByText('CODEX', { exact: true }).click();
   await expect(page.getByTestId('selected-provider-badge')).toHaveText('CODEX');
-  await expect(page.getByTestId('live-button')).toHaveCount(0);
   await expect(page.locator('[data-testid="control-bar"]')).toHaveCount(0);
+
+  // This provider/replay spec is independent of fixture mtime. Recent Codex
+  // sessions auto-enter Live, so explicitly leave Live before replay checks.
+  await expect.poll(async () => (
+    await page.getByTestId('live-panes-grid').count()
+    + await page.getByTestId('step-forward').count()
+  ), { timeout: 15_000 }).toBeGreaterThan(0);
+  if (await page.getByTestId('live-panes-grid').count()) {
+    await page.getByTestId('live-button').click();
+    await expect(page.getByTestId('live-panes-grid')).toHaveCount(0);
+  }
+
   await page.locator('svg g[data-id="codex-main:0:root_prompt"]').click();
   await expect(page.getByTestId('tab-narrative')).toHaveCount(0);
 

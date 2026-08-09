@@ -148,7 +148,7 @@ export default function App() {
   }, [selected, sessionsQuery.data]);
   const sessionIsLive = selectedMeta ? isLiveMeta(selectedMeta) : false;
   const [liveEngaged, setLiveEngaged] = useState(false);
-  const liveActive = selectedMeta?.provider === 'claude' && liveEngaged;
+  const liveActive = selectedMeta !== null && liveEngaged;
   const { data: rawSession, isLoading, error } = useSession(
     selected?.kind === 'session' || selected?.kind === 'prompt' ? selected.provider : null,
     selected?.kind === 'session' || selected?.kind === 'prompt' ? selected.projectId : null,

@@ -3,8 +3,10 @@ import { expect, test } from '@playwright/test';
 test('prompts mode: header tab switches the list, clicking a prompt opens a scoped graph', async ({ page }) => {
   await page.goto('/');
 
-  // Default Sessions mode renders a list with 4 fixture projects (happy/fail/sub/live).
-  await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(8);
+  // Default Sessions mode renders the known Claude fixture. Avoid coupling
+  // this Prompts test to the total number of provider-specific sessions.
+  const happySessionBadge = page.getByTestId('provider-badge-claude/C--demo-happy/2026-01-01-aaaa');
+  await expect(happySessionBadge).toBeVisible();
 
   // Switch to Prompts mode via the header tab.
   await page.getByTestId('mode-tab-prompts').click();
@@ -30,5 +32,5 @@ test('prompts mode: header tab switches the list, clicking a prompt opens a scop
   // Now switch back to Sessions mode and verify the tab remains
   // functional and the session list reappears.
   await page.getByTestId('mode-tab-sessions').click();
-  await expect(page.locator('aside li[data-testid^="session-item"]')).toHaveCount(8);
+  await expect(happySessionBadge).toBeVisible();
 });

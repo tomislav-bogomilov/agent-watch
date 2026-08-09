@@ -22,7 +22,11 @@ function m(id: string, kind: Milestone['kind'] = 'tool_call', children: Mileston
   return { id, kind, label: id, summary: '', timestamp: '', failed: false, raw: null, children };
 }
 
-function makeSession(mainTrail: Milestone[], subagentTrails: { id: string; lastUpdatedAt: string; root: Milestone }[]): Session {
+function makeSession(
+  mainTrail: Milestone[],
+  subagentTrails: { id: string; lastUpdatedAt: string; root: Milestone; label?: string }[],
+  provider: Session['provider'] = 'claude',
+): Session {
   // Splice each sub-agent as a subagent_spawn off the last main node, with its root as children[0].
   let main: Milestone;
   if (mainTrail.length === 1) main = mainTrail[0];
@@ -39,12 +43,13 @@ function makeSession(mainTrail: Milestone[], subagentTrails: { id: string; lastU
   let leaf = main;
   while (leaf.children.length > 0) leaf = leaf.children[0];
   for (const sa of subagentTrails) {
-    leaf.children.push({ id: `spawn-${sa.id}`, kind: 'subagent_spawn', label: 'spawn',
+    leaf.children.push({ id: `spawn-${sa.id}`, kind: 'subagent_spawn', label: `→ ${sa.label ?? sa.id}`,
       summary: '', timestamp: '', failed: false, raw: null,
+      spawnThreadId: sa.id,
       children: [sa.root] });
   }
   return {
-    provider: 'claude',
+    provider,
     id: 'test-session', cwd: '/c',
     startedAt: '2026-05-24T12:00:00Z',
     root: main,
@@ -55,7 +60,11 @@ function makeSession(mainTrail: Milestone[], subagentTrails: { id: string; lastU
 }
 
 describe('LivePanes', () => {
-  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-05-24T12:00:00Z')); });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-24T12:00:00Z'));
+    vi.mocked(fetch).mockClear();
+  });
   afterEach(() => { vi.useRealTimers(); });
 
   it('renders one borderless MAIN LivePane when there are no sub-agents (N=1)', () => {
@@ -181,5 +190,98 @@ describe('LivePanes', () => {
     const svgN1 = mainPaneN1!.querySelector('svg');
     // Same DOM node — no remount.
     expect(svgN1).toBe(svgN2);
+  });
+
+  it('matches and labels Codex child panes by thread id', () => {
+    const session = makeSession([m('main')], [
+      { id: 'thread-b', label: 'Auditor', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('b') },
+      { id: 'thread-a', label: 'Scout', lastUpdatedAt: '2026-05-24T12:00:00Z', root: m('a') },
+    ], 'codex');
+
+    renderWithClient(<LivePanes
+      session={session}
+      projectId="codex-project"
+      subagentMtimes={{
+        'thread-a': '2026-05-24T12:00:00Z',
+        'thread-b': '2026-05-24T12:00:00Z',
+      }}
+      onToggleLive={() => {}}
+    />);
+
+    expect(screen.getByText('Auditor')).toBeTruthy();
+    expect(screen.getByText('Scout')).toBeTruthy();
+    expect(screen.getAllByTestId('live-pane')).toHaveLength(3);
+  });
+
+  it('does not render or request Claude controls for Codex', async () => {
+    const session = makeSession([m('main')], [], 'codex');
+    renderWithClient(<LivePanes
+      session={session}
+      projectId="codex-project"
+      subagentMtimes={{}}
+      onToggleLive={() => {}}
+    />);
+
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByTestId('control-bar')).toBeNull();
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('/api/control/'))).toBe(false);
+  });
+
+  it('does not expose Logical Steps for Codex live panes', () => {
+    const session = makeSession([m('main')], [], 'codex');
+    renderWithClient(<LivePanes
+      session={session}
+      projectId="codex-project"
+      subagentMtimes={{}}
+      onToggleLive={() => {}}
+    />);
+
+    expect(screen.queryByTestId('pane-tab-narrative')).toBeNull();
+    expect(screen.getByTestId('pane-tab-details')).toBeTruthy();
+  });
+
+  it('preserves a Codex guardian pane when its synthetic spawn id changes', () => {
+    const first = makeSession([m('main')], [{
+      id: 'guardian-thread',
+      label: 'Guardian',
+      lastUpdatedAt: '2026-05-24T12:00:00Z',
+      root: m('guardian-root'),
+    }], 'codex');
+    first.root.children[0].id = 'main:2:subagent_spawn';
+
+    const second = makeSession([m('main')], [{
+      id: 'guardian-thread',
+      label: 'Guardian',
+      lastUpdatedAt: '2026-05-24T12:00:01Z',
+      root: m('guardian-root-updated'),
+    }], 'codex');
+    second.root.children[0].id = 'main:3:subagent_spawn';
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(
+      <QueryClientProvider client={qc}>
+        <LivePanes
+          session={first}
+          projectId="codex-project"
+          subagentMtimes={{ 'guardian-thread': '2026-05-24T12:00:00Z' }}
+          onToggleLive={() => {}}
+        />
+      </QueryClientProvider>
+    );
+    const originalPane = screen.getByText('Guardian').closest('[data-testid="live-pane"]');
+    expect(originalPane).not.toBeNull();
+
+    rerender(
+      <QueryClientProvider client={qc}>
+        <LivePanes
+          session={second}
+          projectId="codex-project"
+          subagentMtimes={{ 'guardian-thread': '2026-05-24T12:00:01Z' }}
+          onToggleLive={() => {}}
+        />
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByText('Guardian').closest('[data-testid="live-pane"]')).toBe(originalPane);
   });
 });
