@@ -9,6 +9,13 @@ export default defineConfig({
   plugins: [react(), sessionsPlugin(), controlPlugin(), narrativePlugin()],
   test: {
     environment: 'jsdom',
+    // Node 25 exposes an incomplete process-global localStorage unless a
+    // persistence file is configured. Disable it in workers so jsdom installs
+    // its standards-compliant Storage implementation instead.
+    poolOptions: {
+      threads: { execArgv: ['--no-experimental-webstorage'] },
+      forks: { execArgv: ['--no-experimental-webstorage'] },
+    },
     globals: true,
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/unit/**/*.test.{ts,tsx}'],

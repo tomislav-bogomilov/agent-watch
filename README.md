@@ -67,8 +67,7 @@ Tests: Vitest (unit) + Playwright (e2e, Chromium).
 
 ## Validation status
 
-Run `npm run typecheck` to check the TypeScript project. The unit suite has a known
-compatibility issue in the observed Node 25 environment, where the injected `localStorage`
-implementation lacks `clear`; use a supported Node LTS environment for follow-up validation.
+Run `npm run typecheck` for the TypeScript project and `npm test` for the unit suite.
+The test harness supplies jsdom `localStorage` compatibility for Node 25.
 Development-tool dependency advisories are intentionally deferred and should be reviewed
 before deploying this project beyond local development.
