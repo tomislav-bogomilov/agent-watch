@@ -9,14 +9,14 @@ function ms(id: string, over: Partial<Milestone> = {}): Milestone {
   return { id, kind: 'tool_call', label: id, summary: id, timestamp: '', failed: false, raw: null, children: [], ...over };
 }
 
-function setup(speed: PlaybackState['speed'] = 2) {
+function setup(speed: PlaybackState['speed'] = 2, stateOverride: Partial<PlaybackState> = {}) {
   const controls: Controls = {
     play: vi.fn(), pause: vi.fn(), toggle: vi.fn(), setSpeed: vi.fn(),
     restart: vi.fn(), step: vi.fn(), scrubTo: vi.fn(),
   };
   const state: PlaybackState = {
     order: [ms('a'), ms('b', { kind: 'subagent_spawn' }), ms('c')],
-    index: 0, edgeProgress: 0, playing: false, speed, finished: false,
+    index: 0, edgeProgress: 0, playing: false, speed, finished: false, ...stateOverride,
   };
   render(<PlaybackControls state={state} controls={controls} />);
   return controls;
@@ -50,5 +50,10 @@ describe('PlaybackControls', () => {
     const controls = setup(4);
     fireEvent.click(screen.getByTestId('speed-inc'));
     expect(controls.setSpeed).toHaveBeenCalledWith(4);
+  });
+
+  it('clamps the completed scrubber position to 100 percent', () => {
+    setup(2, { index: 2, edgeProgress: 1, finished: true });
+    expect(screen.getByTestId('scrubber-handle').getAttribute('data-pct')).toBe('100.0');
   });
 });

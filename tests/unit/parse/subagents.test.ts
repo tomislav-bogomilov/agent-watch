@@ -41,6 +41,7 @@ const subJsonl = [
 describe('subagent attachment', () => {
   it('attaches a subagent subtree as the first child of the spawn node', () => {
     const session = parseSession({
+      provider: 'claude',
       projectId: 'p', sessionId: 's', cwd: '/proj', jsonl: mainJsonl,
       subagents: [{ id: 'agent-x', jsonl: subJsonl, lastUpdatedAt: '2024-01-01T00:00:00.000Z' }],
     });

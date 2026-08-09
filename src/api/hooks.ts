@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchPromptList, fetchSessionList, fetchSessionPayload, fetchTokenUsage, fetchMemory, createMemory, updateMemory, deleteMemory, fetchNarrative, startNarrative, tickNarrative, refreshNarrative } from './client';
 import type { TokenUsageResponse, MemoryResponse, MemoryType, NarratorInput } from './client';
 import { parseSession } from '../parse';
-import type { Session } from '../parse/types';
+import type { ProviderId, Session } from '../parse/types';
 import type { NarrativeState } from '../narrative/types';
 import { POLL_MS } from '../components/live/liveness';
 
@@ -29,14 +29,14 @@ export function useTokenUsage() {
   });
 }
 
-export function useSession(projectId: string | null, sessionId: string | null, live: boolean = false) {
+export function useSession(provider: ProviderId | null, projectId: string | null, sessionId: string | null, live: boolean = false) {
   return useQuery<Session>({
-    queryKey: ['session', projectId, sessionId],
+    queryKey: ['session', provider, projectId, sessionId],
     queryFn: async () => {
-      const payload = await fetchSessionPayload(projectId!, sessionId!);
+      const payload = await fetchSessionPayload(provider!, projectId!, sessionId!);
       return parseSession(payload);
     },
-    enabled: !!projectId && !!sessionId,
+    enabled: !!provider && !!projectId && !!sessionId,
     refetchInterval: live ? POLL_MS : false,
     // TanStack Query's default structural sharing deep-walks the result and
     // preserves old refs for equal subtrees. For our Milestone tree that

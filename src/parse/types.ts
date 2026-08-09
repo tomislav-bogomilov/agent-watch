@@ -6,6 +6,19 @@ export type MilestoneKind =
   | 'user_followup'
   | 'completion';
 
+export type ProviderId = 'claude' | 'codex';
+
+export type SessionRef = {
+  provider: ProviderId;
+  projectId: string;
+  sessionId: string;
+};
+
+export type ProviderWarning = {
+  provider: ProviderId;
+  message: string;
+};
+
 export type ContextUsage = {
   input: number;
   cacheRead: number;
@@ -30,6 +43,7 @@ export type Milestone = {
 };
 
 export type Session = {
+  provider: ProviderId;
   id: string;
   cwd: string;
   startedAt: string;
@@ -71,7 +85,8 @@ export type RawContentBlock =
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
   | { type: 'tool_result'; tool_use_id: string; content: string | RawContentBlock[]; is_error?: boolean };
 
-export type SessionPayload = {
+export type ClaudeSessionPayload = SessionRef & {
+  provider: 'claude';
   projectId: string;
   sessionId: string;
   cwd: string;
@@ -79,7 +94,27 @@ export type SessionPayload = {
   subagents: { id: string; jsonl: string; lastUpdatedAt: string }[];
 };
 
-export type SessionMeta = {
+export type CodexSubagentPayload = {
+  threadId: string;
+  parentThreadId: string;
+  agentPath?: string;
+  agentNickname?: string;
+  startedAt: string;
+  lastUpdatedAt: string;
+  jsonl: string;
+};
+
+export type CodexSessionPayload = SessionRef & {
+  provider: 'codex';
+  cwd: string;
+  jsonl: string;
+  subagents: CodexSubagentPayload[];
+};
+
+export type ProviderSessionPayload = ClaudeSessionPayload | CodexSessionPayload;
+export type SessionPayload = ProviderSessionPayload;
+
+export type SessionMeta = SessionRef & {
   projectId: string;
   sessionId: string;
   cwd: string;
@@ -87,6 +122,11 @@ export type SessionMeta = {
   lastUpdatedAt: string;
   sizeBytes: number;
   title?: string;
+};
+
+export type SessionListResponse = {
+  sessions: SessionMeta[];
+  warnings: ProviderWarning[];
 };
 
 export type PromptMeta = {

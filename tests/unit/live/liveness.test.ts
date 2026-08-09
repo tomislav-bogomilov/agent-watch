@@ -4,6 +4,7 @@ import type { SessionMeta } from '../../../src/parse/types';
 
 function meta(lastUpdatedAt: string): SessionMeta {
   return {
+    provider: 'claude',
     projectId: 'p', sessionId: 's', cwd: '/c',
     startedAt: lastUpdatedAt, lastUpdatedAt,
     sizeBytes: 0,
@@ -34,5 +35,9 @@ describe('isLiveMeta', () => {
 
   it('returns false 181s after lastUpdatedAt', () => {
     expect(isLiveMeta(meta('2026-05-24T11:56:59Z'))).toBe(false);
+  });
+
+  it('never treats a recent Codex rollout as live', () => {
+    expect(isLiveMeta({ ...meta('2026-05-24T12:00:00Z'), provider: 'codex' })).toBe(false);
   });
 });

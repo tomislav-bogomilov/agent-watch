@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePromptList, useSessionList } from '../../api/hooks';
-import type { PromptMeta, SessionMeta } from '../../parse/types';
+import type { PromptMeta, ProviderId, SessionMeta } from '../../parse/types';
 import { ResizeHandle } from '../ResizeHandle';
 import { PromptsList } from './PromptsList';
-import { SessionsList } from './SessionsList';
+import { sessionDisplayTitle, SessionsList } from './SessionsList';
 import { UsageCardsList } from './UsageCardsList';
 import { MemoryList } from './MemoryList';
 import type { TokenUsageRow } from '../../api/client';
 import type { Family } from '../../tokens/family';
+import { sessionKey } from '../../session-identity';
 
 export type LibraryMode = 'sessions' | 'prompts' | 'usage' | 'memory';
 
 export type Selection =
-  | { kind: 'session'; projectId: string; sessionId: string }
-  | { kind: 'prompt'; projectId: string; sessionId: string; promptId: string }
+  | { kind: 'session'; provider: ProviderId; projectId: string; sessionId: string }
+  | { kind: 'prompt'; provider: 'claude'; projectId: string; sessionId: string; promptId: string }
   | { kind: 'memory'; scopeKey: string; name: string };
 
 type Props = {
@@ -76,11 +77,13 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const expandedInit = useRef<Set<LibraryMode>>(new Set());
 
-  function onRename(sessionId: string, title: string): void {
+  function onRename(session: SessionMeta, title: string): void {
     setTitles((prev) => {
       const nextTitles = { ...prev };
-      if (!title) delete nextTitles[sessionId];
-      else nextTitles[sessionId] = title;
+      const key = sessionKey(session);
+      if (session.provider === 'claude') delete nextTitles[session.sessionId];
+      if (!title) delete nextTitles[key];
+      else nextTitles[key] = title;
       writeJson(STORAGE_TITLES, nextTitles);
       return nextTitles;
     });
@@ -89,12 +92,12 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
   const sessionsByProject = useMemo(() => {
     if (!sessionsQuery.data) return new Map<string, SessionMeta[]>();
     const filtered = query
-      ? sessionsQuery.data.filter((s) => {
+      ? sessionsQuery.data.sessions.filter((s) => {
           const q = query.toLowerCase();
-          const t = (titles[s.sessionId] ?? s.title ?? '').toLowerCase();
+          const t = sessionDisplayTitle(s, titles).toLowerCase();
           return s.cwd.toLowerCase().includes(q) || t.includes(q);
         })
-      : sessionsQuery.data;
+      : sessionsQuery.data.sessions;
     const map = new Map<string, SessionMeta[]>();
     for (const s of filtered) {
       const k = projectKey(s.cwd);
@@ -109,7 +112,9 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
     // Map projectId -> cwd from the sessions response (the prompt response
     // only carries projectId; cwd lives on SessionMeta).
     const cwdByProject = new Map<string, string>();
-    for (const s of sessionsQuery.data) cwdByProject.set(s.projectId, s.cwd);
+    for (const s of sessionsQuery.data.sessions) {
+      if (s.provider === 'claude') cwdByProject.set(s.projectId, s.cwd);
+    }
     const filtered = query
       ? promptsQuery.data.filter((p) => {
           const q = query.toLowerCase();
@@ -203,7 +208,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
     );
   }
 
-  const selectedSessionId = selected?.kind === 'session' ? selected.sessionId : null;
+  const selectedSessionKey = selected?.kind === 'session' ? sessionKey(selected) : null;
   const selectedPromptId = selected?.kind === 'prompt' ? selected.promptId : null;
   const isLoading = mode === 'sessions' ? sessionsQuery.isLoading : promptsQuery.isLoading;
   const error = mode === 'sessions' ? sessionsQuery.error : promptsQuery.error;
@@ -235,6 +240,11 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
         <>
           {isLoading && <div style={styles.muted}>scanning…</div>}
           {error && <div style={styles.error}>error: {(error as Error).message}</div>}
+          {mode === 'sessions' && sessionsQuery.data?.warnings.map((warning) => (
+            <div key={warning.provider} style={styles.warning} data-testid={`provider-warning-${warning.provider}`}>
+              {warning.provider.toUpperCase()}: {warning.message}
+            </div>
+          ))}
           {hasData && groups.length === 0 && <div style={styles.muted}>(none)</div>}
         </>
       )}
@@ -289,9 +299,9 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
               {isOpen && mode === 'sessions' && (
                 <SessionsList
                   items={g.items as SessionMeta[]}
-                  selectedSessionId={selectedSessionId}
+                  selectedSessionKey={selectedSessionKey}
                   titles={titles}
-                  onSelect={(s) => onSelect({ kind: 'session', projectId: s.projectId, sessionId: s.sessionId })}
+                  onSelect={(s) => onSelect({ kind: 'session', provider: s.provider, projectId: s.projectId, sessionId: s.sessionId })}
                   onRename={onRename}
                 />
               )}
@@ -300,7 +310,7 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
                   items={g.items as unknown as PromptMeta[]}
                   sessionTitles={titles}
                   selectedPromptId={selectedPromptId}
-                  onSelect={(p) => onSelect({ kind: 'prompt', projectId: p.projectId, sessionId: p.sessionId, promptId: p.promptId })}
+                  onSelect={(p) => onSelect({ kind: 'prompt', provider: 'claude', projectId: p.projectId, sessionId: p.sessionId, promptId: p.promptId })}
                 />
               )}
             </div>
@@ -370,5 +380,6 @@ const styles = {
   groupName: { flex: 1, overflow: 'hidden' as const, textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
   groupCount: { color: 'var(--text-dim)' },
   muted: { padding: '0 12px', color: 'var(--text-dim)', fontSize: 12 },
+  warning: { padding: '0 12px 4px', color: '#f0b35a', fontSize: 10, fontFamily: 'ui-monospace, monospace' },
   error: { padding: '0 12px', color: 'var(--node-failed)', fontSize: 12 },
 };

@@ -12,6 +12,7 @@ function ms(over: Partial<Milestone>): Milestone {
 
 function sessionWith(root: Milestone): Session {
   return {
+    provider: 'claude',
     id: 's', cwd: '/x', startedAt: root.timestamp, root,
     successPath: new Set(), totalMilestones: 1, subagentMtimes: {},
   };

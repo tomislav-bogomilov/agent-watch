@@ -1,5 +1,10 @@
 # ClaudeWatch
 
+ClaudeWatch supports local Claude Code sessions and read-only Codex Desktop/CLI replay.
+Both providers share the session library, graph, playback, filters, minimap, and details.
+Prompts, Usage, Memory, Logical Steps, and pause/steer are Claude-only. At this replay
+milestone, live monitoring is also Claude-only.
+
 Watch a Claude Code agent *think*. ClaudeWatch reads Claude Code's own session logs from
 your machine and turns each session into a navigable graph: every node is a **Thought** — a
 prompt, a decision, a tool call, a subagent spawn, a completion — and edges link each
@@ -42,8 +47,10 @@ npm install
 npm run dev        # → http://localhost:5173  (open in Chrome or Edge)
 ```
 
-Requires a populated `~/.claude/projects` (i.e. you've used Claude Code locally). Your
-sessions appear in the left sidebar automatically.
+Sessions appear in the left sidebar when either provider has local data. Claude sessions
+are read from `CLAUDE_HOME` (default `~/.claude/projects`). Codex rollouts are read from
+`${CODEX_HOME}/sessions` (default `~/.codex/sessions`). Missing provider roots are ignored,
+so either provider can be used independently.
 
 ## Documentation
 

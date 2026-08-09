@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 
 async function loadDemoHappy(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
-  await page.locator('svg g[data-id]').first().waitFor();
+  await page.getByTestId('session-item-2026-01-01-aaaa').click();
+  await expect(page.getByTestId('hud-summary')).toHaveText('Please print hello world');
   await page.getByTestId('chrome-gutter').waitFor();
 }
 

@@ -4,6 +4,7 @@ import { filterNoise } from './filter';
 import { buildMilestones } from './milestones';
 import { attachSubagents } from './subagents';
 import { extractSkillTrack } from './skills';
+import { parseCodexSession } from './codex';
 import type { RawEvent, Session, SessionPayload } from './types';
 
 function parseJsonl(jsonl: string): RawEvent[] {
@@ -21,6 +22,7 @@ function parseJsonl(jsonl: string): RawEvent[] {
 }
 
 export function parseSession(payload: SessionPayload): Session {
+  if (payload.provider === 'codex') return parseCodexSession(payload);
   const events = parseJsonl(payload.jsonl);
   const clean = filterNoise(events);
   const chain = buildChain(clean);
@@ -33,6 +35,7 @@ export function parseSession(payload: SessionPayload): Session {
     subagentMtimes[sa.id] = sa.lastUpdatedAt;
   }
   return {
+    provider: 'claude',
     id: payload.sessionId,
     cwd: payload.cwd,
     startedAt: events[0]?.timestamp ?? '',
@@ -45,4 +48,3 @@ export function parseSession(payload: SessionPayload): Session {
 }
 
 export type { Milestone, Session, MilestoneKind, SessionMeta, SessionPayload } from './types';
-

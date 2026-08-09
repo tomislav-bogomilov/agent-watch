@@ -1,5 +1,6 @@
 import type { PromptMeta } from '../../parse/types';
 import { ItemShell } from './ItemShell';
+import { sessionTitleKey } from '../../session-identity';
 
 type Props = {
   items: PromptMeta[];
@@ -9,7 +10,8 @@ type Props = {
 };
 
 function sessionSubtitle(p: PromptMeta, titles: Record<string, string>): string {
-  const renamed = titles[p.sessionId];
+  const renamed = titles[sessionTitleKey({ provider: 'claude', projectId: p.projectId, sessionId: p.sessionId })]
+    ?? titles[p.sessionId];
   if (renamed) return renamed;
   return `SESSION ${p.sessionId.slice(0, 8)}`;
 }

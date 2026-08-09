@@ -113,7 +113,7 @@ keeps them unit-testable in isolation.
 
 ## 4. Data source
 
-Claude Code stores session logs as JSONL on disk:
+Claude Code and Codex store session logs as JSONL on disk:
 
 ```
 ~/.claude/projects/
@@ -123,6 +123,10 @@ Claude Code stores session logs as JSONL on disk:
       subagents/
         agent-<id>.jsonl              # one file per spawned subagent
 ```
+
+Codex rollouts are discovered recursively under `${CODEX_HOME}/sessions` (default
+`~/.codex/sessions`) from files named `rollout-*.jsonl`. Their session metadata carries
+the normalized cwd, thread ID, and optional parent thread ID used to build nested agents.
 
 - **`projectId`** is the working directory with separators replaced by `-`. On Windows,
   `C:\Users\foo\proj` becomes `C--Users-foo-proj`. The plugin decodes this back to a cwd
@@ -139,13 +143,14 @@ Claude Code stores session logs as JSONL on disk:
 
 | Method + path | Returns | Notes |
 |---|---|---|
-| `GET /api/sessions` | `{ sessions: SessionMeta[] }` | Newest first; only sessions with ≥1 assistant turn; extracts a title from the first meaningful user message. Polled live. |
-| `GET /api/sessions/:projectId/:sessionId` | `SessionPayload` | Main JSONL + every `subagents/*.jsonl`, each with its `lastUpdatedAt` mtime |
+| `GET /api/sessions` | `{ sessions: SessionMeta[], warnings: ProviderWarning[] }` | Merges available providers newest-first. An unavailable provider is reported as a non-blocking warning. Polled live. |
+| `GET /api/sessions/:provider/:projectId/:sessionId` | `ProviderSessionPayload` | Provider-qualified main JSONL plus discovered child rollouts and timestamps. IDs are resolved through provider-owned indexes. |
 | `GET /api/prompts` | `{ prompts: PromptMeta[] }` | Every user prompt across all sessions, newest first |
 | `GET /api/token-usage` | `TokenUsageResponse` | Per-model token aggregation (see §8) |
 
-Path safety: IDs are validated against `[A-Za-z0-9._-]+` before any filesystem access, so
-a crafted `projectId`/`sessionId` can't escape `CLAUDE_HOME/projects`.
+Path safety: IDs are validated against `[A-Za-z0-9._-]+`. Claude additionally enforces
+root containment; Codex resolves IDs only through its discovered file index, so request
+segments are never interpreted as filesystem paths.
 
 ---
 

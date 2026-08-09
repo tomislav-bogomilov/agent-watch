@@ -15,10 +15,11 @@ export interface InspectorTabsProps extends NarrativeTabProps {
   onResize: (delta: number) => void;
   /** Px to inset the dock's bottom by, so it clears the LIVE control bar. */
   bottomInset?: number;
+  showNarrative?: boolean;
 }
 
 export function InspectorTabs(props: InspectorTabsProps) {
-  const { milestone, onClose, width, onResize, bottomInset = 0, ...narrative } = props;
+  const { milestone, onClose, width, onResize, bottomInset = 0, showNarrative = true, ...narrative } = props;
   const { live } = narrative;
   const [tab, setTab] = useState<Tab>(live ? 'narrative' : 'details');
   const [expanded, setExpanded] = useState(false);
@@ -44,13 +45,13 @@ export function InspectorTabs(props: InspectorTabsProps) {
           onClick={() => setTab('details')}
           style={tabStyle(tab === 'details')}
         >Details</button>
-        <button
+        {showNarrative && <button
           type="button"
           data-testid="tab-narrative"
           onClick={() => setTab('narrative')}
           style={tabStyle(tab === 'narrative')}
-        >Logical Steps</button>
-        {tab === 'narrative' && (
+        >Logical Steps</button>}
+        {showNarrative && tab === 'narrative' && (
           <button
             type="button"
             data-testid="tab-expand"
@@ -62,7 +63,7 @@ export function InspectorTabs(props: InspectorTabsProps) {
         )}
       </div>
       <div style={styles.content}>
-        {tab === 'details'
+        {tab === 'details' || !showNarrative
           ? (milestone
               ? <DetailPanel milestone={milestone} onClose={onClose} width={panelWidth} onResize={onResize} />
               : <div style={styles.placeholder}>Select a Thought in the graph to inspect it.</div>)

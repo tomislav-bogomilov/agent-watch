@@ -17,7 +17,7 @@ async function rectAttrs(page: import('@playwright/test').Page) {
 
 test('minimap wheel zoom shrinks the viewport rect', async ({ page }) => {
   await page.goto('/');
-  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
+  await page.getByTestId('session-item-2026-01-01-aaaa').click();
   const minimap = page.getByTestId('minimap');
   await expect(minimap).toBeVisible();
 
@@ -37,7 +37,7 @@ test('minimap wheel zoom shrinks the viewport rect', async ({ page }) => {
 
 test('minimap drag inside the viewport rect pans the camera', async ({ page }) => {
   await page.goto('/');
-  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
+  await page.getByTestId('session-item-2026-01-01-aaaa').click();
   const minimap = page.getByTestId('minimap');
   await expect(minimap).toBeVisible();
 
@@ -76,7 +76,7 @@ test('minimap drag inside the viewport rect pans the camera', async ({ page }) =
 
 test('clicking outside the viewport rect still jumps the camera (preserved behavior)', async ({ page }) => {
   await page.goto('/');
-  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
+  await page.getByTestId('session-item-2026-01-01-aaaa').click();
   const minimap = page.getByTestId('minimap');
   await expect(minimap).toBeVisible();
 

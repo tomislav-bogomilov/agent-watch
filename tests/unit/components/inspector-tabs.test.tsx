@@ -70,4 +70,13 @@ describe('InspectorTabs visibility', () => {
     expect(screen.getByTestId('narr-block-b1')).toBeTruthy();
     expect(screen.queryByTestId('narr-enable')).toBeNull();
   });
+
+  it('hides Logical Steps when the selected provider does not support narration', () => {
+    renderTabs({ milestone: {
+      id: 'm1', kind: 'tool_call', label: 'Tool', summary: 'summary',
+      timestamp: 't1', failed: false, raw: null, children: [],
+    }, showNarrative: false });
+    expect(screen.getByTestId('tab-details')).toBeTruthy();
+    expect(screen.queryByTestId('tab-narrative')).toBeNull();
+  });
 });

@@ -117,16 +117,17 @@ export function GraphCanvas({
   // own initial framing via `onCameraReady` (fit + setFollow), and we don't
   // want `frameInitial(root)` to override it.
   const fittedSessionRef = useRef<string | null>(null);
+  const sessionIdentity = `${session.provider}/${session.cwd}/${session.id}`;
   useEffect(() => {
     if (liveEngaged) return;
     if (viewport.width <= 1 || viewport.height <= 1) return;
-    if (fittedSessionRef.current === session.id) return;
-    fittedSessionRef.current = session.id;
+    if (fittedSessionRef.current === sessionIdentity) return;
+    fittedSessionRef.current = sessionIdentity;
     const root = layout.nodes[0];
     if (root) frameInitial({ x: root.x, y: root.y });
     else fit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.id, viewport.width, viewport.height]);
+  }, [sessionIdentity, viewport.width, viewport.height]);
 
   const currentId = playback.order[playback.index]?.id;
 
@@ -331,7 +332,7 @@ export function GraphCanvas({
   // so during playback the panel stays mounted and content updates smoothly.
   const [hologramDismissed, setHologramDismissed] = useState(false);
   useEffect(() => { if (pinnedId) setHologramDismissed(false); }, [pinnedId]);
-  useEffect(() => { setHologramDismissed(false); }, [session.id]);
+  useEffect(() => { setHologramDismissed(false); }, [sessionIdentity]);
 
   const presentedId: string | null = useMemo(() => {
     if (hologramDismissed && !pinnedId) return null;

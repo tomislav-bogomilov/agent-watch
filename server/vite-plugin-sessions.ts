@@ -7,7 +7,10 @@ import {
   readMemoryStore, createMemory, updateMemory, deleteMemory,
   isMemoryName, isSafeMemoryFileName, type MemoryType,
 } from './memory-store';
-import { claudeHome, sendJson, readBody, isSafeScopeKey, assertInsideRoot, isNarratorProject, isTempProject } from './plugin-shared';
+import { claudeHome, codexSessionsRoot, sendJson, readBody, isSafeScopeKey, assertInsideRoot, isNarratorProject, isTempProject } from './plugin-shared';
+import { createClaudeSessionAdapter, hasClaudeAssistantTurn, meaningfulUserText } from './providers/claude';
+import { createCodexSessionAdapter } from './providers/codex';
+import { createProviderRegistry } from './providers/registry';
 
 type SessionMeta = {
   projectId: string;
@@ -253,7 +256,7 @@ async function extractPrompts(filePath: string, projectId: string, sessionId: st
     }
     if (!text) continue;
 
-    const cleaned = isMeaningfulUserText(text);
+    const cleaned = meaningfulUserText(text);
     if (!cleaned) continue;
 
     const snippet = cleaned.length > PROMPT_MAX_CHARS
@@ -298,7 +301,7 @@ export async function listPrompts(root: string): Promise<PromptMeta[]> {
       let stat;
       try { stat = await fs.stat(full); } catch { continue; }
       if (!stat.isFile()) continue;
-      if (!(await hasAssistantTurn(full))) continue;
+      if (!(await hasClaudeAssistantTurn(full))) continue;
       const sessionId = name.replace(/\.jsonl$/, '');
       const prompts = await extractPrompts(full, projectId, sessionId);
       out.push(...prompts);
@@ -310,6 +313,10 @@ export async function listPrompts(root: string): Promise<PromptMeta[]> {
 
 export function sessionsPlugin(): Plugin {
   const root = claudeHome();
+  const registry = createProviderRegistry([
+    createClaudeSessionAdapter(root),
+    createCodexSessionAdapter(codexSessionsRoot()),
+  ]);
   return {
     name: 'thoughtgraph:sessions',
     configureServer(server) {
@@ -329,23 +336,22 @@ export function sessionsPlugin(): Plugin {
             return;
           }
           if (url === '/' || url === '') {
-            const sessions = await listSessions(root);
-            sendJson(res, 200, { sessions });
+            sendJson(res, 200, await registry.listSessions());
             return;
           }
-          const match = url.match(/^\/([^/]+)\/([^/?#]+)(?:[?#].*)?$/);
+          const match = url.match(/^\/(claude|codex)\/([^/]+)\/([^/?#]+)(?:[?#].*)?$/);
           if (!match) {
-            sendJson(res, 400, { error: 'expected /api/sessions/:projectId/:sessionId' });
+            sendJson(res, 400, { error: 'expected /api/sessions/:provider/:projectId/:sessionId' });
             return;
           }
-          const [, projectId, sessionId] = match;
+          const [, provider, projectId, sessionId] = match;
           // isSafeScopeKey (not isSafeId) also rejects '.'/'..', matching the
           // /api/memory route — without this, projectId='..' is a path traversal.
           if (!isSafeScopeKey(projectId) || !isSafeScopeKey(sessionId)) {
             sendJson(res, 400, { error: 'invalid id' });
             return;
           }
-          const payload = await readSessionPayload(root, projectId, sessionId);
+          const payload = await registry.readSession(provider as 'claude' | 'codex', projectId, sessionId);
           sendJson(res, 200, payload);
         } catch (err) {
           const code = (err as NodeJS.ErrnoException).code;

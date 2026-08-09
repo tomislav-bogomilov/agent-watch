@@ -7,5 +7,6 @@ export const POLL_MS = 7_000;
 export const TICK_MS = 1_000;
 
 export function isLiveMeta(meta: SessionMeta): boolean {
+  if (meta.provider !== 'claude') return false;
   return Date.now() - new Date(meta.lastUpdatedAt).getTime() < LIVE_THRESHOLD_MS;
 }

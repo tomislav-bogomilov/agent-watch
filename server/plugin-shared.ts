@@ -6,6 +6,10 @@ export function claudeHome(): string {
   return process.env.CLAUDE_HOME ?? path.join(os.homedir(), '.claude', 'projects');
 }
 
+export function codexSessionsRoot(codexHome = process.env.CODEX_HOME): string {
+  return path.join(codexHome ?? path.join(os.homedir(), '.codex'), 'sessions');
+}
+
 export function sendJson(res: Parameters<Connect.NextHandleFunction>[1], status: number, body: unknown): void {
   res.statusCode = status;
   res.setHeader('content-type', 'application/json');

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Hologram detail view', () => {
   test('pin opens DetailPanel AND HologramPanel together; Esc closes pin + hologram', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
+    await page.getByTestId('session-item-2026-01-01-aaaa').click();
     await page.locator('svg g[data-id]').first().waitFor();
 
     const firstNode = page.locator('g[data-id][data-kind][data-state]').first();
@@ -26,7 +26,7 @@ test.describe('Hologram detail view', () => {
 
   test('clicking ▼ N more expands the skill list', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
+    await page.getByTestId('session-item-2026-01-01-aaaa').click();
     await page.locator('svg g[data-id]').first().waitFor();
 
     const firstNode = page.locator('g[data-id][data-kind][data-state]').first();
@@ -47,7 +47,7 @@ test.describe('Hologram detail view', () => {
 
   test('pinning a different node remounts cleanly', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
+    await page.getByTestId('session-item-2026-01-01-aaaa').click();
     await page.locator('svg g[data-id]').first().waitFor();
 
     const nodes = page.locator('g[data-id][data-kind][data-state]');
@@ -64,7 +64,7 @@ test.describe('Hologram detail view', () => {
 
   test('clicking × on hologram closes the pin and hologram panel', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
+    await page.getByTestId('session-item-2026-01-01-aaaa').click();
     await page.locator('svg g[data-id]').first().waitFor();
 
     const firstNode = page.locator('g[data-id][data-kind][data-state]').first();

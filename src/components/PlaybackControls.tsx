@@ -12,7 +12,9 @@ function Scrubber({ index, edgeProgress, total, onSeek }: {
   index: number; edgeProgress: number; total: number; onSeek: (i: number) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const pct = total > 1 ? ((index + edgeProgress) / (total - 1)) * 100 : 0;
+  const pct = total > 1
+    ? Math.max(0, Math.min(100, ((index + edgeProgress) / (total - 1)) * 100))
+    : 0;
 
   function seekFromEvent(clientX: number): void {
     const t = trackRef.current;

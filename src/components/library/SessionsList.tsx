@@ -3,13 +3,14 @@ import type { SessionMeta } from '../../parse/types';
 import { ItemShell } from './ItemShell';
 import { LiveTag } from './LiveTag';
 import { isLiveMeta } from '../../api/hooks';
+import { sessionKey } from '../../session-identity';
 
 type Props = {
   items: SessionMeta[];
-  selectedSessionId: string | null;
+  selectedSessionKey: string | null;
   titles: Record<string, string>;
   onSelect: (s: SessionMeta) => void;
-  onRename: (sessionId: string, title: string) => void;
+  onRename: (session: SessionMeta, title: string) => void;
 };
 
 function basename(cwd: string): string {
@@ -17,30 +18,38 @@ function basename(cwd: string): string {
   return parts[parts.length - 1] ?? cwd;
 }
 
-export function SessionsList({ items, selectedSessionId, titles, onSelect, onRename }: Props) {
+export function sessionDisplayTitle(session: SessionMeta, titles: Record<string, string>): string {
+  return titles[sessionKey(session)]
+    ?? (session.provider === 'claude' ? titles[session.sessionId] : undefined)
+    ?? session.title
+    ?? basename(session.cwd);
+}
+
+export function SessionsList({ items, selectedSessionKey, titles, onSelect, onRename }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
 
   function startEdit(s: SessionMeta, e: React.MouseEvent): void {
     e.stopPropagation();
-    setEditingId(s.sessionId);
-    setDraftTitle(titles[s.sessionId] ?? s.title ?? basename(s.cwd));
+    setEditingId(sessionKey(s));
+    setDraftTitle(sessionDisplayTitle(s, titles));
   }
 
   function commitEdit(s: SessionMeta): void {
-    onRename(s.sessionId, draftTitle.trim());
+    onRename(s, draftTitle.trim());
     setEditingId(null);
   }
 
   return (
     <ul style={styles.list}>
       {items.map((s) => {
-        const isSelected = selectedSessionId === s.sessionId;
-        const displayTitle = titles[s.sessionId] ?? s.title ?? basename(s.cwd);
-        const isEditing = editingId === s.sessionId;
+        const identity = sessionKey(s);
+        const isSelected = selectedSessionKey === identity;
+        const displayTitle = sessionDisplayTitle(s, titles);
+        const isEditing = editingId === identity;
         return (
           <ItemShell
-            key={`${s.projectId}/${s.sessionId}`}
+            key={identity}
             selected={isSelected}
             onClick={() => { if (!isEditing) onSelect(s); }}
             testId={`session-item-${s.sessionId}`}
@@ -69,6 +78,7 @@ export function SessionsList({ items, selectedSessionId, titles, onSelect, onRen
               </div>
             )}
             <div style={styles.itemMeta}>
+              <span style={styles.providerBadge} data-testid={`provider-badge-${identity}`}>{s.provider.toUpperCase()}</span>
               <span>{new Date(s.startedAt).toLocaleString()} · {Math.round(s.sizeBytes / 1024)}KB</span>
               {isLiveMeta(s) && <LiveTag />}
             </div>
@@ -102,6 +112,10 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+  },
+  providerBadge: {
+    color: 'var(--edge-trail)',
+    letterSpacing: 1,
   },
   editInput: {
     width: '100%',

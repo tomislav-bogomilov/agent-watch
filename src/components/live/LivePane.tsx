@@ -182,6 +182,7 @@ export function LivePane({
   const fittedRef = useRef(false);
 
   const session: Session = useMemo(() => ({
+    provider: 'claude',
     id: paneId,
     cwd,
     startedAt: '',

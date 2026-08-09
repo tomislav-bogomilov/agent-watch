@@ -13,7 +13,7 @@ async function readZoomScale(page: import('@playwright/test').Page): Promise<num
 
 test('clicking a node preserves the zoom level (does not refit)', async ({ page }) => {
   await page.goto('/');
-  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
+  await page.getByTestId('session-item-2026-01-01-aaaa').click();
   await expect(page.locator('svg g[data-id]').first()).toBeVisible();
   // Zoom in on the canvas — any refit would visibly shrink the scale.
   const svg = page.getByTestId('graph-canvas');

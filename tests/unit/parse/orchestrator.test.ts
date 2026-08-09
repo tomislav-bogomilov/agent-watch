@@ -24,6 +24,7 @@ const jsonl = [
 describe('parseSession orchestrator', () => {
   it('returns a Session with expected structure', () => {
     const session = parseSession({
+      provider: 'claude',
       projectId: 'p', sessionId: 's', cwd: '/proj', jsonl, subagents: [],
     });
     expect(session.id).toBe('s');

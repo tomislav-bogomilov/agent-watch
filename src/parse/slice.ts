@@ -62,6 +62,7 @@ export function sliceSession(session: Session, promptId: string): Session | null
   }
 
   return {
+    provider: session.provider,
     id: session.id,
     cwd: session.cwd,
     startedAt: session.startedAt,

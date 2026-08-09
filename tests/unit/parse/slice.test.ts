@@ -22,6 +22,7 @@ function chain(nodes: Milestone[]): Milestone {
 
 function makeSession(root: Milestone, ids: string[]): Session {
   return {
+    provider: 'claude',
     id: 's1',
     cwd: 'C:/demo',
     startedAt: '',

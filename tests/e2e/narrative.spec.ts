@@ -12,7 +12,7 @@ test('narrative tab: enable -> fake blocks -> verbosity rebucket -> refresh -> c
   await page.goto('/');
 
   // Open the happy-path playback session (non-live; no mtime touch needed).
-  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
+  await page.getByTestId('session-item-2026-01-01-aaaa').click();
 
   // Wait for the graph nodes and playback chrome to be ready.
   await page.locator('g[data-id][data-kind][data-state]').first().waitFor({ timeout: 15_000 });

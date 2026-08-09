@@ -8,7 +8,7 @@ vi.mock('../../src/api/hooks', async () => {
   const actual = await vi.importActual<object>('../../src/api/hooks');
   return {
     ...actual,
-    useSessionList: () => ({ data: [], isLoading: false, error: null }),
+    useSessionList: () => ({ data: { sessions: [], warnings: [] }, isLoading: false, error: null }),
     usePromptList:  () => ({ data: [], isLoading: false, error: null }),
     useTokenUsage:  () => ({ data: { projects: [], rows: [] }, isLoading: false, error: null }),
     useSession:     () => ({ data: null, isLoading: false, error: null }),

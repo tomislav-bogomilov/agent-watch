@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixtureClaudeHome = path.resolve(__dirname, 'tests/fixtures/claude-projects');
+const fixtureCodexHome = path.resolve(__dirname, 'tests/fixtures/codex-home');
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -22,6 +23,7 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       CLAUDE_HOME: fixtureClaudeHome,
+      CODEX_HOME: fixtureCodexHome,
       TG_USAGE_DIR: path.resolve(__dirname, '.local/e2e-usage'),
       TG_CLAUDE_SETTINGS: path.resolve(__dirname, '.local/e2e-claude-settings.json'),
       TG_NARRATOR_FAKE: '1',

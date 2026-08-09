@@ -1,4 +1,4 @@
-import type { PromptMeta, SessionMeta, SessionPayload } from '../parse/types';
+import type { PromptMeta, ProviderId, SessionListResponse, SessionPayload } from '../parse/types';
 import type { TokenUsagePayload } from '../../server/usage-sync';
 import type { MemoryResponse, MemoryRecord, MemoryType } from '../../server/memory-store';
 import type { NarrativeState } from '../narrative/types';
@@ -8,18 +8,19 @@ export type { PriceEntry, PriceTable } from '../../server/model-pricing';
 export type TokenUsageResponse = TokenUsagePayload;
 export type { MemoryResponse, MemoryRecord, MemoryType, MemoryScope, MemoryIndexEntry } from '../../server/memory-store';
 
-export async function fetchSessionList(): Promise<SessionMeta[]> {
+export async function fetchSessionList(): Promise<SessionListResponse> {
   const res = await fetch('/api/sessions');
   if (!res.ok) throw new Error(`session list failed: ${res.status}`);
-  const json = (await res.json()) as { sessions: SessionMeta[] };
-  return json.sessions;
+  const json = (await res.json()) as SessionListResponse;
+  return { sessions: json.sessions, warnings: json.warnings ?? [] };
 }
 
 export async function fetchSessionPayload(
+  provider: ProviderId,
   projectId: string,
   sessionId: string
 ): Promise<SessionPayload> {
-  const res = await fetch(`/api/sessions/${encodeURIComponent(projectId)}/${encodeURIComponent(sessionId)}`);
+  const res = await fetch(`/api/sessions/${provider}/${encodeURIComponent(projectId)}/${encodeURIComponent(sessionId)}`);
   if (!res.ok) throw new Error(`session fetch failed: ${res.status}`);
   return (await res.json()) as SessionPayload;
 }

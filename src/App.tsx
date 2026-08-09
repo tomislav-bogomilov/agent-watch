@@ -135,29 +135,34 @@ export default function App() {
   const usageCutoffDay = presetCutoff(preset, today);
   const sessionsQuery = useSessionList();
   const knownSessionIds = useMemo(
-    () => new Set((sessionsQuery.data ?? []).map((s) => s.sessionId)),
+    () => new Set((sessionsQuery.data?.sessions ?? []).filter((s) => s.provider === 'claude').map((s) => s.sessionId)),
     [sessionsQuery.data]
   );
   const selectedMeta = useMemo(() => {
     if (!selected || selected.kind === 'memory' || !sessionsQuery.data) return null;
-    return sessionsQuery.data.find(
-      (s) => s.projectId === selected.projectId && s.sessionId === selected.sessionId
+    return sessionsQuery.data.sessions.find(
+      (s) => s.provider === selected.provider
+        && s.projectId === selected.projectId
+        && s.sessionId === selected.sessionId
     ) ?? null;
   }, [selected, sessionsQuery.data]);
   const sessionIsLive = selectedMeta ? isLiveMeta(selectedMeta) : false;
   const [liveEngaged, setLiveEngaged] = useState(false);
+  const liveActive = selectedMeta?.provider === 'claude' && liveEngaged;
   const { data: rawSession, isLoading, error } = useSession(
+    selected?.kind === 'session' || selected?.kind === 'prompt' ? selected.provider : null,
     selected?.kind === 'session' || selected?.kind === 'prompt' ? selected.projectId : null,
     selected?.kind === 'session' ? selected.sessionId
       : selected?.kind === 'prompt' ? selected.sessionId : null,
-    sessionIsLive || liveEngaged,
+    sessionIsLive || liveActive,
   );
   const promptsQuery = usePromptList();
 
   // For prompt selections, derive an `effectiveSession` whose root is the
   // sliced chain. For session selections, pass the parsed session through.
   const effectiveSession: Session | null = useMemo(() => {
-    if (!rawSession) return null;
+    if (!rawSession || !selected || selected.kind === 'memory') return null;
+    if (rawSession.provider !== selected.provider || rawSession.id !== selected.sessionId) return null;
     if (selected?.kind === 'prompt') return sliceSession(rawSession, selected.promptId);
     return rawSession;
   }, [rawSession, selected]);
@@ -206,7 +211,7 @@ export default function App() {
       lastAutoEngagedRef.current = null;
       return;
     }
-    const key = `${selected.projectId}/${selected.sessionId}`;
+    const key = `${selected.provider}/${selected.projectId}/${selected.sessionId}`;
     if (lastAutoEngagedRef.current === key) return;
     lastAutoEngagedRef.current = key;
     setLiveEngaged(isLiveMeta(selectedMeta));
@@ -253,8 +258,8 @@ export default function App() {
     [playback.order],
   );
   const inspectorSession = (selected?.kind === 'session' || selected?.kind === 'prompt')
-    ? { projectId: selected.projectId, sessionId: selected.sessionId }
-    : { projectId: '', sessionId: '' };
+    ? { provider: selected.provider, projectId: selected.projectId, sessionId: selected.sessionId }
+    : { provider: 'claude' as const, projectId: '', sessionId: '' };
 
   function handleDetailClose(): void {
     if (pinnedId) setPinnedId(null);
@@ -280,7 +285,12 @@ export default function App() {
     onToggleSidebar: () => setSidebarCollapsed((v) => !v),
     onCloseDetail: handleDetailClose,
   });
-  const needsConfirm = !!effectiveSession && effectiveSession.totalMilestones > 1000 && !confirmedIds.has(effectiveSession.id);
+  const effectiveSessionKey = effectiveSession
+    ? `${effectiveSession.provider}/${effectiveSession.cwd}/${effectiveSession.id}`
+    : '';
+  const needsConfirm = !!effectiveSession
+    && effectiveSession.totalMilestones > 1000
+    && !confirmedIds.has(effectiveSessionKey);
 
   // Header overlay: in prompt mode, show `PROMPT N` where N = ordinal+1
   // taken from the prompts query (cheap lookup, falls back to id).
@@ -297,9 +307,9 @@ export default function App() {
   const isMissingSlice = !!rawSession && selected?.kind === 'prompt' && effectiveSession === null;
 
   function handleJumpToSession(sessionId: string): void {
-    const meta = sessionsQuery.data?.find((s) => s.sessionId === sessionId);
+    const meta = sessionsQuery.data?.sessions.find((s) => s.provider === 'claude' && s.sessionId === sessionId);
     if (!meta) return;
-    setSelected({ kind: 'session', projectId: meta.projectId, sessionId: meta.sessionId });
+    setSelected({ kind: 'session', provider: 'claude', projectId: meta.projectId, sessionId: meta.sessionId });
     setMode('sessions');
   }
 
@@ -348,7 +358,7 @@ export default function App() {
               <button
                 style={styles.overflowBtn}
                 data-testid="load-anyway"
-                onClick={() => setConfirmedIds((s) => new Set(s).add(effectiveSession.id))}
+                onClick={() => setConfirmedIds((s) => new Set(s).add(effectiveSessionKey))}
               >
                 LOAD ANYWAY
               </button>
@@ -358,7 +368,12 @@ export default function App() {
             <div style={styles.canvasSlot}>
               <div style={styles.sessionHeader} data-testid="session-header">
                 <div style={styles.sessionHeaderText}>
-                  <div style={styles.sessionTitle}>{headerTitle}</div>
+                  <div style={styles.sessionTitleRow}>
+                    <div style={styles.sessionTitle}>{headerTitle}</div>
+                    <div style={styles.providerBadge} data-testid="selected-provider-badge">
+                      {effectiveSession.provider.toUpperCase()}
+                    </div>
+                  </div>
                   <div style={styles.sessionCwdRow}>
                     <span
                       style={styles.sessionCwd}
@@ -370,7 +385,7 @@ export default function App() {
                     <CopyCwdButton value={effectiveSession.cwd} />
                   </div>
                 </div>
-                {!liveEngaged && (
+                {!liveActive && (
                   <div style={styles.headerToolGroup} data-testid="canvas-toolbar">
                     <button
                       type="button"
@@ -400,10 +415,10 @@ export default function App() {
                         type="button"
                         style={{
                           ...styles.headerToolBtn,
-                          ...(liveEngaged ? styles.headerToolBtnOn : null),
+                          ...(liveActive ? styles.headerToolBtnOn : null),
                         }}
                         onClick={() => setLiveEngaged((v) => !v)}
-                        aria-pressed={liveEngaged}
+                        aria-pressed={liveActive}
                         data-testid="live-button"
                         aria-label="live"
                         title="toggle live"
@@ -413,7 +428,7 @@ export default function App() {
                 )}
               </div>
 
-              {liveEngaged ? (
+              {liveActive ? (
                 <LivePanes
                   session={effectiveSession}
                   projectId={(selected?.kind === 'session' || selected?.kind === 'prompt') ? selected.projectId : ''}
@@ -435,7 +450,7 @@ export default function App() {
                     onScrubTo={followingControls.scrubTo}
                     filters={filters}
                     onCameraReady={(api) => { cameraRef.current = api; }}
-                    liveEngaged={liveEngaged}
+                    liveEngaged={liveActive}
                     detailPanelOpen={!!displayedMilestone}
                     detailPanelWidth={detailWidth}
                   />
@@ -445,28 +460,29 @@ export default function App() {
               )}
             </div>
           )}
-          {effectiveSession && !needsConfirm && !liveEngaged && (
+          {effectiveSession && !needsConfirm && !liveActive && (
             <div data-testid="chrome-gutter" ref={gutterRef} style={styles.gutter}>
               <NowPlaying current={currentMilestone} edgeProgress={playback.edgeProgress} inSubagent={inSubagent} speed={playback.speed} />
               <PlaybackControls state={playback} controls={followingControls} />
             </div>
           )}
-          {!liveEngaged && (
+          {!liveActive && (
             <InspectorTabs
-              key={`${inspectorSession.projectId}/${inspectorSession.sessionId}`}
+              key={`${inspectorSession.provider}/${inspectorSession.projectId}/${inspectorSession.sessionId}`}
               milestone={displayedMilestone}
               onClose={handleDetailClose}
               width={detailWidth}
               onResize={(d) => setDetailWidth((w) => w + d)}
               projectId={inspectorSession.projectId}
               sessionId={inspectorSession.sessionId}
-              live={liveEngaged}
+              live={liveActive}
               bottomInset={gutterReserve}
               milestones={narratorMilestones}
               orderIds={orderIds}
               currentIndex={playback.index}
               onScrubToIndex={(i) => followingControls.scrubTo(i)}
               onSelectNode={(id) => setPinnedId(id)}
+              showNarrative={effectiveSession?.provider !== 'codex'}
             />
           )}
         </>)}
@@ -534,6 +550,22 @@ const styles = {
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden' as const,
     textOverflow: 'ellipsis' as const,
+  },
+  providerBadge: {
+    display: 'inline-block',
+    padding: '1px 5px',
+    border: '1px solid var(--edge-idle)',
+    color: 'var(--text-dim)',
+    fontSize: 9,
+    letterSpacing: 1,
+    fontFamily: 'ui-monospace, monospace',
+    flexShrink: 0,
+  },
+  sessionTitleRow: {
+    display: 'flex' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    minWidth: 0,
   },
   sessionCwd: {
     fontSize: 11,

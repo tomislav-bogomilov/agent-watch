@@ -44,6 +44,7 @@ function makeSession(mainTrail: Milestone[], subagentTrails: { id: string; lastU
       children: [sa.root] });
   }
   return {
+    provider: 'claude',
     id: 'test-session', cwd: '/c',
     startedAt: '2026-05-24T12:00:00Z',
     root: main,

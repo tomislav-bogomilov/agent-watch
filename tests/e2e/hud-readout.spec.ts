@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('HUD: summary and result populate as trail enters each node', async ({ page }) => {
   await page.goto('/');
-  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
+  await page.getByTestId('session-item-2026-01-01-aaaa').click();
   await expect(page.locator('svg g[data-id]').first()).toBeVisible();
 
   // Playback is paused by default — start it.

@@ -5,7 +5,7 @@ test('header copy-cwd button copies the path and flashes the check glyph', async
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
   await page.goto('/');
-  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').first().click();
+  await page.getByTestId('session-item-2026-01-01-aaaa').click();
 
   // Header overlay must be visible with the cwd row.
   const header = page.getByTestId('session-header');

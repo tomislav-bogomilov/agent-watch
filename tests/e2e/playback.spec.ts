@@ -2,8 +2,11 @@ import { expect, test } from '@playwright/test';
 
 test('playback: starts paused; play advances; pause freezes; resume completes', async ({ page }) => {
   await page.goto('/');
-  await page.locator('[data-project-key="demo/happy"] li[data-testid^="session-item"]').click();
-  await expect(page.locator('svg g[data-id]').first()).toBeVisible();
+  await page.getByTestId('session-item-2026-01-01-aaaa').click();
+  await expect(page.getByTestId('selected-provider-badge')).toHaveText('CLAUDE');
+  await expect(page.getByTestId('hud-summary')).toHaveText('Please print hello world');
+  const nodes = page.locator('svg g[data-id]');
+  await expect(nodes).toHaveCount(7);
 
   // Should remain paused: even after waiting longer than the whole playback would take,
   // no node should be in 'success' state yet (still all idle or at most one active).
@@ -24,7 +27,10 @@ test('playback: starts paused; play advances; pause freezes; resume completes', 
   const stillAt = await page.locator('svg g[data-state="active"]').first().getAttribute('data-id');
   expect(stillAt).toBe(pausedAt);
 
-  // Resume and finish (1600 ms/node × 7 nodes ≈ 11.2 s)
+  // Finish at maximum speed so this stays deterministic under parallel CI load.
+  for (let i = 0; i < 4; i += 1) await page.getByTestId('speed-inc').click();
+  await expect(page.getByTestId('speed-value')).toHaveText('4×');
   await page.getByTestId('play-toggle').click();
-  await expect(page.locator('svg g[data-state="success"]')).toHaveCount(7, { timeout: 20_000 });
+  await expect(page.getByTestId('scrubber-handle')).toHaveAttribute('data-pct', '100.0', { timeout: 8_000 });
+  await expect(page.locator('svg g[data-state="active"]')).toHaveCount(0);
 });
