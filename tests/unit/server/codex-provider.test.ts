@@ -90,13 +90,91 @@ describe('Codex session provider', () => {
     expect(await fs.readFile(main, 'utf8')).toContain('main-thread');
   });
 
+  it('uses the newest valid record timestamp when rollout mtime is stale', async () => {
+    const root = await tempRoot();
+    const cwd = path.resolve('D:/projects/example');
+    const main = await rollout(root, '2026/08/08/rollout-main.jsonl', [
+      meta('main-thread', cwd),
+      { ...assistant('main active'), timestamp: '2026-08-08T08:03:00.000Z' },
+    ]);
+    const child = await rollout(root, '2026/08/08/rollout-child.jsonl', [
+      meta('child-thread', cwd, {
+        parent_thread_id: 'main-thread',
+        thread_source: 'subagent',
+        agent_nickname: 'Franklin',
+      }),
+      { ...assistant('child active'), timestamp: '2026-08-08T08:04:00.000Z' },
+    ]);
+    const staleTime = new Date('2026-08-08T07:00:00.000Z');
+    await Promise.all([
+      fs.utimes(main, staleTime, staleTime),
+      fs.utimes(child, staleTime, staleTime),
+    ]);
+
+    const adapter = createCodexSessionAdapter(root);
+    const list = await adapter.listSessions();
+    expect(list.sessions[0].lastUpdatedAt).toBe('2026-08-08T08:03:00.000Z');
+
+    const payload = await adapter.readSession(list.sessions[0].projectId, 'main-thread');
+    expect(payload.provider).toBe('codex');
+    if (payload.provider !== 'codex') throw new Error('expected Codex payload');
+    expect(payload.subagents[0].lastUpdatedAt).toBe('2026-08-08T08:04:00.000Z');
+  });
+
+  it('falls back to rollout mtime when no record has a valid timestamp', async () => {
+    const root = await tempRoot();
+    const cwd = path.resolve('D:/projects/example');
+    const file = await rollout(root, '2026/08/08/rollout-main.jsonl', [
+      { type: 'session_meta', payload: { id: 'main-thread', cwd } },
+      {
+        timestamp: 'not-a-date',
+        type: 'response_item',
+        payload: {
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'output_text', text: 'done' }],
+        },
+      },
+    ]);
+    const fallbackTime = new Date('2026-08-08T07:00:00.000Z');
+    await fs.utimes(file, fallbackTime, fallbackTime);
+
+    const result = await createCodexSessionAdapter(root).listSessions();
+    expect(result.sessions[0].lastUpdatedAt).toBe(fallbackTime.toISOString());
+  });
+
+  it('uses unknown record timestamps for activity without rendering an otherwise empty rollout', async () => {
+    const root = await tempRoot();
+    const cwd = path.resolve('D:/projects/example');
+    await rollout(root, '2026/08/08/rollout-renderable.jsonl', [
+      meta('renderable-thread', cwd),
+      assistant('visible activity'),
+      { timestamp: '2026-08-08T08:05:00.000Z', type: 'future_record', payload: {} },
+    ]);
+    await rollout(root, '2026/08/08/rollout-empty.jsonl', [
+      meta('empty-thread', cwd),
+      { timestamp: '2026-08-08T08:06:00.000Z', type: 'future_record', payload: {} },
+    ]);
+
+    const result = await createCodexSessionAdapter(root).listSessions();
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0]).toMatchObject({
+      sessionId: 'renderable-thread',
+      lastUpdatedAt: '2026-08-08T08:05:00.000Z',
+    });
+  });
+
   it('sorts newest first and skips malformed individual rollout lines', async () => {
     const root = await tempRoot();
     const cwd = path.resolve('D:/projects/example');
-    const older = await rollout(root, '2026/08/07/rollout-old.jsonl', [meta('old', cwd), assistant('old')]);
+    const older = await rollout(root, '2026/08/07/rollout-old.jsonl', [
+      { ...meta('old', cwd), timestamp: '2026-08-07T08:00:00.000Z' },
+      { ...assistant('old'), timestamp: '2026-08-07T08:01:00.000Z' },
+    ]);
     const newer = await rollout(root, '2026/08/08/rollout-new.jsonl', [
-      meta('new', cwd),
-      assistant('new'),
+      { ...meta('new', cwd), timestamp: '2026-08-08T08:00:00.000Z' },
+      { ...assistant('new'), timestamp: '2026-08-08T08:01:00.000Z' },
     ]);
     await fs.appendFile(newer, '\nnot-json');
     const oldTime = new Date('2026-08-07T00:00:00.000Z');

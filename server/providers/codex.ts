@@ -76,6 +76,7 @@ function parseRollout(filePath: string, jsonl: string, stat: { mtime: Date; size
   let title: string | undefined;
   let fallbackTitle: string | undefined;
   let renderable = false;
+  let latestRecordTimestampMs: number | undefined;
 
   for (const rawLine of jsonl.split(/\r?\n/)) {
     if (!rawLine.trim()) continue;
@@ -83,6 +84,14 @@ function parseRollout(filePath: string, jsonl: string, stat: { mtime: Date; size
     try { parsed = JSON.parse(rawLine); } catch { continue; }
     const record = object(parsed);
     if (!record) continue;
+    const recordTimestamp = string(record.timestamp);
+    if (recordTimestamp) {
+      const timestampMs = Date.parse(recordTimestamp);
+      if (Number.isFinite(timestampMs)
+        && (latestRecordTimestampMs === undefined || timestampMs > latestRecordTimestampMs)) {
+        latestRecordTimestampMs = timestampMs;
+      }
+    }
     const payload = object(record.payload);
     if (!payload) continue;
 
@@ -142,7 +151,9 @@ function parseRollout(filePath: string, jsonl: string, stat: { mtime: Date; size
     agentNickname: string(metadata.agent_nickname) ?? string(subagentSource?.agent_nickname) ?? string(threadSpawn?.agent_nickname),
     isSubagent: parentThreadId !== undefined || metadata.thread_source === 'subagent' || subagentSource !== undefined,
     startedAt: metadataTimestamp ?? stat.mtime.toISOString(),
-    lastUpdatedAt: stat.mtime.toISOString(),
+    lastUpdatedAt: latestRecordTimestampMs === undefined
+      ? stat.mtime.toISOString()
+      : new Date(latestRecordTimestampMs).toISOString(),
     sizeBytes: stat.size,
     title: title ?? fallbackTitle,
     renderable,

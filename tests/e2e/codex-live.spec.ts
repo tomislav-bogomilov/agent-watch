@@ -24,6 +24,16 @@ const guardianJsonl = [
   { timestamp: '2026-08-09T08:00:09.800Z', type: 'response_item', payload: { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'Live guard complete' }] } },
 ].map((record) => JSON.stringify(record)).join('\n') + '\n';
 
+function withRecordTimestamps(jsonl: string, timestamp: string): string {
+  const records = jsonl.trimEnd().split(/\r?\n/).map((line) => JSON.parse(line));
+  const latestTimestampMs = Math.max(...records.map((record) => Date.parse(record.timestamp)));
+  const activityTimestampMs = Date.parse(timestamp);
+  return records.map((record) => JSON.stringify({
+    ...record,
+    timestamp: new Date(activityTimestampMs - (latestTimestampMs - Date.parse(record.timestamp))).toISOString(),
+  })).join('\n') + '\n';
+}
+
 test.setTimeout(150_000);
 
 test('Codex Live refreshes nested read-only panes and can return to replay', async ({ page }) => {
@@ -33,14 +43,25 @@ test('Codex Live refreshes nested read-only panes and can return to replay', asy
     stats: await stat(file),
   })));
   const controlRequests: string[] = [];
-  const codexPayloadRequests: string[] = [];
   let failNextCodexPayload = false;
+  let staleMtimeStep = 0;
+
+  async function writeRolloutActivity(file: string, jsonl: string, timestamp: string): Promise<void> {
+    await writeFile(file, withRecordTimestamps(jsonl, timestamp), 'utf8');
+    const staleMtime = new Date(Date.now() - 90_000 - ++staleMtimeStep * 1_000);
+    await utimes(file, staleMtime, staleMtime);
+  }
+
+  async function appendRolloutActivity(file: string, text: string): Promise<void> {
+    await appendFile(file, text);
+    const staleMtime = new Date(Date.now() - 90_000 - ++staleMtimeStep * 1_000);
+    await utimes(file, staleMtime, staleMtime);
+  }
 
   page.on('request', (request) => {
     if (request.url().includes('/api/control/')) controlRequests.push(request.url());
   });
   await page.route('**/api/sessions/codex/**', async (route) => {
-    codexPayloadRequests.push(route.request().url());
     if (failNextCodexPayload) {
       failNextCodexPayload = false;
       await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"temporary"}' });
@@ -55,7 +76,10 @@ test('Codex Live refreshes nested read-only panes and can return to replay', asy
       rm(grandchildRollout, { force: true }),
       rm(guardianRollout, { force: true }),
     ]);
-    await Promise.all([mainRollout, childRollout].map((file) => utimes(file, now, now)));
+    await Promise.all([
+      writeRolloutActivity(mainRollout, originals[0].text, now.toISOString()),
+      writeRolloutActivity(childRollout, originals[1].text, now.toISOString()),
+    ]);
 
     await page.goto('/');
     const group = page.locator('[data-project-key="demo/codex-live"]');
@@ -72,29 +96,26 @@ test('Codex Live refreshes nested read-only panes and can return to replay', asy
     await expect(page.getByText('guardian', { exact: true })).toHaveCount(0);
 
     await Promise.all([
-      writeFile(grandchildRollout, grandchildJsonl, 'utf8'),
-      writeFile(guardianRollout, guardianJsonl, 'utf8'),
-    ]);
-    const childCreatedAt = new Date();
-    await Promise.all([
-      utimes(grandchildRollout, childCreatedAt, childCreatedAt),
-      utimes(guardianRollout, childCreatedAt, childCreatedAt),
+      writeRolloutActivity(grandchildRollout, grandchildJsonl, new Date().toISOString()),
+      writeRolloutActivity(guardianRollout, guardianJsonl, new Date().toISOString()),
     ]);
     await expect(page.getByText('Auditor', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('guardian', { exact: true })).toBeVisible({ timeout: 30_000 });
     const mainDetail = page.getByTestId('live-pane-detail').first();
     await expect(mainDetail.getByText('Codex live complete', { exact: true })).toBeVisible();
 
-    const beforeFailure = codexPayloadRequests.length;
+    const failedRefresh = page.waitForResponse((response) => (
+      response.url().includes('/api/sessions/codex/') && response.status() === 500
+    ));
     failNextCodexPayload = true;
-    await expect.poll(() => codexPayloadRequests.length, { timeout: 20_000 }).toBeGreaterThan(beforeFailure);
+    await failedRefresh;
     await expect(page.getByTestId('live-panes-grid')).toBeVisible();
     await expect(mainDetail.getByText('Codex live complete', { exact: true })).toBeVisible();
     await expect(page.getByText('Scout', { exact: true })).toBeVisible();
     await expect(page.getByText('Auditor', { exact: true })).toBeVisible();
     await expect(page.getByText('guardian', { exact: true })).toBeVisible();
 
-    await appendFile(mainRollout, `${JSON.stringify({
+    await appendRolloutActivity(mainRollout, `${JSON.stringify({
       timestamp: new Date().toISOString(),
       type: 'response_item',
       payload: {
@@ -105,27 +126,31 @@ test('Codex Live refreshes nested read-only panes and can return to replay', asy
     })}\n`);
     await expect(mainDetail.getByText('Live refresh arrived', { exact: true })).toBeVisible({ timeout: 20_000 });
 
-    const stale = new Date(Date.now() - 45_000);
-    await utimes(childRollout, stale, stale);
+    const staleActivity = new Date(Date.now() - 45_000);
+    await writeRolloutActivity(childRollout, originals[1].text, staleActivity.toISOString());
     const scoutPane = page.getByTestId('live-pane').filter({
       has: page.getByText('Scout', { exact: true }),
     });
     await expect(scoutPane.getByTestId('countdown-chip')).toBeVisible({ timeout: 20_000 });
-    const reactivated = new Date();
-    await utimes(childRollout, reactivated, reactivated);
+    await appendRolloutActivity(childRollout, `${JSON.stringify({
+      timestamp: new Date().toISOString(),
+      type: 'response_item',
+      payload: {
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'output_text', text: 'Scout resumed' }],
+      },
+    })}\n`);
     await expect(scoutPane.getByTestId('countdown-chip')).toHaveCount(0, { timeout: 20_000 });
     await expect(scoutPane).toBeVisible();
 
-    const nestedFreshAt = new Date();
-    await utimes(grandchildRollout, nestedFreshAt, nestedFreshAt);
-    const guardianStale = new Date(Date.now() - 45_000);
-    await utimes(guardianRollout, guardianStale, guardianStale);
+    const guardianStaleActivity = new Date(Date.now() - 45_000);
+    await writeRolloutActivity(guardianRollout, guardianJsonl, guardianStaleActivity.toISOString());
     const guardianPane = page.getByTestId('live-pane').filter({
       has: page.getByText('guardian', { exact: true }),
     });
     await expect(guardianPane.getByTestId('countdown-chip')).toBeVisible({ timeout: 20_000 });
-    const nestedActiveDuringRemoval = new Date();
-    await utimes(grandchildRollout, nestedActiveDuringRemoval, nestedActiveDuringRemoval);
+    await writeRolloutActivity(grandchildRollout, grandchildJsonl, new Date().toISOString());
     await expect(guardianPane).toHaveCount(0, { timeout: 40_000 });
     await expect(page.getByText('Auditor', { exact: true })).toBeVisible();
 
