@@ -1,11 +1,11 @@
-# ClaudeWatch — Open Questions & Future Analysis Ideas
+# AgentWatch — Open Questions & Future Analysis Ideas
 
 > A scratchpad of things in a Claude Code session worth surfacing beyond the current
-> "what path did the agent take?" view. ClaudeWatch today filters most of the items
+> "what path did the agent take?" view. AgentWatch today filters most of the items
 > below out as noise (`src/parse/filter.ts`) or ignores them (timestamps are unused for
 > ordering). Not a spec — a menu of directions to pick from later.
 
-**Framing:** ClaudeWatch today answers *"what path did the agent take?"* The untapped
+**Framing:** AgentWatch today answers *"what path did the agent take?"* The untapped
 layer answers *"how expensive, how reliable, how supervised, and how fast was that path?"*
 — performance, cost, trust, and behavior.
 

@@ -1,7 +1,7 @@
-# Product Requirements Document (PRD): ClaudeWatch
+# Product Requirements Document (PRD): AgentWatch
 
 ## 1. Project Overview
-**ClaudeWatch** is a post-session playback tool designed for developers and designers to analyze the decision-making process of a Claude Code agent. The goal is to provide a visual, intuitive animation of the agent's execution path, highlighting key decision milestones, tool calls, and architecture transitions.
+**AgentWatch** is a post-session playback tool designed for developers and designers to analyze the decision-making process of a Claude Code agent. The goal is to provide a visual, intuitive animation of the agent's execution path, highlighting key decision milestones, tool calls, and architecture transitions.
 
 ---
 

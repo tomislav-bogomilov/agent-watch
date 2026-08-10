@@ -1,4 +1,4 @@
-# ThoughtGraph User Guide
+# AgentWatch User Guide
 
 ## Pausing & steering live agents
 
@@ -17,7 +17,7 @@ running agents. Expand it (▴) for one row per agent.
 
 First use installs a `PreToolUse` gate hook into `~/.claude/settings.json`
 (one entry, timestamped backup taken, nothing else touched). The gate
-**fails open**: if ThoughtGraph isn't running — or you close it while
+**fails open**: if AgentWatch isn't running — or you close it while
 something is paused — every agent resumes. Pause state lives in server
 memory only; restarting the dev server unpauses everything.
 

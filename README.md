@@ -1,10 +1,10 @@
-# ClaudeWatch
+# AgentWatch
 
-ClaudeWatch supports local Claude Code sessions and read-only Codex Desktop/CLI live monitoring
+AgentWatch supports local Claude Code sessions and read-only Codex Desktop/CLI live monitoring
 and replay. Both providers share the session library, graph, playback, filters, minimap, and
 details. Prompts, Usage, Memory, Logical Steps, narration, and pause/steer remain Claude-only.
 
-Watch a Claude Code agent *think*. ClaudeWatch reads Claude Code's own session logs from
+Watch a Claude Code agent *think*. AgentWatch reads Claude Code's own session logs from
 your machine and turns each session into a navigable graph: every node is a **Thought** — a
 prompt, a decision, a tool call, a subagent spawn, a completion — and edges link each
 Thought to the ones that followed. A glowing playhead retraces the agent's path, lighting
@@ -22,22 +22,22 @@ Implement → Verify* — two-way synced to the graph playhead, powered by a loc
 narrator.
 
 No recording or instrumentation needed to *view* — run Claude Code as usual, then point
-ClaudeWatch at the logs it already wrote. Pausing and steering are opt-in: the first time
-you pause, ClaudeWatch installs a single `PreToolUse` hook entry into
+AgentWatch at the logs it already wrote. Pausing and steering are opt-in: the first time
+you pause, AgentWatch installs a single `PreToolUse` hook entry into
 `~/.claude/settings.json` (a timestamped backup is written first; nothing else is touched).
-The control channel is **fail-open** — if ClaudeWatch isn't running, or you close it while
+The control channel is **fail-open** — if AgentWatch isn't running, or you close it while
 an agent is paused, the agent simply continues. It is never left stranded.
 
 ## UI showcase
 
-![ClaudeWatch featured interface](docs/images/ui-03-featured.png)
+![AgentWatch featured interface](docs/images/ui-03-featured.png)
 
 | | |
 |---|---|
-| ![ClaudeWatch interface view 1](docs/images/ui-01.png) | ![ClaudeWatch interface view 2](docs/images/ui-02.png) |
-| ![ClaudeWatch interface view 4](docs/images/ui-04.png) | ![ClaudeWatch interface view 5](docs/images/ui-05.png) |
-| ![ClaudeWatch interface view 6](docs/images/ui-06.png) | ![ClaudeWatch interface view 7](docs/images/ui-07.png) |
-| ![ClaudeWatch interface view 8](docs/images/ui-08.png) | ![ClaudeWatch interface view 9](docs/images/ui-09.png) |
+| ![AgentWatch interface view 1](docs/images/ui-01.png) | ![AgentWatch interface view 2](docs/images/ui-02.png) |
+| ![AgentWatch interface view 4](docs/images/ui-04.png) | ![AgentWatch interface view 5](docs/images/ui-05.png) |
+| ![AgentWatch interface view 6](docs/images/ui-06.png) | ![AgentWatch interface view 7](docs/images/ui-07.png) |
+| ![AgentWatch interface view 8](docs/images/ui-08.png) | ![AgentWatch interface view 9](docs/images/ui-09.png) |
 
 ## Quick start
 

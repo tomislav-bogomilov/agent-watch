@@ -1,30 +1,30 @@
-# ClaudeWatch — User Guide
+# AgentWatch — User Guide
 
 > A guide for anyone who uses Claude Code and wants to *see* what their agent did. No
-> coding or knowledge of the ClaudeWatch codebase required. (Developers: see
+> coding or knowledge of the AgentWatch codebase required. (Developers: see
 > [`DEVELOPER_GUIDE.md`](./DEVELOPER_GUIDE.md).)
 
 ---
 
-## 1. What is ClaudeWatch?
+## 1. What is AgentWatch?
 
 When you run Claude Code, the agent thinks in steps: it reads your prompt, decides what to
 do, runs tools (reading files, running commands, editing code), sometimes spins up helper
 "subagents," and eventually finishes. Normally all of that scrolls past as text.
 
-**ClaudeWatch turns that reasoning into a map.** Each step the agent took becomes a node —
+**AgentWatch turns that reasoning into a map.** Each step the agent took becomes a node —
 a **Thought** — and lines connect each Thought to the ones that followed it. A glowing dot
 (the *playhead*) then retraces the agent's path, lighting up the trail as it goes, like a
 light-cycle in TRON. You watch the reasoning unfold instead of reading a transcript.
 
-It works on the sessions you've **already run** — ClaudeWatch reads Claude Code's own logs
+It works on the sessions you've **already run** — AgentWatch reads Claude Code's own logs
 from your computer. You don't have to record anything or change how you use Claude Code.
 
 ---
 
 ## 2. Getting started
 
-1. Open a terminal in the ClaudeWatch folder.
+1. Open a terminal in the AgentWatch folder.
 2. Run:
    ```bash
    npm install   # first time only
@@ -35,7 +35,7 @@ from your computer. You don't have to record anything or change how you use Clau
 You'll see a dark canvas with a list of your sessions on the left. Click any session and
 its graph appears and starts playing.
 
-> ClaudeWatch reads from where Claude Code stores its logs on your machine
+> AgentWatch reads from where Claude Code stores its logs on your machine
 > (`~/.claude/projects`). If you've used Claude Code, your sessions show up automatically.
 
 ---
@@ -135,7 +135,7 @@ modes:
   - **Search** with the filter box, **collapse** project groups, and **reorder** them by
     dragging.
 - **PROMPTS** — every individual prompt you've ever sent, newest first. Click one and
-  ClaudeWatch shows *just that prompt's* slice of the session — the work between that
+  AgentWatch shows *just that prompt's* slice of the session — the work between that
   prompt and your next message — instead of the whole session. Useful when one session had
   many separate requests.
 - **USAGE** — opens the Token Usage page (see §10).
@@ -147,11 +147,11 @@ more room, and drag its edge to resize it.
 
 ## 7. Watching live sessions
 
-ClaudeWatch can show a session **as it happens**. If you have Claude Code running in
+AgentWatch can show a session **as it happens**. If you have Claude Code running in
 another window, that session shows a pulsing **`● LIVE`** tag in the sidebar within a few
 seconds.
 
-Open a live session and ClaudeWatch switches to a **multi-pane view**:
+Open a live session and AgentWatch switches to a **multi-pane view**:
 
 - One pane for the **main agent**, updating in real time as it works.
 - A **separate pane for each subagent** the agent spawns, so you can watch helpers run in
@@ -176,7 +176,7 @@ Decide on the approach → Implement the change → Verify the result* — sitti
 graph. It's meant for when you want the gist of a session without reading every tool call.
 
 **It's off by default.** Clicking the *Logical Steps* tab shows an *Enable* prompt
-explaining that ClaudeWatch will run a local `claude -p` narrator and draw on your Claude
+explaining that AgentWatch will run a local `claude -p` narrator and draw on your Claude
 subscription. Nothing happens until you click enable, and enabling is per-session — a
 different session will show the prompt again.
 
@@ -201,7 +201,7 @@ session. Click a block to jump the graph to the first Thought that block covers.
 ## 9. The Memory page
 
 Choose **MEMORY** in the sidebar dropdown to browse, read, and edit the memory store that
-Claude Code keeps about your projects. ClaudeWatch shows all your memories — both the
+Claude Code keeps about your projects. AgentWatch shows all your memories — both the
 global ones (shared across every project) and the per-project ones — in one place.
 
 ### Browsing memories
@@ -263,7 +263,7 @@ With a memory selected, click **✎ edit** in the DETAIL view to open the same f
 pre-filled. You can change the description, type, and body. The slug cannot be changed
 (rename is not yet supported). Click **SAVE** to write the changes.
 
-Before overwriting, ClaudeWatch backs up the previous version to
+Before overwriting, AgentWatch backs up the previous version to
 `memory/.backups/<name>.<mtime>.md` inside the same scope directory, so your edits are
 recoverable.
 
@@ -331,7 +331,7 @@ Very large sessions (over ~1000 Thoughts) show a confirmation first, to avoid sl
 browser. You can confirm to render it anyway.
 
 **I don't see a session I expected.**
-ClaudeWatch only lists sessions that include at least one response from the agent, and it
+AgentWatch only lists sessions that include at least one response from the agent, and it
 reads from Claude Code's local logs (`~/.claude/projects`). A brand-new or empty session
 may not appear.
 

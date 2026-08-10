@@ -1,14 +1,14 @@
-# ClaudeWatch — Developer Guide
+# AgentWatch — Developer Guide
 
-> Technical onboarding for developers working on ClaudeWatch. For a non-technical
+> Technical onboarding for developers working on AgentWatch. For a non-technical
 > walkthrough of the app, see [`USER_GUIDE.md`](./USER_GUIDE.md). For product intent
 > and history, see the root `PRD.md` and the specs under `docs/superpowers/`.
 
 ---
 
-## 1. What ClaudeWatch is
+## 1. What AgentWatch is
 
-In ClaudeWatch, **nodes represent individual Thoughts** — the discrete steps in a
+In AgentWatch, **nodes represent individual Thoughts** — the discrete steps in a
 Claude Code agent's reasoning and execution: a prompt, a decision, a tool call, a
 subagent spawn, a completion. The graph structure captures how those Thoughts connect:
 edges link a Thought to the Thoughts that follow from it, so a whole session becomes a
@@ -20,9 +20,9 @@ dim out, and the winning path to completion brightens. The visualization *is* th
 product — the UI chrome stays deliberately minimal so the graph and its traversal take
 focus.
 
-ClaudeWatch reads Claude Code's own session logs off your local disk. There's no
+AgentWatch reads Claude Code's own session logs off your local disk. There's no
 recording step and no instrumentation: you run Claude Code as normal, then point
-ClaudeWatch at the logs it already wrote.
+AgentWatch at the logs it already wrote.
 
 ---
 
@@ -55,7 +55,7 @@ npm run test:e2e   # playwright test (spins up its own server on :5174)
 
 ## 3. Architecture at a glance
 
-ClaudeWatch is a single Vite app with a thin Node backend implemented as a Vite plugin.
+AgentWatch is a single Vite app with a thin Node backend implemented as a Vite plugin.
 The frontend never touches the filesystem; the plugin is the only code with `fs` access.
 
 ```mermaid
