@@ -18,13 +18,13 @@ export function AppHeader({ mode, onModeChange }: Props) {
       <span style={styles.brand}>
         <ClaudeWatchMark size={56} />
         <span style={styles.wordmark}>
-          CLAUDE<span style={styles.accent}>WATCH</span>
+          AGENT<span style={styles.accent}>WATCH</span>
         </span>
       </span>
       <ModeSwitcher mode={mode} onModeChange={onModeChange} />
       <span style={styles.tagline} data-testid="app-tagline">
         <span style={styles.tagWatch}>watch</span>{' '}
-        <span style={styles.tagClaude}>claude</span>{' '}
+        <span style={styles.tagClaude}>agents</span>{' '}
         <span style={styles.tagThink}>think</span>
       </span>
     </header>

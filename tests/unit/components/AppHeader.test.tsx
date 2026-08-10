@@ -3,10 +3,10 @@ import { render, screen } from '@testing-library/react';
 import { AppHeader } from '../../../src/components/AppHeader';
 
 describe('AppHeader', () => {
-  it('renders the CLAUDEWATCH wordmark', () => {
+  it('renders the AGENTWATCH wordmark', () => {
     render(<AppHeader mode="sessions" onModeChange={() => {}} />);
     const header = screen.getByTestId('app-header');
-    expect(header.textContent).toContain('CLAUDE');
+    expect(header.textContent).toContain('AGENT');
     expect(header.textContent).toContain('WATCH');
   });
 
@@ -15,9 +15,9 @@ describe('AppHeader', () => {
     expect(screen.getByTestId('app-header').querySelector('svg')).not.toBeNull();
   });
 
-  it('renders the two-tone tagline reading "watch claude think"', () => {
+  it('renders the two-tone tagline reading "watch agents think"', () => {
     render(<AppHeader mode="sessions" onModeChange={() => {}} />);
-    expect(screen.getByTestId('app-tagline').textContent).toBe('watch claude think');
+    expect(screen.getByTestId('app-tagline').textContent).toBe('watch agents think');
   });
 
   it('renders the four mode tabs and marks the active mode', () => {
