@@ -55,3 +55,6 @@ tests/fixtures/**/memory/e2e-*.md
 
 # Scratch / junk files
 junk/
+
+# Isolated agent worktrees
+.worktrees/
