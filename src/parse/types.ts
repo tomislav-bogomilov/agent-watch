@@ -24,6 +24,8 @@ export type ContextUsage = {
   cacheRead: number;
   cacheCreation: number;
   output: number;
+  /** Provider-reported reasoning tokens. These are a subset of output. */
+  reasoningOutput?: number;
 };
 
 export type Milestone = {
@@ -40,6 +42,9 @@ export type Milestone = {
   children: Milestone[];
   usage?: ContextUsage;
   contextSize?: number;
+  contextWindow?: number;
+  /** Provider-native execution scope (for example, a Codex thread id). */
+  scopeId?: string;
   spawnThreadId?: string;
 };
 
@@ -142,8 +147,9 @@ export type PromptMeta = {
 
 /** How a skill's body entered the conversation context.
  *  - 'invoked': called on demand via the Skill tool.
- *  - 'hook':    injected automatically by a hook (e.g. SessionStart). */
-export type SkillSource = 'invoked' | 'hook';
+ *  - 'hook':    injected automatically by a hook (e.g. SessionStart).
+ *  - 'resource': loaded from a provider-recorded skill resource. */
+export type SkillSource = 'invoked' | 'hook' | 'resource';
 
 export type SkillActivation = {
   name: string;
@@ -151,6 +157,8 @@ export type SkillActivation = {
   byTurnId: string;
   tokenCost: number;
   source: SkillSource;
+  /** Limits this activation to one provider-native execution scope. */
+  scopeId?: string;
   /** For hook-injected skills, the hook event that loaded it (e.g. 'SessionStart'). */
   hookEvent?: string;
 };
@@ -161,4 +169,6 @@ export type SkillTrack = {
   /** Skills merely registered/available this session (from the skill_listing
    *  attachment) — name + description only, body not in context. */
   availableCount: number;
+  /** Per-execution availability when a session contains nested provider runs. */
+  availableByScope?: Record<string, number>;
 };

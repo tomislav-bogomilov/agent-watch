@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseSession } from '../../../src/parse';
+import { availableSkillsAt, skillsActiveAt } from '../../../src/parse/skills';
 import type { CodexSessionPayload, Milestone } from '../../../src/parse/types';
 
 function record(timestamp: string, type: string, payload: Record<string, unknown>): string {
@@ -24,6 +25,21 @@ function message(ts: string, role: 'user' | 'assistant', text: string): string {
   });
 }
 
+function tokenCount(
+  ts: string,
+  last: Record<string, unknown> | undefined,
+  total: Record<string, unknown> = { input_tokens: 999_999 },
+): string {
+  return record(ts, 'event_msg', {
+    type: 'token_count',
+    info: {
+      total_token_usage: total,
+      ...(last ? { last_token_usage: last } : {}),
+      model_context_window: 258_400,
+    },
+  });
+}
+
 function walk(root: Milestone): Milestone[] {
   const result: Milestone[] = [];
   const visit = (node: Milestone) => {
@@ -35,6 +51,146 @@ function walk(root: Milestone): Milestone[] {
 }
 
 describe('Codex session parsing', () => {
+  it('attaches the last token snapshot to every milestone in a model cycle and the preceding prompt', () => {
+    const session = parseSession(payload([
+      message('t0', 'user', 'Inspect it'),
+      record('t1', 'event_msg', { type: 'agent_reasoning', text: 'Inspect first' }),
+      message('t2', 'assistant', 'I will inspect it.'),
+      record('t3', 'response_item', { type: 'custom_tool_call', call_id: 'c1', name: 'exec', input: 'read files' }),
+      record('t4', 'response_item', { type: 'custom_tool_call_output', call_id: 'c1', output: 'done' }),
+      tokenCount('t5', {
+        input_tokens: 1_000,
+        cached_input_tokens: 600,
+        cache_write_input_tokens: 100,
+        output_tokens: 80,
+        reasoning_output_tokens: 30,
+      }),
+    ].join('\n')));
+
+    const nodes = walk(session.root);
+    expect(nodes).toHaveLength(4);
+    for (const node of nodes) {
+      expect(node.usage).toEqual({
+        input: 300,
+        cacheRead: 600,
+        cacheCreation: 100,
+        output: 80,
+        reasoningOutput: 30,
+      });
+      expect(node.contextSize).toBe(1_000);
+      expect(node.contextWindow).toBe(258_400);
+      expect(node.scopeId).toBe('main');
+    }
+  });
+
+  it('clamps uncached input and ignores cumulative-only or malformed token snapshots', () => {
+    const session = parseSession(payload([
+      message('t0', 'user', 'First'),
+      message('t1', 'assistant', 'First answer'),
+      tokenCount('t2', {
+        input_tokens: 10,
+        cached_input_tokens: 20,
+        cache_write_input_tokens: 5,
+        output_tokens: 3,
+        reasoning_output_tokens: 1,
+      }),
+      message('t3', 'user', 'Second'),
+      message('t4', 'assistant', 'Second answer'),
+      tokenCount('t5', undefined),
+      message('t6', 'user', 'Third'),
+      message('t7', 'assistant', 'Third answer'),
+      tokenCount('t8', {
+        input_tokens: 'bad',
+        cached_input_tokens: 2,
+        cache_write_input_tokens: 0,
+        output_tokens: 1,
+      }),
+    ].join('\n')));
+
+    const nodes = walk(session.root);
+    expect(nodes[0].usage?.input).toBe(0);
+    expect(nodes[1].usage?.input).toBe(0);
+    expect(nodes[2].usage).toBeUndefined();
+    expect(nodes[3].usage).toBeUndefined();
+    expect(nodes[4].usage).toBeUndefined();
+    expect(nodes[5].usage).toBeUndefined();
+  });
+
+  it('extracts evidence-backed skills and isolates them by rollout scope', () => {
+    const skillBody = (name: string) => `---\nname: ${name}\ndescription: Test skill\n---\n# ${name}\nLoaded instructions.`;
+    const catalog = (names: string[]) => names.map((name) => `- ${name}: description`).join('\n');
+    const mainJsonl = [
+      message('t0', 'user', 'Use skills'),
+      record('t1', 'world_state', { state: { host_skills: { body: catalog(['main-one', 'main-two']) } } }),
+      record('t2', 'response_item', { type: 'custom_tool_call', call_id: 'load-main', name: 'exec', input: 'Get-Content C:/skills/main-one/SKILL.md' }),
+      record('t3', 'response_item', { type: 'custom_tool_call_output', call_id: 'load-main', output: `${skillBody('main-one')}\n${skillBody('main-two')}` }),
+      record('t4', 'response_item', { type: 'custom_tool_call', call_id: 'load-duplicate', name: 'exec', input: 'Get-Content C:/skills/main-one/SKILL.md' }),
+      record('t5', 'response_item', { type: 'custom_tool_call_output', call_id: 'load-duplicate', output: skillBody('"main-one"') }),
+      record('t6', 'response_item', { type: 'custom_tool_call', call_id: 'path-only', name: 'exec', input: 'Get-Content C:/skills/not-loaded/SKILL.md' }),
+      record('t7', 'response_item', { type: 'custom_tool_call_output', call_id: 'path-only', output: 'file unavailable' }),
+      record('t8', 'response_item', { type: 'custom_tool_call', call_id: 'unrelated', name: 'exec', input: 'echo text' }),
+      record('t9', 'response_item', { type: 'custom_tool_call_output', call_id: 'unrelated', output: skillBody('false-positive') }),
+      message('t10', 'assistant', 'Main done'),
+    ].join('\n');
+    const childJsonl = [
+      message('t2', 'user', 'Child work'),
+      record('t2.1', 'world_state', { state: { host_skills: { body: catalog(['child-one']) } } }),
+      record('t2.2', 'response_item', { type: 'function_call', call_id: 'load-child', name: 'shell_command', arguments: '{"command":"Get-Content C:/skills/child-one/SKILL.md"}' }),
+      record('t2.3', 'response_item', { type: 'function_call_output', call_id: 'load-child', output: skillBody('child-one') }),
+      message('t3', 'assistant', 'Child done'),
+    ].join('\n');
+    const session = parseSession(payload(mainJsonl, [{
+      threadId: 'child', parentThreadId: 'main', startedAt: 't2', lastUpdatedAt: 't3', jsonl: childJsonl,
+    }]));
+    const track = session.skillTrack as typeof session.skillTrack & {
+      availableByScope: Record<string, number>;
+      activations: Array<{ name: string; scopeId?: string; source: string; tokenCost: number }>;
+    };
+
+    expect(track.availableByScope).toEqual({ main: 2, child: 1 });
+    expect(track.activations.map(({ name, scopeId, source }) => ({ name, scopeId, source }))).toEqual([
+      { name: 'main-one', scopeId: 'main', source: 'resource' },
+      { name: 'main-two', scopeId: 'main', source: 'resource' },
+      { name: 'child-one', scopeId: 'child', source: 'resource' },
+    ]);
+    expect(track.activations.every((activation) => activation.tokenCost > 0)).toBe(true);
+
+    const nodes = walk(session.root);
+    const mainNode = nodes.find((node) => node.id.startsWith('main:') && node.timestamp >= 't3')!;
+    const childNode = nodes.find((node) => node.id.startsWith('child:') && node.timestamp >= 't2.3')!;
+    expect(skillsActiveAt(mainNode, track).map((activation) => activation.name).sort()).toEqual(['main-one', 'main-two']);
+    expect(skillsActiveAt(childNode, track).map((activation) => activation.name)).toEqual(['child-one']);
+    expect(availableSkillsAt(mainNode, track)).toBe(2);
+    expect(availableSkillsAt(childNode, track)).toBe(1);
+  });
+
+  it('counts compatibility skill catalogs embedded in developer instructions', () => {
+    const session = parseSession(payload([
+      record('t0', 'response_item', {
+        type: 'message', role: 'developer',
+        content: [{ type: 'input_text', text: '<skills_instructions>\n### Available skills\n- one: First\n- two: Second\n</skills_instructions>' }],
+      }),
+      message('t1', 'user', 'Question'),
+      message('t2', 'assistant', 'Answer'),
+    ].join('\n')));
+    const track = session.skillTrack as typeof session.skillTrack & { availableByScope: Record<string, number> };
+    expect(track.availableByScope).toEqual({ main: 2 });
+  });
+
+  it('uses condensed shared summaries while preserving complete Codex text as detail', () => {
+    const prompt = `Prompt ${'x'.repeat(200)}`;
+    const answer = 'First sentence. Second sentence with more detail.';
+    const session = parseSession(payload([
+      message('t0', 'user', prompt),
+      message('t1', 'assistant', answer),
+    ].join('\n')));
+    const nodes = walk(session.root);
+
+    expect(nodes[0].summary).toHaveLength(160);
+    expect(nodes[0].detail).toBe(prompt);
+    expect(nodes[1]).toMatchObject({ kind: 'completion', summary: 'First sentence', detail: answer });
+  });
+
   it('maps user, visible reasoning, and assistant messages in JSONL order', () => {
     const session = parseSession(payload([
       record('t0', 'session_meta', { id: 'main', cwd: 'D:/project' }),

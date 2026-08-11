@@ -5,11 +5,12 @@ export type HologramMetrics = {
   latencyMedianMs: number;
   idleGapMs: number | null;
   contextSize: number | null;
+  contextWindow: number | null;
   contextDeltaSincePrev: number | null;
   cacheEfficiency: number | null;
   cacheReads: number | null;
   cacheMisses: number | null;
-  tokens: { input: number; cacheRead: number; cacheCreation: number; output: number } | null;
+  tokens: { input: number; cacheRead: number; cacheCreation: number; output: number; reasoningOutput?: number } | null;
 };
 
 function tsMs(s: string | undefined): number | null {
@@ -84,12 +85,19 @@ export function deriveHologramMetrics(
   }
 
   const contextSize = current.contextSize ?? null;
+  const contextWindow = current.contextWindow ?? null;
   const prevContext = prev?.contextSize ?? null;
   const contextDeltaSincePrev =
     contextSize !== null && prevContext !== null ? contextSize - prevContext : null;
 
   const u = current.usage ?? null;
-  const tokens = u ? { input: u.input, cacheRead: u.cacheRead, cacheCreation: u.cacheCreation, output: u.output } : null;
+  const tokens = u ? {
+    input: u.input,
+    cacheRead: u.cacheRead,
+    cacheCreation: u.cacheCreation,
+    output: u.output,
+    ...(u.reasoningOutput === undefined ? {} : { reasoningOutput: u.reasoningOutput }),
+  } : null;
 
   let cacheEfficiency: number | null = null;
   let cacheReads: number | null = null;
@@ -106,6 +114,7 @@ export function deriveHologramMetrics(
     latencyMedianMs: computeLatencyMedian(session.root),
     idleGapMs,
     contextSize,
+    contextWindow,
     contextDeltaSincePrev,
     cacheEfficiency,
     cacheReads,

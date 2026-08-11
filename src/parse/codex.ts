@@ -1,11 +1,31 @@
 import { computeSuccessPath, countMilestones } from './failure';
-import type { CodexSessionPayload, Milestone, MilestoneKind, Session } from './types';
+import { extractLabel } from './extract-label';
+import { extractSummary } from './extract-summary';
+import type {
+  CodexSessionPayload,
+  ContextUsage,
+  Milestone,
+  MilestoneKind,
+  Session,
+  SkillActivation,
+  SkillTrack,
+} from './types';
 
 type JsonObject = Record<string, unknown>;
 type ParsedRecord = { timestamp: string; type: string; payload: JsonObject; raw: unknown };
 type FlatMilestone = Milestone & {
   spawnThreadId?: string;
   assistantOutput?: boolean;
+};
+type TokenSnapshot = {
+  usage: ContextUsage;
+  contextSize: number;
+  contextWindow?: number;
+};
+type RolloutParse = {
+  flat: FlatMilestone[];
+  activations: SkillActivation[];
+  availableCount: number;
 };
 
 function object(value: unknown): JsonObject | undefined {
@@ -16,6 +36,10 @@ function object(value: unknown): JsonObject | undefined {
 
 function string(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function nonNegativeNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 function parseJsonl(jsonl: string): ParsedRecord[] {
@@ -112,7 +136,134 @@ function milestone(
     failed: false,
     raw,
     children: [],
+    scopeId: threadId,
   };
+}
+
+function tokenSnapshot(payload: JsonObject): TokenSnapshot | undefined {
+  const info = object(payload.info);
+  const last = object(info?.last_token_usage);
+  if (!info || !last) return undefined;
+  const inputTotal = nonNegativeNumber(last.input_tokens);
+  const cacheRead = nonNegativeNumber(last.cached_input_tokens);
+  const cacheCreation = nonNegativeNumber(last.cache_write_input_tokens);
+  const output = nonNegativeNumber(last.output_tokens);
+  if (inputTotal === undefined || cacheRead === undefined || cacheCreation === undefined || output === undefined) {
+    return undefined;
+  }
+  const reasoningOutput = nonNegativeNumber(last.reasoning_output_tokens);
+  const contextWindow = nonNegativeNumber(info.model_context_window);
+  return {
+    usage: {
+      input: Math.max(0, inputTotal - cacheRead - cacheCreation),
+      cacheRead,
+      cacheCreation,
+      output,
+      ...(reasoningOutput === undefined ? {} : { reasoningOutput }),
+    },
+    contextSize: inputTotal,
+    ...(contextWindow === undefined ? {} : { contextWindow }),
+  };
+}
+
+function availableSkillCount(text: string): number {
+  const availableSection = text.match(/###\s+Available skills\s*\n([\s\S]*?)(?=\n##(?:#)?\s|$)/i)?.[1] ?? text;
+  const entries = availableSection.match(/^\s*-\s+\S.*$/gm) ?? [];
+  return new Set(entries.map((entry) => entry.trim())).size;
+}
+
+function referencesSkillResource(toolName: string, input: string): boolean {
+  return /SKILL\.md|skill:\/\//i.test(input) || /skills?[._:-]?read/i.test(toolName);
+}
+
+function collectStrings(value: unknown, out: string[] = []): string[] {
+  if (typeof value === 'string') {
+    out.push(value);
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectStrings(item, out);
+  } else {
+    const obj = object(value);
+    if (obj) for (const item of Object.values(obj)) collectStrings(item, out);
+  }
+  return out;
+}
+
+function normalizeYamlScalar(value: string | undefined): string | undefined {
+  const scalar = value?.trim();
+  if (!scalar) return undefined;
+  const quoted = scalar.match(/^(["'])([\s\S]*)\1$/);
+  return (quoted?.[2] ?? scalar).trim() || undefined;
+}
+
+function skillDocuments(value: unknown): Array<{ name: string; body: string }> {
+  const documents: Array<{ name: string; body: string }> = [];
+  for (const text of collectStrings(value)) {
+    const starts = [...text.matchAll(/(?:^|\n)---\r?\n(?=name:\s*.+$)/gm)];
+    for (let index = 0; index < starts.length; index += 1) {
+      const start = (starts[index].index ?? 0) + (starts[index][0].startsWith('\n') ? 1 : 0);
+      const end = index + 1 < starts.length ? (starts[index + 1].index ?? text.length) : text.length;
+      const body = text.slice(start, end).trim();
+      const frontmatter = body.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1];
+      if (!frontmatter) continue;
+      const name = normalizeYamlScalar(frontmatter.match(/^name:\s*(.+)$/m)?.[1]);
+      const description = frontmatter.match(/^description:\s*(.+)$/m)?.[1]?.trim();
+      if (name && description) documents.push({ name, body });
+    }
+  }
+  return documents;
+}
+
+function extractRolloutSkills(threadId: string, records: ParsedRecord[]): Pick<RolloutParse, 'activations' | 'availableCount'> {
+  let availableCount = 0;
+  const calls = new Map<string, { toolName: string; input: string }>();
+  const activations: SkillActivation[] = [];
+
+  for (const record of records) {
+    if (record.type === 'world_state') {
+      const state = object(record.payload.state);
+      const hostSkills = object(state?.host_skills);
+      const body = string(hostSkills?.body);
+      if (body) availableCount = Math.max(availableCount, availableSkillCount(body));
+    }
+    if (record.type !== 'response_item') continue;
+    const itemType = string(record.payload.type);
+    if (itemType === 'message' && record.payload.role === 'developer') {
+      const text = contentText(record.payload.content);
+      const catalog = text?.match(/<skills_instructions>([\s\S]*?)<\/skills_instructions>/i)?.[1];
+      if (catalog) availableCount = Math.max(availableCount, availableSkillCount(catalog));
+      continue;
+    }
+    if (itemType === 'function_call' || itemType === 'custom_tool_call') {
+      const callId = string(record.payload.call_id);
+      if (!callId) continue;
+      const toolName = string(record.payload.name) ?? string(record.payload.tool_name) ?? itemType;
+      const input = record.payload.arguments ?? record.payload.input ?? {};
+      calls.set(callId, { toolName, input: display(decoded(input)) });
+      continue;
+    }
+    if (itemType !== 'function_call_output' && itemType !== 'custom_tool_call_output') continue;
+    const callId = string(record.payload.call_id);
+    const call = callId ? calls.get(callId) : undefined;
+    if (!callId || !call || !referencesSkillResource(call.toolName, call.input)) continue;
+    const output = record.payload.output ?? record.payload.result;
+    for (const document of skillDocuments(output)) {
+      activations.push({
+        name: document.name,
+        activatedAt: record.timestamp,
+        byTurnId: `${threadId}:${callId}`,
+        tokenCost: Math.ceil(document.body.length / 4),
+        source: 'resource',
+        scopeId: threadId,
+      });
+    }
+  }
+
+  const earliest = new Map<string, SkillActivation>();
+  for (const activation of activations) {
+    const previous = earliest.get(activation.name);
+    if (!previous || activation.activatedAt < previous.activatedAt) earliest.set(activation.name, activation);
+  }
+  return { activations: [...earliest.values()], availableCount };
 }
 
 function hasVisibleReasoning(jsonl: string): boolean {
@@ -122,10 +273,11 @@ function hasVisibleReasoning(jsonl: string): boolean {
     && !!string(record.payload.text));
 }
 
-function parseRollout(threadId: string, jsonl: string, useReasoningFallback: boolean): FlatMilestone[] {
+function parseRollout(threadId: string, jsonl: string, useReasoningFallback: boolean): RolloutParse {
   const records = parseJsonl(jsonl);
   const flat: FlatMilestone[] = [];
   const tools = new Map<string, FlatMilestone>();
+  let pendingModelNodes: FlatMilestone[] = [];
   let userCount = 0;
 
   for (const record of records) {
@@ -133,14 +285,30 @@ function parseRollout(threadId: string, jsonl: string, useReasoningFallback: boo
     if (record.type === 'event_msg') {
       if (payload.type === 'agent_reasoning') {
         const text = string(payload.text);
-        if (text) flat.push(milestone(threadId, flat.length, record.timestamp, 'assistant_turn', 'Decided', text, record.raw));
+        if (text) {
+          const node = milestone(threadId, flat.length, record.timestamp, 'assistant_turn', 'Decided', extractSummary({ kind: 'assistant_turn', text }), record.raw);
+          node.detail = text;
+          flat.push(node);
+          pendingModelNodes.push(node);
+        }
       } else if (payload.type === 'sub_agent_activity' && payload.kind === 'started') {
         const childId = string(payload.agent_thread_id);
         if (childId) {
           const spawn = milestone(threadId, flat.length, record.timestamp, 'subagent_spawn', '→ Agent', 'Started subagent', record.raw);
           spawn.spawnThreadId = childId;
           flat.push(spawn);
+          pendingModelNodes.push(spawn);
         }
+      } else if (payload.type === 'token_count') {
+        const snapshot = tokenSnapshot(payload);
+        if (snapshot) {
+          for (const node of pendingModelNodes) {
+            node.usage = snapshot.usage;
+            node.contextSize = snapshot.contextSize;
+            node.contextWindow = snapshot.contextWindow;
+          }
+        }
+        pendingModelNodes = [];
       }
       continue;
     }
@@ -152,12 +320,25 @@ function parseRollout(threadId: string, jsonl: string, useReasoningFallback: boo
       const text = role === 'user' ? userText(payload.content) : contentText(payload.content);
       if (!text || (role !== 'user' && role !== 'assistant')) continue;
       if (role === 'user') {
+        pendingModelNodes = [];
         const kind = userCount++ === 0 ? 'root_prompt' : 'user_followup';
-        flat.push(milestone(threadId, flat.length, record.timestamp, kind, kind === 'root_prompt' ? 'Prompt' : 'Follow-up', text, record.raw));
+        const node = milestone(
+          threadId,
+          flat.length,
+          record.timestamp,
+          kind,
+          extractLabel({ kind }).label,
+          extractSummary({ kind, text }),
+          record.raw,
+        );
+        node.detail = text;
+        flat.push(node);
       } else {
-        const node = milestone(threadId, flat.length, record.timestamp, 'assistant_turn', 'Decided', text, record.raw);
+        const node = milestone(threadId, flat.length, record.timestamp, 'assistant_turn', 'Decided', extractSummary({ kind: 'assistant_turn', text }), record.raw);
+        node.detail = text;
         node.assistantOutput = true;
         flat.push(node);
+        pendingModelNodes.push(node);
       }
       continue;
     }
@@ -165,7 +346,12 @@ function parseRollout(threadId: string, jsonl: string, useReasoningFallback: boo
     if (itemType === 'reasoning') {
       if (useReasoningFallback) {
         const text = reasoningSummary(payload.summary);
-        if (text) flat.push(milestone(threadId, flat.length, record.timestamp, 'assistant_turn', 'Decided', text, record.raw));
+        if (text) {
+          const node = milestone(threadId, flat.length, record.timestamp, 'assistant_turn', 'Decided', extractSummary({ kind: 'assistant_turn', text }), record.raw);
+          node.detail = text;
+          flat.push(node);
+          pendingModelNodes.push(node);
+        }
       }
       continue;
     }
@@ -175,12 +361,23 @@ function parseRollout(threadId: string, jsonl: string, useReasoningFallback: boo
       if (!callId) continue;
       const toolName = string(payload.name) ?? string(payload.tool_name) ?? itemType;
       const input = payload.arguments ?? payload.input ?? {};
-      const node = milestone(threadId, flat.length, record.timestamp, 'tool_call', toolName, display(decoded(input)), record.raw);
+      const decodedInput = decoded(input);
+      const summaryInput = object(decodedInput) ?? { input: decodedInput };
+      const node = milestone(
+        threadId,
+        flat.length,
+        record.timestamp,
+        'tool_call',
+        extractLabel({ kind: 'tool_call', toolName, input: summaryInput }).label,
+        extractSummary({ kind: 'tool_call', toolName, input: summaryInput }),
+        record.raw,
+      );
       node.toolName = toolName;
-      node.detail = display(decoded(input));
+      node.detail = display(decodedInput);
       node.failed = explicitFailure(payload);
       tools.set(callId, node);
       flat.push(node);
+      pendingModelNodes.push(node);
       continue;
     }
 
@@ -199,7 +396,18 @@ function parseRollout(threadId: string, jsonl: string, useReasoningFallback: boo
     last.kind = 'completion';
     last.label = 'Done';
   }
-  return flat;
+
+  for (let index = 0; index < flat.length - 1; index += 1) {
+    const node = flat[index];
+    if (node.kind !== 'root_prompt' && node.kind !== 'user_followup') continue;
+    const next = flat[index + 1];
+    if (!next.usage) continue;
+    node.usage = next.usage;
+    node.contextSize = next.contextSize;
+    node.contextWindow = next.contextWindow;
+  }
+
+  return { flat, ...extractRolloutSkills(threadId, records) };
 }
 
 function insertChronologically(flat: FlatMilestone[], node: FlatMilestone): void {
@@ -220,6 +428,8 @@ export function parseCodexSession(payload: CodexSessionPayload): Session {
     });
   }
   const useReasoningFallback = ![...rollouts.values()].some((rollout) => hasVisibleReasoning(rollout.jsonl));
+  const skillActivations: SkillActivation[] = [];
+  const availableByScope: Record<string, number> = {};
 
   const building = new Set<string>();
   function buildThread(threadId: string): Milestone | undefined {
@@ -227,7 +437,10 @@ export function parseCodexSession(payload: CodexSessionPayload): Session {
     const rollout = rollouts.get(threadId);
     if (!rollout) return undefined;
     building.add(threadId);
-    const flat = parseRollout(threadId, rollout.jsonl, useReasoningFallback);
+    const parsed = parseRollout(threadId, rollout.jsonl, useReasoningFallback);
+    const { flat } = parsed;
+    skillActivations.push(...parsed.activations);
+    availableByScope[threadId] = parsed.availableCount;
     const children = [...rollouts.entries()]
       .filter(([, candidate]) => candidate.parentThreadId === threadId)
       .sort((a, b) => a[1].startedAt.localeCompare(b[1].startedAt));
@@ -276,6 +489,11 @@ export function parseCodexSession(payload: CodexSessionPayload): Session {
   if (!root) throw new Error(`Codex session ${payload.sessionId} has no renderable milestones`);
   const subagentMtimes: Record<string, string> = {};
   for (const child of payload.subagents) subagentMtimes[child.threadId] = child.lastUpdatedAt;
+  const skillTrack: SkillTrack = {
+    activations: skillActivations,
+    availableCount: availableByScope[payload.sessionId] ?? 0,
+    availableByScope,
+  };
   return {
     provider: 'codex',
     id: payload.sessionId,
@@ -285,5 +503,6 @@ export function parseCodexSession(payload: CodexSessionPayload): Session {
     successPath: computeSuccessPath(root),
     totalMilestones: countMilestones(root),
     subagentMtimes,
+    skillTrack,
   };
 }

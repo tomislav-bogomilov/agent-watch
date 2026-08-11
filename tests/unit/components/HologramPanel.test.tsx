@@ -18,11 +18,12 @@ const fullView = {
     latencyMedianMs: 4800,
     idleGapMs: 4200,
     contextSize: 64200,
+    contextWindow: 258400,
     contextDeltaSincePrev: 3100,
     cacheEfficiency: 0.92,
     cacheReads: 58100,
     cacheMisses: 5000,
-    tokens: { input: 3000, cacheRead: 58100, cacheCreation: 2000, output: 1100 },
+    tokens: { input: 3000, cacheRead: 58100, cacheCreation: 2000, output: 1100, reasoningOutput: 300 },
   },
   skills: [
     { name: 'brainstorming', activatedAt: '', byTurnId: '', tokenCost: 6100, source: 'invoked' as const },
@@ -86,6 +87,25 @@ describe('HologramPanel', () => {
     expect(screen.getByTestId('holo-skill-source-0').textContent).toContain('SessionStart');
   });
 
+  it('labels evidence-backed Codex skill resource loads', () => {
+    const view = {
+      ...fullView,
+      skills: [
+        { name: 'systematic-debugging', activatedAt: '', byTurnId: '', tokenCost: 2100, source: 'resource' as const, scopeId: 'codex-main' },
+      ],
+      skillsTotal: { count: 1, totalTokens: 2100, available: 35 },
+    };
+    render(<svg><HologramPanel view={view} panelRect={panelRect} connectorPath={connectorPath} open={true} onClose={() => {}} /></svg>);
+    expect(screen.getByTestId('holo-skill-source-0').textContent).toContain('resource');
+  });
+
+  it('shows context capacity and reasoning tokens as an output subset', () => {
+    render(<svg><HologramPanel view={fullView} panelRect={panelRect} connectorPath={connectorPath} open={true} onClose={() => {}} /></svg>);
+    expect(screen.getByTestId('holo-context-value').textContent).toBe('64.2k / 258.4k');
+    expect(screen.getByTestId('holo-reasoning-value').textContent).toContain('300');
+    expect(screen.getByTestId('holo-reasoning-value').textContent).toContain('of OUT');
+  });
+
   it('still reports available skills when none are loaded into context (0 loaded, N available)', () => {
     const view = {
       ...fullView,
@@ -116,7 +136,7 @@ describe('HologramPanel', () => {
       ...fullView,
       metrics: {
         latencyMs: null, latencyMedianMs: 0, idleGapMs: null,
-        contextSize: null, contextDeltaSincePrev: null,
+        contextSize: null, contextWindow: null, contextDeltaSincePrev: null,
         cacheEfficiency: null, cacheReads: null, cacheMisses: null, tokens: null,
       },
       skills: [], skillsTotal: { count: 0, totalTokens: 0, available: 0 },

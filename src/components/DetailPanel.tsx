@@ -34,10 +34,20 @@ export function DetailPanel({ milestone, onClose, width, onResize }: Props) {
         <div data-testid="detail-context" style={styles.contextBlock}>
           <div style={styles.contextHead}>CONTEXT</div>
           <ContextRow label="total" value={milestone.contextSize ?? 0} bright />
+          {milestone.contextWindow !== undefined && (
+            <ContextRow label="capacity" value={milestone.contextWindow} testId="detail-context-capacity" />
+          )}
           <ContextRow label="  input" value={milestone.usage.input} />
           <ContextRow label="  cache read" value={milestone.usage.cacheRead} />
           <ContextRow label="  cache write" value={milestone.usage.cacheCreation} />
           <ContextRow label="  output" value={milestone.usage.output} />
+          {milestone.usage.reasoningOutput !== undefined && (
+            <ContextRow
+              label="  reasoning (of output)"
+              value={milestone.usage.reasoningOutput}
+              testId="detail-reasoning-output"
+            />
+          )}
         </div>
       )}
       {milestone.detail && (
@@ -47,9 +57,9 @@ export function DetailPanel({ milestone, onClose, width, onResize }: Props) {
   );
 }
 
-function ContextRow({ label, value, bright }: { label: string; value: number; bright?: boolean }) {
+function ContextRow({ label, value, bright, testId }: { label: string; value: number; bright?: boolean; testId?: string }) {
   return (
-    <div style={{
+    <div data-testid={testId} style={{
       display: 'grid', gridTemplateColumns: '1fr auto', fontSize: 11,
       color: bright ? 'var(--text)' : 'var(--text-dim)',
       fontFamily: 'ui-monospace, monospace',

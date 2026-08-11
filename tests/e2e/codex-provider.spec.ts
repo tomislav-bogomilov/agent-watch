@@ -45,6 +45,16 @@ test('mixed providers share a cwd group and load provider-specific payloads', as
   await expect(activeNode).toHaveAttribute('data-id', 'codex-main:2:tool_call');
   await expect(page.locator('[data-testid="subagent-region"]')).toHaveCount(3);
 
+  await page.locator('svg g[data-id="codex-main:5:assistant_turn"]').click();
+  await expect(page.getByTestId('holo-context-value')).toHaveText('2.0k / 258.4k');
+  await expect(page.getByTestId('holo-reasoning-value')).toContainText('20');
+  await expect(page.getByTestId('holo-reasoning-value')).toContainText('of OUT');
+  await expect(page.getByTestId('holo-skill-row-0')).toContainText('replay-inspector');
+  await expect(page.getByTestId('holo-skill-source-0')).toContainText('resource loaded');
+  await expect(page.getByTestId('holo-skills-available')).toContainText('1 available');
+  await expect(page.getByTestId('detail-context-capacity')).toContainText('258,400');
+  await expect(page.getByTestId('detail-reasoning-output')).toContainText('20');
+
   await group.getByText('CLAUDE', { exact: true }).click();
   await expect(page.getByTestId('selected-provider-badge')).toHaveText('CLAUDE');
   await page.locator('svg g[data-id]').first().click();

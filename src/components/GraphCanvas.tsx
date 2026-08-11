@@ -14,7 +14,7 @@ import type { PlaybackState } from '../playback/usePlayback';
 import { HologramPanel, type HologramView } from './HologramPanel';
 import { layoutHologram } from '../graph/hologramLayout';
 import { deriveHologramMetrics } from '../parse/deriveHologramMetrics';
-import { skillsActiveAt } from '../parse/skills';
+import { availableSkillsAt, skillsActiveAt } from '../parse/skills';
 type Props = {
   session: Session;
   playback: PlaybackState;
@@ -365,7 +365,11 @@ export function GraphCanvas({
         mode: liveEngaged ? 'live' : 'playback',
         metrics,
         skills,
-        skillsTotal: { count: skills.length, totalTokens, available: session.skillTrack?.availableCount ?? 0 },
+        skillsTotal: {
+          count: skills.length,
+          totalTokens,
+          available: session.skillTrack ? availableSkillsAt(node.milestone, session.skillTrack) : 0,
+        },
       },
       node,
     };

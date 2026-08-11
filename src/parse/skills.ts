@@ -112,6 +112,13 @@ export function extractSkillTrack(events: RawEvent[]): SkillTrack {
 
 export function skillsActiveAt(milestone: Milestone, track: SkillTrack): SkillActivation[] {
   return track.activations
-    .filter((a) => a.activatedAt <= milestone.timestamp)
+    .filter((a) => (!a.scopeId || a.scopeId === milestone.scopeId) && a.activatedAt <= milestone.timestamp)
     .sort((a, b) => b.tokenCost - a.tokenCost);
+}
+
+export function availableSkillsAt(milestone: Milestone, track: SkillTrack): number {
+  if (milestone.scopeId && track.availableByScope) {
+    return track.availableByScope[milestone.scopeId] ?? 0;
+  }
+  return track.availableCount;
 }

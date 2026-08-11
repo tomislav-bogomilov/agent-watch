@@ -192,7 +192,9 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose, c
 
         {topSkills.map((s, i) => {
           const y = SKILLS_FIRST_ROW_Y + i * SKILLS_ROW_STEP;
-          const sourceLabel = s.source === 'hook' ? `via ${s.hookEvent ?? 'hook'} hook` : 'invoked';
+          const sourceLabel = s.source === 'hook'
+            ? `via ${s.hookEvent ?? 'hook'} hook`
+            : (s.source === 'resource' ? 'resource loaded' : 'invoked');
           return (
             <g key={s.name + s.activatedAt} transform={`translate(20, ${y})`} data-testid={`holo-skill-row-${i}`}>
               <text x={0} y={10} className="holo-skill-name">{s.name}</text>
@@ -247,7 +249,9 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose, c
           {fmtDelta(metrics.contextDeltaSincePrev)}
         </text>
         <text x={w - 10} y={CONTEXT_Y} className="holo-value" textAnchor="end" data-testid="holo-context-value">
-          {metrics.contextSize !== null ? `${(metrics.contextSize / 1000).toFixed(1)}k` : '—'}
+          {metrics.contextSize !== null
+            ? `${(metrics.contextSize / 1000).toFixed(1)}k${metrics.contextWindow !== null ? ` / ${(metrics.contextWindow / 1000).toFixed(1)}k` : ''}`
+            : '—'}
         </text>
         <line x1={10} y1={CONTEXT_DIVIDER_Y} x2={w - 10} y2={CONTEXT_DIVIDER_Y} className="holo-divider" />
       </g>
@@ -256,10 +260,8 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose, c
         <text x={20} y={TOKENS_LABEL_Y} className="holo-label">TOKENS</text>
         {metrics.tokens && (() => {
           // Four labeled values spaced evenly across the row after the label.
-          const labels: Array<['IN', keyof NonNullable<typeof metrics.tokens>]
-                            | ['CR', keyof NonNullable<typeof metrics.tokens>]
-                            | ['CW', keyof NonNullable<typeof metrics.tokens>]
-                            | ['OUT', keyof NonNullable<typeof metrics.tokens>]> = [
+          type ComparableTokenKey = 'input' | 'cacheRead' | 'cacheCreation' | 'output';
+          const labels: Array<[string, ComparableTokenKey]> = [
             ['IN', 'input'],
             ['CR', 'cacheRead'],
             ['CW', 'cacheCreation'],
@@ -280,6 +282,17 @@ export function HologramPanel({ view, panelRect, connectorPath, open, onClose, c
             );
           });
         })()}
+        {metrics.tokens?.reasoningOutput !== undefined && (
+          <text
+            x={w - 10}
+            y={TOKENS_LABEL_Y + 12}
+            className="holo-value-sub"
+            textAnchor="end"
+            data-testid="holo-reasoning-value"
+          >
+            RSN {formatTokens(metrics.tokens.reasoningOutput)} · of OUT
+          </text>
+        )}
       </g>
 
       <g className="holo-row" style={{ ['--holo-row-delay' as string]: '670ms' }}>

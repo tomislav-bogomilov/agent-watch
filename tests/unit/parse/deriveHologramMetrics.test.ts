@@ -73,6 +73,24 @@ describe('deriveHologramMetrics', () => {
     expect(out.tokens).toEqual({ input: 1, cacheRead: 2, cacheCreation: 3, output: 4 });
   });
 
+  it('preserves optional context capacity and reasoning output without adding reasoning twice', () => {
+    const cur = ms({
+      contextSize: 64_200,
+      contextWindow: 258_400,
+      usage: { input: 3_000, cacheRead: 58_000, cacheCreation: 2_000, output: 1_100, reasoningOutput: 300 },
+    });
+    const out = deriveHologramMetrics(cur, null, sessionWith(cur));
+
+    expect(out.contextWindow).toBe(258_400);
+    expect(out.tokens).toEqual({
+      input: 3_000,
+      cacheRead: 58_000,
+      cacheCreation: 2_000,
+      output: 1_100,
+      reasoningOutput: 300,
+    });
+  });
+
   it('computes latencyMedianMs from all assistant_turn milestones in the session', () => {
     const root = ms({
       id: 'root', kind: 'root_prompt', timestamp: '2026-01-01T00:00:00Z',
