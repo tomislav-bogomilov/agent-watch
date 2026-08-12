@@ -211,32 +211,67 @@ describe('Codex session parsing', () => {
     expect(nodes.every((node) => node.id.startsWith('main:'))).toBe(true);
   });
 
-  it('uses response reasoning summaries only when visible reasoning is absent', () => {
-    const reasoning = record('t2', 'response_item', {
-      type: 'reasoning', summary: [{ type: 'summary_text', text: 'Fallback reasoning' }],
-      encrypted_content: 'ignored',
-    });
-    const fallback = parseSession(payload([message('t1', 'user', 'Question'), reasoning, message('t3', 'assistant', 'Answer')].join('\n')));
-    expect(walk(fallback.root).map((node) => node.summary)).toEqual(['Question', 'Fallback reasoning', 'Answer']);
-
-    const visible = parseSession(payload([
-      message('t1', 'user', 'Question'), reasoning,
-      record('t2.5', 'event_msg', { type: 'agent_reasoning', text: 'Visible reasoning' }),
-      message('t3', 'assistant', 'Answer'),
-    ].join('\n')));
-    expect(walk(visible.root).map((node) => node.summary)).toEqual(['Question', 'Visible reasoning', 'Answer']);
-
-    const visibleInChild = parseSession(payload([
-      message('t1', 'user', 'Question'), reasoning, message('t4', 'assistant', 'Answer'),
+  it('uses a child rollout reasoning summary when main rollout has visible reasoning', () => {
+    const session = parseSession(payload([
+      message('t1', 'user', 'Main question'),
+      record('t2', 'response_item', { type: 'reasoning', summary: [{ type: 'summary_text', text: 'Main fallback' }] }),
+      record('t3', 'event_msg', { type: 'agent_reasoning', text: 'Main visible reasoning' }),
+      message('t6', 'assistant', 'Main answer'),
     ].join('\n'), [{
-      threadId: 'child', parentThreadId: 'main', startedAt: 't2', lastUpdatedAt: 't3',
+      threadId: 'child', parentThreadId: 'main', startedAt: 't4', lastUpdatedAt: 't5',
       jsonl: [
-        message('t2', 'user', 'Child question'),
-        record('t2.5', 'event_msg', { type: 'agent_reasoning', text: 'Child visible reasoning' }),
-        message('t3', 'assistant', 'Child answer'),
+        message('t4', 'user', 'Child question'),
+        record('t5', 'response_item', { type: 'reasoning', summary: [{ type: 'summary_text', text: 'Child fallback' }] }),
+        message('t5.5', 'assistant', 'Child answer'),
       ].join('\n'),
     }]));
-    expect(walk(visibleInChild.root).map((node) => node.summary)).not.toContain('Fallback reasoning');
+
+    const summaries = walk(session.root).map((node) => node.summary);
+    expect(summaries).toContain('Main visible reasoning');
+    expect(summaries).toContain('Child fallback');
+    expect(summaries).not.toContain('Main fallback');
+  });
+
+  it('uses a main rollout reasoning summary when child rollout has visible reasoning', () => {
+    const session = parseSession(payload([
+      message('t1', 'user', 'Main question'),
+      record('t2', 'response_item', { type: 'reasoning', summary: [{ type: 'summary_text', text: 'Main fallback' }] }),
+      message('t6', 'assistant', 'Main answer'),
+    ].join('\n'), [{
+      threadId: 'child', parentThreadId: 'main', startedAt: 't3', lastUpdatedAt: 't5',
+      jsonl: [
+        message('t3', 'user', 'Child question'),
+        record('t4', 'response_item', { type: 'reasoning', summary: [{ type: 'summary_text', text: 'Child fallback' }] }),
+        record('t5', 'event_msg', { type: 'agent_reasoning', text: 'Child visible reasoning' }),
+        message('t5.5', 'assistant', 'Child answer'),
+      ].join('\n'),
+    }]));
+
+    const summaries = walk(session.root).map((node) => node.summary);
+    expect(summaries).toContain('Main fallback');
+    expect(summaries).toContain('Child visible reasoning');
+    expect(summaries).not.toContain('Child fallback');
+  });
+
+  it('does not render both visible and fallback reasoning in the same rollout', () => {
+    const session = parseSession(payload([
+      message('t1', 'user', 'Question'),
+      record('t2', 'response_item', { type: 'reasoning', summary: [{ type: 'summary_text', text: 'Fallback reasoning' }] }),
+      record('t3', 'event_msg', { type: 'agent_reasoning', text: 'Visible reasoning' }),
+      message('t4', 'assistant', 'Answer'),
+    ].join('\n')));
+
+    expect(walk(session.root).map((node) => node.summary)).toEqual(['Question', 'Visible reasoning', 'Answer']);
+  });
+
+  it('does not render encrypted-only reasoning', () => {
+    const session = parseSession(payload([
+      message('t1', 'user', 'Question'),
+      record('t2', 'response_item', { type: 'reasoning', encrypted_content: 'encrypted-only' }),
+      message('t3', 'assistant', 'Answer'),
+    ].join('\n')));
+
+    expect(walk(session.root).map((node) => node.summary)).toEqual(['Question', 'Answer']);
   });
 
   it('ignores environment/plugin envelopes and non-user message roles', () => {

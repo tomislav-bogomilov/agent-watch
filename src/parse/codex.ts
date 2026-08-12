@@ -427,7 +427,6 @@ export function parseCodexSession(payload: CodexSessionPayload): Session {
       label: child.agentNickname ?? child.agentPath,
     });
   }
-  const useReasoningFallback = ![...rollouts.values()].some((rollout) => hasVisibleReasoning(rollout.jsonl));
   const skillActivations: SkillActivation[] = [];
   const availableByScope: Record<string, number> = {};
 
@@ -437,7 +436,7 @@ export function parseCodexSession(payload: CodexSessionPayload): Session {
     const rollout = rollouts.get(threadId);
     if (!rollout) return undefined;
     building.add(threadId);
-    const parsed = parseRollout(threadId, rollout.jsonl, useReasoningFallback);
+    const parsed = parseRollout(threadId, rollout.jsonl, !hasVisibleReasoning(rollout.jsonl));
     const { flat } = parsed;
     skillActivations.push(...parsed.activations);
     availableByScope[threadId] = parsed.availableCount;
