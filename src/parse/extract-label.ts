@@ -32,6 +32,15 @@ export function extractLabel(input: LabelInput): { label: string; kind: Mileston
       if (t === 'Write') return { label: `Write ${safeBasename(args.file_path)}`, kind: 'tool_call' };
       if (t === 'Bash') return { label: 'Bash', kind: 'tool_call' };
       if (t === 'Grep') return { label: 'Grep', kind: 'tool_call' };
+      if (t === 'exec') return { label: 'Execute', kind: 'tool_call' };
+      if (t === 'wait') return { label: args.terminate === true ? 'Stop command' : 'Wait', kind: 'tool_call' };
+      if (t === 'shell_command') return { label: 'Shell', kind: 'tool_call' };
+      if (t === 'apply_patch') return { label: 'Patch', kind: 'tool_call' };
+      if (t === 'request_user_input') return { label: 'Ask user', kind: 'tool_call' };
+      if (t === 'spawn_agent') return { label: 'Spawn agent', kind: 'tool_call' };
+      if (t === 'followup_task' || t === 'send_message') return { label: 'Message agent', kind: 'tool_call' };
+      if (t === 'wait_agent') return { label: 'Wait for agents', kind: 'tool_call' };
+      if (t === 'list_agents') return { label: 'List agents', kind: 'tool_call' };
       return { label: t, kind: 'tool_call' };
     }
   }

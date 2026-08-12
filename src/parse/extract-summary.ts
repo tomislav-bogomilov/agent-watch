@@ -19,6 +19,16 @@ function firstLine(s: string): string {
   return '';
 }
 
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function firstQuestion(args: Record<string, unknown>): string {
+  const [question] = Array.isArray(args.questions) ? args.questions : [];
+  if (typeof question !== 'object' || question === null || Array.isArray(question)) return '';
+  return stringValue((question as Record<string, unknown>).question);
+}
+
 export function extractSummary(input: SummaryInput): string {
   switch (input.kind) {
     case 'root_prompt':
@@ -39,6 +49,15 @@ export function extractSummary(input: SummaryInput): string {
       if (t === 'Write') return `Write ${args.file_path ?? '?'}`;
       if (t === 'Grep')
         return `Grep '${args.pattern ?? ''}' in ${args.path ?? '<repo>'}`;
+      if (t === 'exec') return `Execute: ${truncate(firstLine(stringValue(args.input)), 160)}`;
+      if (t === 'wait') return args.terminate === true ? 'Stop running command' : 'Wait for command';
+      if (t === 'shell_command') return `Shell: ${truncate(firstLine(stringValue(args.command)), 160)}`;
+      if (t === 'apply_patch') return 'Apply patch';
+      if (t === 'request_user_input') return `Ask user: ${truncate(firstLine(firstQuestion(args)), 160)}`;
+      if (t === 'spawn_agent') return `Spawn agent: ${truncate(firstLine(stringValue(args.task_name)), 160)}`;
+      if (t === 'followup_task' || t === 'send_message') return `Message agent: ${truncate(firstLine(stringValue(args.target)), 160)}`;
+      if (t === 'wait_agent') return 'Wait for agents';
+      if (t === 'list_agents') return 'List agents';
       try {
         return `${t}: ${truncate(JSON.stringify(args), 140)}`;
       } catch {

@@ -302,6 +302,26 @@ describe('Codex session parsing', () => {
     expect(tools[1]).toMatchObject({ toolName: 'apply_patch', failed: true });
   });
 
+  it('keeps complete Codex tool data while using a friendly native tool presentation', () => {
+    const input = { command: 'git status\nwith complete detail', timeout_ms: 10_000 };
+    const result = { exit_code: 2, stdout: 'fatal: failed' };
+    const session = parseSession(payload([
+      message('t0', 'user', 'Run a command'),
+      record('t1', 'response_item', { type: 'function_call', call_id: 'c1', name: 'shell_command', arguments: JSON.stringify(input) }),
+      record('t2', 'response_item', { type: 'function_call_output', call_id: 'c1', output: result }),
+    ].join('\n')));
+    const tool = walk(session.root).find((node) => node.kind === 'tool_call')!;
+
+    expect(tool).toMatchObject({
+      label: 'Shell',
+      summary: 'Shell: git status',
+      toolName: 'shell_command',
+      detail: JSON.stringify(input, null, 2),
+      result: JSON.stringify(result, null, 2),
+      failed: true,
+    });
+  });
+
   it('recognizes explicit nonzero exit text and is_error without prose inference', () => {
     const session = parseSession(payload([
       message('t0', 'user', 'Run'),
