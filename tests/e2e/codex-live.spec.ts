@@ -102,7 +102,8 @@ test('Codex Live refreshes nested read-only panes and can return to replay', asy
     await expect(page.getByText('Auditor', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('guardian', { exact: true })).toBeVisible({ timeout: 30_000 });
     const mainDetail = page.getByTestId('live-pane-detail').first();
-    await expect(mainDetail.getByText('Codex live complete', { exact: true })).toBeVisible();
+    await expect(mainDetail.locator('div').filter({ hasText: /^Codex live complete$/ })).toBeVisible();
+    await expect(mainDetail.locator('pre').filter({ hasText: /^Codex live complete$/ })).toBeVisible();
 
     const failedRefresh = page.waitForResponse((response) => (
       response.url().includes('/api/sessions/codex/') && response.status() === 500
@@ -110,7 +111,8 @@ test('Codex Live refreshes nested read-only panes and can return to replay', asy
     failNextCodexPayload = true;
     await failedRefresh;
     await expect(page.getByTestId('live-panes-grid')).toBeVisible();
-    await expect(mainDetail.getByText('Codex live complete', { exact: true })).toBeVisible();
+    await expect(mainDetail.locator('div').filter({ hasText: /^Codex live complete$/ })).toBeVisible();
+    await expect(mainDetail.locator('pre').filter({ hasText: /^Codex live complete$/ })).toBeVisible();
     await expect(page.getByText('Scout', { exact: true })).toBeVisible();
     await expect(page.getByText('Auditor', { exact: true })).toBeVisible();
     await expect(page.getByText('guardian', { exact: true })).toBeVisible();
@@ -124,7 +126,8 @@ test('Codex Live refreshes nested read-only panes and can return to replay', asy
         content: [{ type: 'output_text', text: 'Live refresh arrived' }],
       },
     })}\n`);
-    await expect(mainDetail.getByText('Live refresh arrived', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(mainDetail.locator('div').filter({ hasText: /^Live refresh arrived$/ })).toBeVisible({ timeout: 20_000 });
+    await expect(mainDetail.locator('pre').filter({ hasText: /^Live refresh arrived$/ })).toBeVisible();
 
     const staleActivity = new Date(Date.now() - 45_000);
     await writeRolloutActivity(childRollout, originals[1].text, staleActivity.toISOString());
