@@ -25,9 +25,16 @@ type RolloutRecord = {
   renderable: boolean;
 };
 
+type RolloutOutcome =
+  | { kind: 'valid'; record: RolloutRecord }
+  | { kind: 'invalid-or-unreadable' };
+
+type RolloutStat = { mtime: Date; mtimeMs: number; size: number };
+
 type CodexAdapterOptions = {
   readDirectory?: (directory: string) => Promise<string[]>;
   readFile?: (filePath: string) => Promise<string>;
+  statFile?: (filePath: string) => Promise<RolloutStat>;
 };
 
 function object(value: unknown): JsonObject | undefined {
@@ -95,7 +102,10 @@ function parseRollout(filePath: string, jsonl: string, stat: { mtime: Date; size
     const payload = object(record.payload);
     if (!payload) continue;
 
-    if (record.type === 'session_meta' && !metadata) {
+    if (record.type === 'session_meta'
+      && !metadata
+      && (string(payload.id) ?? string(payload.session_id))
+      && string(payload.cwd)) {
       metadata = payload;
       metadataTimestamp = string(record.timestamp);
       continue;
@@ -170,10 +180,11 @@ export function createCodexSessionAdapter(
 ): SessionProviderAdapter {
   const readDirectory = options.readDirectory ?? ((directory: string) => fs.readdir(directory));
   const readFile = options.readFile ?? ((filePath: string) => fs.readFile(filePath, 'utf8'));
+  const statFile = options.statFile ?? ((filePath: string) => fs.stat(filePath));
   let indexed = false;
   let recordsByThread = new Map<string, RolloutRecord>();
   let mainsByKey = new Map<string, RolloutRecord>();
-  let rolloutCache = new Map<string, { mtimeMs: number; size: number; record?: RolloutRecord }>();
+  let rolloutCache = new Map<string, { mtimeMs: number; size: number; outcome: RolloutOutcome }>();
 
   async function discoverFiles(
     directory: string,
@@ -221,25 +232,51 @@ export function createCodexSessionAdapter(
     }
 
     const discovered = new Map<string, RolloutRecord>();
-    const nextCache = new Map<string, { mtimeMs: number; size: number; record?: RolloutRecord }>();
-    for (const filePath of files) {
+    const skipped: string[] = [];
+    const nextCache = new Map<string, { mtimeMs: number; size: number; outcome: RolloutOutcome }>();
+    for (const filePath of files.sort()) {
+      let stat;
       try {
-        const stat = await fs.stat(filePath);
-        const cached = rolloutCache.get(filePath);
-        let record: RolloutRecord | undefined;
-        if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
-          record = cached.record;
-        } else {
+        stat = await statFile(filePath);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') skipped.push(filePath);
+        continue;
+      }
+
+      let outcome: RolloutOutcome;
+      const cached = rolloutCache.get(filePath);
+      if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+        outcome = cached.outcome;
+      } else {
+        try {
           const jsonl = await readFile(filePath);
-          record = parseRollout(filePath, jsonl, stat);
+          const record = parseRollout(filePath, jsonl, stat);
+          outcome = record
+            ? { kind: 'valid', record }
+            : { kind: 'invalid-or-unreadable' };
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+          outcome = { kind: 'invalid-or-unreadable' };
         }
-        nextCache.set(filePath, { mtimeMs: stat.mtimeMs, size: stat.size, record });
-        if (record) discovered.set(record.threadId, record);
-      } catch {
-        // A malformed or concurrently removed rollout must not hide other sessions.
+      }
+      nextCache.set(filePath, { mtimeMs: stat.mtimeMs, size: stat.size, outcome });
+      if (outcome.kind === 'valid') {
+        discovered.set(outcome.record.threadId, outcome.record);
+      } else {
+        skipped.push(filePath);
       }
     }
     rolloutCache = nextCache;
+
+    if (skipped.length > 0) {
+      const sample = path.basename(skipped[0]);
+      const noun = skipped.length === 1 ? 'rollout' : 'rollouts';
+      const remainder = skipped.length > 1 ? ` and ${skipped.length - 1} more` : '';
+      warnings.push({
+        provider: 'codex',
+        message: `Skipped ${skipped.length} invalid or unreadable ${noun} (${sample}${remainder}).`,
+      });
+    }
 
     const mains = new Map<string, RolloutRecord>();
     for (const record of discovered.values()) {

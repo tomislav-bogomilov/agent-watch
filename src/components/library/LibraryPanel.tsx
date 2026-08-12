@@ -240,8 +240,8 @@ export function LibraryPanel({ selected, onSelect, collapsed, onToggleCollapsed,
         <>
           {isLoading && <div style={styles.muted}>scanning…</div>}
           {error && <div style={styles.error}>error: {(error as Error).message}</div>}
-          {mode === 'sessions' && sessionsQuery.data?.warnings.map((warning) => (
-            <div key={warning.provider} style={styles.warning} data-testid={`provider-warning-${warning.provider}`}>
+          {mode === 'sessions' && sessionsQuery.data?.warnings.map((warning, index) => (
+            <div key={`${warning.provider}-${index}`} style={styles.warning} data-testid={`provider-warning-${warning.provider}`}>
               {warning.provider.toUpperCase()}: {warning.message}
             </div>
           ))}

@@ -14,7 +14,10 @@ const sessions: SessionMeta[] = [
 ];
 vi.mock('../../../src/api/hooks', () => ({
   useSessionList: () => ({
-    data: { sessions, warnings: [{ provider: 'codex', message: 'one malformed rollout was skipped' }] },
+    data: { sessions, warnings: [
+      { provider: 'codex', message: 'one malformed rollout was skipped' },
+      { provider: 'codex', message: 'one nested directory was unreadable' },
+    ] },
     isLoading: false, error: null,
   }),
   usePromptList: () => ({ data: [], isLoading: false, error: null }),
@@ -47,12 +50,25 @@ describe('mixed-provider library', () => {
   it('groups Claude and Codex by cwd, shows warnings, and selects with provider identity', async () => {
     const onSelect = renderPanel();
     expect(screen.getByTestId('project-header-shared/app').textContent).toContain('(2)');
-    expect(screen.getByTestId('provider-warning-codex').textContent).toContain('one malformed rollout');
+    expect(screen.getAllByTestId('provider-warning-codex').map((warning) => warning.textContent)).toEqual([
+      'CODEX: one malformed rollout was skipped',
+      'CODEX: one nested directory was unreadable',
+    ]);
     const codexBadge = await screen.findByTestId('provider-badge-codex/codex-project/codex-id');
     fireEvent.click(codexBadge.closest('li')!);
     expect(onSelect).toHaveBeenCalledWith({
       kind: 'session', provider: 'codex', projectId: 'codex-project', sessionId: 'codex-id',
     });
+  });
+
+  it('renders multiple warnings from one provider without duplicate React keys', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    renderPanel();
+
+    expect(screen.getAllByTestId('provider-warning-codex')).toHaveLength(2);
+    expect(consoleError.mock.calls.flat().join(' ')).not.toContain('same key');
+    consoleError.mockRestore();
   });
 
   it('reads a legacy Claude title but saves edits under the provider-qualified key', async () => {

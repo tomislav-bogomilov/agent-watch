@@ -60,7 +60,6 @@ describe('Codex session provider', () => {
       assistant('child result'),
     ]);
     await rollout(root, '2026/08/08/rollout-empty.jsonl', [meta('empty-thread', cwd)]);
-    await rollout(root, '2026/08/08/rollout-bad.jsonl', [{ nope: true }]);
 
     const adapter = createCodexSessionAdapter(root);
     const result = await adapter.listSessions();
@@ -184,6 +183,123 @@ describe('Codex session provider', () => {
 
     const result = await createCodexSessionAdapter(root).listSessions();
     expect(result.sessions.map((session) => session.sessionId)).toEqual(['new', 'old']);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('aggregates invalid rollouts into one warning with one basename sample', async () => {
+    const root = await tempRoot();
+    const cwd = path.resolve('D:/projects/example');
+    await rollout(root, '2026/08/08/rollout-main.jsonl', [meta('main-thread', cwd), assistant()]);
+    await rollout(root, '2026/08/08/rollout-a-invalid.jsonl', [{ nope: true }]);
+    await rollout(root, '2026/08/08/rollout-b-missing-id.jsonl', [
+      { type: 'session_meta', payload: { cwd } },
+    ]);
+    await rollout(root, '2026/08/08/rollout-c-missing-cwd.jsonl', [
+      { type: 'session_meta', payload: { id: 'missing-cwd' } },
+    ]);
+
+    const result = await createCodexSessionAdapter(root).listSessions();
+
+    expect(result.sessions.map((session) => session.sessionId)).toEqual(['main-thread']);
+    expect(result.warnings).toEqual([{
+      provider: 'codex',
+      message: 'Skipped 3 invalid or unreadable rollouts (rollout-a-invalid.jsonl and 2 more).',
+    }]);
+    expect(result.warnings[0].message).not.toContain(root);
+    expect(result.warnings[0].message).not.toContain('rollout-b-missing-id.jsonl');
+  });
+
+  it('keeps metadata-only rollouts hidden without a warning', async () => {
+    const root = await tempRoot();
+    const cwd = path.resolve('D:/projects/example');
+    await rollout(root, 'rollout-metadata-only.jsonl', [meta('hidden-thread', cwd)]);
+
+    expect(await createCodexSessionAdapter(root).listSessions()).toEqual({
+      sessions: [],
+      warnings: [],
+    });
+  });
+
+  it('caches an invalid outcome without rereading and continues to report it', async () => {
+    const root = await tempRoot();
+    await rollout(root, 'rollout-invalid.jsonl', [{ nope: true }]);
+    let reads = 0;
+    const adapter = createCodexSessionAdapter(root, {
+      readFile: async (filePath) => {
+        reads += 1;
+        return fs.readFile(filePath, 'utf8');
+      },
+    });
+
+    const first = await adapter.listSessions();
+    const second = await adapter.listSessions();
+
+    const warning = {
+      provider: 'codex' as const,
+      message: 'Skipped 1 invalid or unreadable rollout (rollout-invalid.jsonl).',
+    };
+    expect(first.warnings).toEqual([warning]);
+    expect(second.warnings).toEqual([warning]);
+    expect(reads).toBe(1);
+  });
+
+  it('aggregates non-ENOENT read and stat failures as unreadable rollouts', async () => {
+    const root = await tempRoot();
+    const cwd = path.resolve('D:/projects/example');
+    await rollout(root, 'rollout-main.jsonl', [meta('main-thread', cwd), assistant()]);
+    await rollout(root, 'rollout-a-read-denied.jsonl', [meta('read-denied', cwd), assistant()]);
+    await rollout(root, 'rollout-b-stat-denied.jsonl', [meta('stat-denied', cwd), assistant()]);
+
+    const adapter = createCodexSessionAdapter(root, {
+      readFile: async (filePath) => {
+        if (path.basename(filePath) === 'rollout-a-read-denied.jsonl') {
+          throw Object.assign(new Error('read denied'), { code: 'EACCES' });
+        }
+        return fs.readFile(filePath, 'utf8');
+      },
+      statFile: async (filePath) => {
+        if (path.basename(filePath) === 'rollout-b-stat-denied.jsonl') {
+          throw Object.assign(new Error('stat denied'), { code: 'EPERM' });
+        }
+        return fs.stat(filePath);
+      },
+    });
+
+    const result = await adapter.listSessions();
+
+    expect(result.sessions.map((session) => session.sessionId)).toEqual(['main-thread']);
+    expect(result.warnings).toEqual([{
+      provider: 'codex',
+      message: 'Skipped 2 invalid or unreadable rollouts (rollout-a-read-denied.jsonl and 1 more).',
+    }]);
+  });
+
+  it('silently ignores rollouts that disappear during stat or read', async () => {
+    const root = await tempRoot();
+    const cwd = path.resolve('D:/projects/example');
+    await rollout(root, 'rollout-main.jsonl', [meta('main-thread', cwd), assistant()]);
+    await rollout(root, 'rollout-a-stat-gone.jsonl', [meta('stat-gone', cwd), assistant()]);
+    await rollout(root, 'rollout-b-read-gone.jsonl', [meta('read-gone', cwd), assistant()]);
+
+    const adapter = createCodexSessionAdapter(root, {
+      readFile: async (filePath) => {
+        if (path.basename(filePath) === 'rollout-b-read-gone.jsonl') {
+          throw Object.assign(new Error('gone while reading'), { code: 'ENOENT' });
+        }
+        return fs.readFile(filePath, 'utf8');
+      },
+      statFile: async (filePath) => {
+        if (path.basename(filePath) === 'rollout-a-stat-gone.jsonl') {
+          throw Object.assign(new Error('gone while stating'), { code: 'ENOENT' });
+        }
+        return fs.stat(filePath);
+      },
+    });
+
+    const result = await adapter.listSessions();
+
+    expect(result.sessions.map((session) => session.sessionId)).toEqual(['main-thread']);
+    expect(result.warnings).toEqual([]);
   });
 
   it('lists reasoning-summary sessions but never promotes subagent metadata to a main session', async () => {
