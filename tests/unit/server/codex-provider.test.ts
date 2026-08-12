@@ -347,7 +347,27 @@ describe('Codex session provider', () => {
     });
   });
 
-  it('keeps healthy sessions when a nested directory is unreadable', async () => {
+  it('silently ignores a nested directory that disappears during discovery', async () => {
+    const root = await tempRoot();
+    const cwd = path.resolve('D:/projects/example');
+    await rollout(root, 'good/rollout-main.jsonl', [meta('main-thread', cwd), assistant()]);
+    await fs.mkdir(path.join(root, 'gone'));
+
+    const adapter = createCodexSessionAdapter(root, {
+      readDirectory: async (directory) => {
+        if (directory === path.join(root, 'gone')) {
+          throw Object.assign(new Error('nested directory disappeared'), { code: 'ENOENT' });
+        }
+        return fs.readdir(directory);
+      },
+    });
+    const result = await adapter.listSessions();
+
+    expect(result.sessions.map((session) => session.sessionId)).toEqual(['main-thread']);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('keeps healthy sessions and sanitizes an unreadable nested directory warning', async () => {
     const root = await tempRoot();
     const cwd = path.resolve('D:/projects/example');
     await rollout(root, 'good/rollout-main.jsonl', [meta('main-thread', cwd), assistant()]);
@@ -356,7 +376,7 @@ describe('Codex session provider', () => {
     const adapter = createCodexSessionAdapter(root, {
       readDirectory: async (directory) => {
         if (directory === path.join(root, 'blocked')) {
-          throw Object.assign(new Error('nested access denied'), { code: 'EACCES' });
+          throw Object.assign(new Error(`${directory}: nested access denied`), { code: 'EACCES' });
         }
         return fs.readdir(directory);
       },
@@ -364,9 +384,58 @@ describe('Codex session provider', () => {
     const result = await adapter.listSessions();
 
     expect(result.sessions.map((session) => session.sessionId)).toEqual(['main-thread']);
-    expect(result.warnings).toEqual([
-      { provider: 'codex', message: expect.stringContaining('nested access denied') },
-    ]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toMatchObject({ provider: 'codex' });
+    expect(result.warnings[0].message).toContain('blocked');
+    expect(result.warnings[0].message).toContain('EACCES');
+    expect(result.warnings[0].message).not.toContain(root);
+  });
+
+  it('silently ignores a rollout candidate that disappears during discovery lstat', async () => {
+    const root = await tempRoot();
+    const cwd = path.resolve('D:/projects/example');
+    await rollout(root, 'rollout-main.jsonl', [meta('main-thread', cwd), assistant()]);
+    await rollout(root, 'rollout-gone.jsonl', [meta('gone-thread', cwd), assistant()]);
+
+    const adapter = createCodexSessionAdapter(root, {
+      lstatEntry: async (entryPath) => {
+        if (path.basename(entryPath) === 'rollout-gone.jsonl') {
+          throw Object.assign(new Error('gone during discovery'), { code: 'ENOENT' });
+        }
+        return fs.lstat(entryPath);
+      },
+    });
+    const result = await adapter.listSessions();
+
+    expect(result.sessions.map((session) => session.sessionId)).toEqual(['main-thread']);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('aggregates rollout discovery lstat failures by basename and ignores unknown entries', async () => {
+    const root = await tempRoot();
+    const cwd = path.resolve('D:/projects/example');
+    await rollout(root, 'rollout-main.jsonl', [meta('main-thread', cwd), assistant()]);
+    await rollout(root, 'rollout-blocked.jsonl', [meta('blocked-thread', cwd), assistant()]);
+    await fs.writeFile(path.join(root, 'notes.txt'), 'not a rollout');
+
+    const adapter = createCodexSessionAdapter(root, {
+      lstatEntry: async (entryPath) => {
+        const name = path.basename(entryPath);
+        if (name === 'rollout-blocked.jsonl' || name === 'notes.txt') {
+          throw Object.assign(new Error(`${entryPath}: access denied`), { code: 'EACCES' });
+        }
+        return fs.lstat(entryPath);
+      },
+    });
+    const result = await adapter.listSessions();
+
+    expect(result.sessions.map((session) => session.sessionId)).toEqual(['main-thread']);
+    expect(result.warnings).toEqual([{
+      provider: 'codex',
+      message: 'Skipped 1 invalid or unreadable rollout (rollout-blocked.jsonl).',
+    }]);
+    expect(result.warnings[0].message).not.toContain(root);
+    expect(result.warnings[0].message).not.toContain('notes.txt');
   });
 
   it('reuses cached metadata scans and reads JSONL on demand', async () => {

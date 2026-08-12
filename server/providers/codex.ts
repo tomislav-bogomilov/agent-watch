@@ -30,8 +30,10 @@ type RolloutOutcome =
   | { kind: 'invalid-or-unreadable' };
 
 type RolloutStat = { mtime: Date; mtimeMs: number; size: number };
+type DirectoryEntryStat = { isDirectory: () => boolean; isFile: () => boolean };
 
 type CodexAdapterOptions = {
+  lstatEntry?: (entryPath: string) => Promise<DirectoryEntryStat>;
   readDirectory?: (directory: string) => Promise<string[]>;
   readFile?: (filePath: string) => Promise<string>;
   statFile?: (filePath: string) => Promise<RolloutStat>;
@@ -178,6 +180,7 @@ export function createCodexSessionAdapter(
   root: string,
   options: CodexAdapterOptions = {},
 ): SessionProviderAdapter {
+  const lstatEntry = options.lstatEntry ?? ((entryPath: string) => fs.lstat(entryPath));
   const readDirectory = options.readDirectory ?? ((directory: string) => fs.readdir(directory));
   const readFile = options.readFile ?? ((filePath: string) => fs.readFile(filePath, 'utf8'));
   const statFile = options.statFile ?? ((filePath: string) => fs.stat(filePath));
@@ -190,6 +193,7 @@ export function createCodexSessionAdapter(
     directory: string,
     out: string[],
     warnings: ProviderWarning[],
+    skipped: string[],
     isRoot = false,
   ): Promise<void> {
     let names: string[];
@@ -197,15 +201,29 @@ export function createCodexSessionAdapter(
       names = await readDirectory(directory);
     } catch (error) {
       if (isRoot) throw error;
-      warnings.push({ provider: 'codex', message: `${directory}: ${(error as Error).message}` });
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') return;
+      const codeSuffix = code ? ` (${code})` : '';
+      warnings.push({
+        provider: 'codex',
+        message: `Unable to read Codex session directory "${path.basename(directory)}"${codeSuffix}.`,
+      });
       return;
     }
     for (const name of names) {
       const full = path.join(directory, name);
       let stat;
-      try { stat = await fs.lstat(full); } catch { continue; }
+      try {
+        stat = await lstatEntry(full);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT'
+          && /^rollout-.*\.jsonl$/.test(name)) {
+          skipped.push(name);
+        }
+        continue;
+      }
       if (stat.isDirectory()) {
-        await discoverFiles(full, out, warnings);
+        await discoverFiles(full, out, warnings, skipped);
       } else if (stat.isFile() && /^rollout-.*\.jsonl$/.test(name)) {
         out.push(full);
       }
@@ -215,8 +233,9 @@ export function createCodexSessionAdapter(
   async function scan(): Promise<ProviderWarning[]> {
     const warnings: ProviderWarning[] = [];
     const files: string[] = [];
+    const skipped: string[] = [];
     try {
-      await discoverFiles(root, files, warnings, true);
+      await discoverFiles(root, files, warnings, skipped, true);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         indexed = true;
@@ -232,7 +251,6 @@ export function createCodexSessionAdapter(
     }
 
     const discovered = new Map<string, RolloutRecord>();
-    const skipped: string[] = [];
     const nextCache = new Map<string, { mtimeMs: number; size: number; outcome: RolloutOutcome }>();
     for (const filePath of files.sort()) {
       let stat;
