@@ -44,6 +44,7 @@ an agent is paused, the agent simply continues. It is never left stranded.
 ```bash
 npm install
 npm run dev        # → http://localhost:5173  (open in Chrome or Edge)
+npm run build      # production bundle in dist/
 ```
 
 Sessions appear in the left sidebar when either provider has local data. Claude sessions
@@ -62,12 +63,15 @@ so either provider can be used independently.
 
 ## Stack
 
-React 19 · TypeScript · Vite 6 · TanStack Query · D3 7. Dev-only (no production build).
+React 19 · TypeScript · Vite 6 · TanStack Query · D3 7.
+Development uses Vite; `npm run build` creates the production bundle in `dist/`.
 Tests: Vitest (unit) + Playwright (e2e, Chromium).
 
 ## Validation status
 
-Run `npm run typecheck` for the TypeScript project and `npm test` for the unit suite.
+Run `npm run typecheck` for the TypeScript project, `npm test` for the unit suite,
+and `npm run build` for the production bundle. GitHub Actions runs all three checks
+for pull requests and pushes to `main`.
 The test harness supplies jsdom `localStorage` compatibility for Node 25.
 Development-tool dependency advisories are intentionally deferred and should be reviewed
 before deploying this project beyond local development.
