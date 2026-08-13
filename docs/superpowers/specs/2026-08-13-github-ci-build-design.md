@@ -22,8 +22,8 @@ and code splitting are outside this change.
 
 ## Workflow
 
-The workflow will use a single Ubuntu job with `actions/checkout`,
-`actions/setup-node`, and npm dependency caching. It will run, in order:
+The workflow will use a single Ubuntu job with `actions/checkout@v7`,
+`actions/setup-node@v7`, and npm dependency caching. It will run, in order:
 
 1. `npm ci`
 2. `npm run typecheck`
