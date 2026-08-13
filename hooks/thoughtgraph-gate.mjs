@@ -81,8 +81,11 @@ function emitAllow(decision, wasHeld) {
 function httpPost(url, body, timeoutMs) {
   return new Promise((resolve) => {
     const parsed = new URL(url);
+    const hostname = parsed.hostname.startsWith('[') && parsed.hostname.endsWith(']')
+      ? parsed.hostname.slice(1, -1)
+      : parsed.hostname;
     const req = http.request({
-      hostname: parsed.hostname,
+      hostname,
       port: Number(parsed.port),
       path: parsed.pathname,
       method: 'POST',
